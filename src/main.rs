@@ -2,6 +2,8 @@ use std::io::BufReader;
 
 use aws_smt_ir::{CommandStream, smt2parser::concrete};
 
+mod bitvector;
+
 fn main() {
     let mut args = std::env::args();
 
@@ -41,10 +43,6 @@ fn main() {
             concrete::Command::CheckSat => {
                 println!("TODO: check-sat");
             }
-            concrete::Command::CheckSatAssuming { literals } => todo!(),
-            concrete::Command::DeclareConst { symbol, sort } => todo!(),
-            concrete::Command::DeclareDatatype { symbol, datatype } => todo!(),
-            concrete::Command::DeclareDatatypes { datatypes } => todo!(),
             concrete::Command::DeclareFun {
                 symbol,
                 parameters,
@@ -52,39 +50,19 @@ fn main() {
             } => {
                 println!("TODO: declare-fun")
             }
-            concrete::Command::DeclareSort { symbol, arity } => todo!(),
-            concrete::Command::DefineFun { sig, term } => todo!(),
-            concrete::Command::DefineFunRec { sig, term } => todo!(),
-            concrete::Command::DefineFunsRec { funs } => todo!(),
-            concrete::Command::DefineSort {
-                symbol,
-                parameters,
-                sort,
-            } => todo!(),
-            concrete::Command::Echo { message } => todo!(),
             concrete::Command::Exit => {
                 break;
             }
-            concrete::Command::GetAssertions => todo!(),
-            concrete::Command::GetAssignment => todo!(),
-            concrete::Command::GetInfo { flag } => todo!(),
-            concrete::Command::GetModel => todo!(),
-            concrete::Command::GetOption { keyword } => todo!(),
-            concrete::Command::GetProof => todo!(),
-            concrete::Command::GetUnsatAssumptions => todo!(),
-            concrete::Command::GetUnsatCore => todo!(),
-            concrete::Command::GetValue { terms } => todo!(),
-            concrete::Command::Pop { level } => todo!(),
-            concrete::Command::Push { level } => todo!(),
-            concrete::Command::Reset => todo!(),
-            concrete::Command::ResetAssertions => todo!(),
             concrete::Command::SetInfo { keyword, value } => {
                 // ignore
             }
             concrete::Command::SetLogic { symbol } => {
-                assert_eq!(symbol.0, "BV");
+                assert_eq!(symbol.0, "QF_BV");
             }
-            concrete::Command::SetOption { keyword, value } => todo!(),
+            _ => {
+                eprintln!("Command not supported: {:?}", command);
+                return;
+            }
         }
     }
 }
