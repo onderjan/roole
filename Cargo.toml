@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 aws-smt-ir = "0.3.0"
 num = "0.4.3"
+indexmap = "2.12.0"
