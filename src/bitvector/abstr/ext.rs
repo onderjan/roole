@@ -1,8 +1,8 @@
-use crate::bitvector::abstr::Primitive;
+/*use crate::bitvector::abstr::Concrete;
 
 use super::ThreeValued;
 
-impl<T: Primitive> ThreeValued<T> {
+impl<T: Concrete> ThreeValued<T> {
     fn uext(self, old_width: u32, new_width: u32) -> Self {
         let old_mask = T::width_mask(old_width);
         let new_mask = T::width_mask(new_width);
@@ -51,3 +51,4 @@ impl<T: Primitive> ThreeValued<T> {
         Self::from_zeros_ones(zeros, ones, new_width)
     }
 }
+*/

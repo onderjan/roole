@@ -1,8 +1,8 @@
-use crate::bitvector::abstr::Primitive;
+/*use crate::bitvector::abstr::Concrete;
 
 use super::ThreeValued;
 
-impl<T: Primitive> ThreeValued<T> {
+impl<T: Concrete> ThreeValued<T> {
     fn ult(self, rhs: Self, width: u32) -> Self {
         // use unsigned versions
         let lhs_min = self.umin(width);
@@ -75,3 +75,4 @@ impl<T: Primitive> ThreeValued<T> {
         ThreeValued::from_bools(result_can_be_zero, result_can_be_one)
     }
 }
+*/

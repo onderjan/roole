@@ -1,42 +1,16 @@
-use std::collections::BTreeMap;
 use std::ops::ControlFlow;
 
 use aws_smt_ir::smt2parser::visitors::Index;
 use aws_smt_ir::{CommandStream, smt2parser::concrete};
 use indexmap::IndexMap;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-struct VariableId(pub u64);
-
-#[derive(Clone, Debug)]
-enum UniOp {
-    Not,
-}
-
-#[derive(Clone, Debug)]
-enum BiOp {
-    Add,
-    Sub,
-
-    BitAnd,
-    BitOr,
-    BitXor,
-
-    Eq,
-}
-
-#[derive(Clone, Debug)]
-enum Formula {
-    Variable(VariableId),
-    UniOp(UniOp, Box<Formula>),
-    BiOp(BiOp, Box<Formula>, Box<Formula>),
-}
+use crate::check;
+use crate::formula::{BiOp, Formula, UniOp, VariableId};
 
 #[derive(Debug)]
 struct Evaluator {
-    next_variable_index: VariableId,
     variable_indices: IndexMap<String, VariableId>,
-    variable_lengths: BTreeMap<VariableId, u32>,
+    variable_widths: Vec<u32>,
     assertions: Vec<Formula>,
 }
 
@@ -47,9 +21,8 @@ pub fn evaluate(reader: impl std::io::BufRead, path: Option<String>) {
         .expect("File should be SMT-LIB-2 parseable");
 
     let mut evaluator = Evaluator {
-        next_variable_index: VariableId(0),
         variable_indices: IndexMap::new(),
-        variable_lengths: BTreeMap::new(),
+        variable_widths: Vec::new(),
         assertions: Vec::new(),
     };
 
@@ -133,12 +106,12 @@ impl Evaluator {
             panic!("Only bitvector sort supported");
         };
 
-        let Ok(length) = std::convert::TryInto::<u32>::try_into(length) else {
-            panic!("Bitvector length must fit into u32");
+        let Ok(width) = std::convert::TryInto::<u32>::try_into(length) else {
+            panic!("Bitvector width must fit into u32");
         };
 
-        let variable_index = self.next_variable_index;
-        self.next_variable_index.0 += 1;
+        let variable_index = VariableId(self.variable_widths.len());
+        self.variable_widths.push(width);
 
         if self
             .variable_indices
@@ -147,7 +120,6 @@ impl Evaluator {
         {
             panic!("Multiple variables with same name '{}'", fn_symbol.0);
         }
-        self.variable_lengths.insert(variable_index, length);
     }
 
     fn create_formula(&self, term: concrete::Term) -> Formula {
@@ -195,8 +167,29 @@ impl Evaluator {
         }
     }
 
-    pub fn check_sat(&self) {
-        eprintln!("Should check-sat with {:?}", self);
+    fn check_sat(&self) {
+        let mut result_assertion = None;
+        for assertion in &self.assertions {
+            result_assertion = match result_assertion {
+                Some(result_assertion) => Some(Formula::BiOp(
+                    BiOp::BitAnd,
+                    Box::new(result_assertion),
+                    Box::new(assertion.clone()),
+                )),
+                None => Some(assertion.clone()),
+            }
+        }
+
+        let Some(assertion) = result_assertion else {
+            println!("Checking satisfiability with no assertions is a no-op");
+            return;
+        };
+
+        check::Checker {
+            variable_widths: self.variable_widths.clone(),
+            assertion,
+        }
+        .check();
     }
 }
 

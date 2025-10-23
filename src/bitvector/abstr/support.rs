@@ -1,37 +1,54 @@
-use crate::bitvector::abstr::{Primitive, ThreeValued};
+use crate::bitvector::abstr::{RUnsigned, ThreeValued};
 
-impl<T: Primitive> ThreeValued<T> {
-    pub(super) fn from_zeros_ones(zeros: T, ones: T, width: u32) -> Self {
-        let width_mask = T::width_mask(width);
-        let zeros = zeros & width_mask;
-        let ones = ones & width_mask;
+impl<T: RUnsigned> ThreeValued<T> {
+    pub fn new(value: T, width: T::Width) -> Self {
+        let zeros = value.not(width);
+        let ones = value;
+
+        Self::from_zeros_ones(zeros, ones, width)
+    }
+
+    pub(super) fn from_zeros_ones(zeros: T, ones: T, width: T::Width) -> Self {
+        assert_eq!(zeros, zeros.limited(width));
+        assert_eq!(ones, ones.limited(width));
 
         Self { zeros, ones }
     }
 
     pub(super) fn from_bools(zeros: bool, ones: bool) -> Self {
-        let zeros = if zeros { T::one() } else { T::zero() };
-        let ones = if ones { T::one() } else { T::zero() };
+        let bool_width = T::single_bit_width();
+        let false_value = T::zero(bool_width);
+        let true_value = T::max_value(bool_width);
+
+        let zeros = if zeros { true_value } else { false_value };
+        let ones = if ones { true_value } else { false_value };
 
         Self { zeros, ones }
     }
 
+    pub fn new_unknown(width: T::Width) -> Self {
+        let max_value = T::max_value(width);
+
+        Self {
+            zeros: max_value,
+            ones: max_value,
+        }
+    }
+
     #[must_use]
-    pub fn umin(&self, width: u32) -> T {
-        let width_mask = T::width_mask(width);
+    pub fn umin(&self, width: T::Width) -> T {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
-        (!self.zeros) & width_mask
+        (self.zeros.not(width)).limited(width)
     }
 
     #[must_use]
-    pub fn umax(&self, width: u32) -> T {
-        let width_mask = T::width_mask(width);
+    pub fn umax(&self, _width: T::Width) -> T {
         // unsigned max value is value of ones (one everywhere it can be)
-        self.ones ^ width_mask
+        self.ones
     }
 
-    #[must_use]
-    pub fn smin(&self, width: u32) -> T::Signed {
+    /*#[must_use]
+    pub fn smin(&self, width: T::Width) -> T::Signed {
         let sign_bit_mask = T::sign_bit_mask(width);
         // take the unsigned minimum
         let mut result = self.umin(width);
@@ -44,7 +61,7 @@ impl<T: Primitive> ThreeValued<T> {
     }
 
     #[must_use]
-    pub fn smax(&self, width: u32) -> T::Signed {
+    pub fn smax(&self, width: T::Width) -> T::Signed {
         let sign_bit_mask = T::sign_bit_mask(width);
         // take the unsigned maximum
         let mut result = self.umax(width);
@@ -54,9 +71,9 @@ impl<T: Primitive> ThreeValued<T> {
             result = result & !sign_bit_mask;
         }
         result.cast_signed(width)
-    }
+    }*/
 
-    pub fn is_zeros_sign_bit_set(&self, width: u32) -> bool {
+    /*pub fn is_zeros_sign_bit_set(&self, width: u32) -> bool {
         let sign_bit_mask = T::sign_bit_mask(width);
         (self.zeros & sign_bit_mask) != T::zero()
     }
@@ -64,371 +81,5 @@ impl<T: Primitive> ThreeValued<T> {
     pub fn is_ones_sign_bit_set(&self, width: u32) -> bool {
         let sign_bit_mask = T::sign_bit_mask(width);
         (self.ones & sign_bit_mask) != T::zero()
-    }
+    }*/
 }
-
-/*use std::fmt::{Debug, Display};
-
-use super::ThreeValued;
-
-impl<const W: u32> Abstr<concr::Bitvector<W>> for ThreeValued<W> {
-    fn from_concrete(value: concr::Bitvector<W>) -> Self {
-        // bit-negate for zeros
-        let zeros = Bitwise::bit_not(value);
-        // leave as-is for ones
-        let ones = value;
-
-        Self::from_zeros_ones(zeros, ones)
-    }
-}
-
-impl<const W: u32> ThreeValued<W> {
-    #[must_use]
-    pub fn new(value: u64) -> Self {
-        Self::from_concrete(ConcreteBitvector::new(value))
-    }
-
-    #[must_use]
-    pub fn from_zeros_ones(zeros: ConcreteBitvector<W>, ones: ConcreteBitvector<W>) -> Self {
-        match Self::try_from_zeros_ones(zeros, ones) {
-            Ok(ok) => ok,
-            Err(_) => panic!(
-                "Invalid zeros-ones with some unset bits (length {}, zeros {}, ones {})",
-                W, zeros, ones
-            ),
-        }
-    }
-
-    pub fn try_from_zeros_ones(
-        zeros: ConcreteBitvector<W>,
-        ones: ConcreteBitvector<W>,
-    ) -> Result<Self, ()> {
-        let mask = Self::get_mask();
-        // the used bits must be set in zeros, ones, or both
-        if Bitwise::bit_or(zeros, ones) != mask {
-            return Err(());
-        }
-        Ok(Self { zeros, ones })
-    }
-
-    #[must_use]
-    pub fn from_interval(min: ConcreteBitvector<W>, max: ConcreteBitvector<W>) -> Self {
-        assert!(min.to_u64() <= max.to_u64());
-        // make positions where min and max agree known
-        let xor = min.bit_xor(max);
-        let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
-            // min is equal to max
-            return Self::from_concrete(min);
-        };
-
-        let unknown_mask = ConcreteBitvector::new(compute_u64_mask(unknown_positions + 1));
-        Self::new_value_unknown(min, unknown_mask)
-    }
-
-    pub fn intersection(&self, other: &Self) -> Self {
-        let zeros = self.zeros.bit_and(other.zeros);
-        let ones = self.ones.bit_and(other.ones);
-
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-    #[must_use]
-    pub fn new_unknown() -> Self {
-        // all zeros and ones set within mask
-        let zeros = Self::get_mask();
-        let ones = Self::get_mask();
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-    #[must_use]
-    pub fn new_value_known(value: ConcreteBitvector<W>, known: ConcreteBitvector<W>) -> Self {
-        let unknown = Bitwise::bit_not(known);
-        Self::new_value_unknown(value, unknown)
-    }
-
-    #[must_use]
-    pub fn new_value_unknown(value: ConcreteBitvector<W>, unknown: ConcreteBitvector<W>) -> Self {
-        let zeros = Bitwise::bit_or(Bitwise::bit_not(value), unknown);
-        let ones = Bitwise::bit_or(value, unknown);
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-    #[must_use]
-    pub fn get_unknown_bits(&self) -> ConcreteBitvector<W> {
-        Bitwise::bit_and(self.zeros, self.ones)
-    }
-
-    #[must_use]
-    pub fn get_possibly_one_flags(&self) -> ConcreteBitvector<W> {
-        self.ones
-    }
-
-    #[must_use]
-    pub fn get_possibly_zero_flags(&self) -> ConcreteBitvector<W> {
-        self.zeros
-    }
-
-    #[must_use]
-    pub fn concrete_value(&self) -> Option<ConcreteBitvector<W>> {
-        // all bits must be equal
-        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
-        if !nxor.is_zero() {
-            return None;
-        }
-        // ones then contain the value
-        Some(self.ones)
-    }
-
-    #[must_use]
-    pub fn get_mask() -> ConcreteBitvector<W> {
-        ConcreteBitvector::new(util::compute_u64_mask(W))
-    }
-
-    #[must_use]
-    pub fn is_zeros_sign_bit_set(&self) -> bool {
-        self.zeros.is_sign_bit_set()
-    }
-
-    #[must_use]
-    pub fn is_ones_sign_bit_set(&self) -> bool {
-        self.ones.is_sign_bit_set()
-    }
-
-    #[must_use]
-    pub fn umin(&self) -> UnsignedBitvector<W> {
-        // unsigned min value is value of bit-negated zeros (one only where it must be)
-        Bitwise::bit_not(self.zeros).cast_unsigned()
-    }
-
-    #[must_use]
-    pub fn umax(&self) -> UnsignedBitvector<W> {
-        // unsigned max value is value of ones (one everywhere it can be)
-        self.ones.cast_unsigned()
-    }
-
-    #[must_use]
-    pub fn smin(&self) -> SignedBitvector<W> {
-        let sign_bit_mask = ConcreteBitvector::<W>::sign_bit_mask();
-        // take the unsigned minimum
-        let mut result = self.umin().as_bitvector();
-        // but the signed value is smaller when the sign bit is one
-        // if it is possible to set it to one, set it
-        if self.is_ones_sign_bit_set() {
-            result = result.bit_or(sign_bit_mask)
-        }
-        result.cast_signed()
-    }
-
-    #[must_use]
-    pub fn smax(&self) -> SignedBitvector<W> {
-        let sign_bit_mask = ConcreteBitvector::<W>::sign_bit_mask();
-        // take the unsigned maximum
-        let mut result = self.umax().as_bitvector();
-        // but the signed value is bigger when the sign bit is zero
-        // if it is possible to set it to zero, set it
-        if self.is_zeros_sign_bit_set() {
-            result = result.bit_and(sign_bit_mask.bit_not());
-        }
-        result.cast_signed()
-    }
-
-    #[must_use]
-    pub fn contains(&self, rhs: &Self) -> bool {
-        // rhs zeros must be within our zeros and rhs ones must be within our ones
-        let excessive_rhs_zeros = rhs.zeros.bit_and(self.zeros.bit_not());
-        let excessive_rhs_ones = rhs.ones.bit_and(self.ones.bit_not());
-        excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
-    }
-
-    #[must_use]
-    pub fn contains_concr(&self, a: &ConcreteBitvector<W>) -> bool {
-        // value zeros must be within our zeros and value ones must be within our ones
-        let excessive_rhs_zeros = a.bit_not().bit_and(self.zeros.bit_not());
-        let excessive_rhs_ones = a.bit_and(self.ones.bit_not());
-        excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
-    }
-
-    #[must_use]
-    pub fn concrete_join(&self, concrete: ConcreteBitvector<W>) -> Self {
-        let zeros = self.zeros.bit_or(concrete.bit_not());
-        let ones = self.ones.bit_or(concrete);
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-    pub fn all_with_length_iter() -> impl Iterator<Item = Self> {
-        let zeros_iter = ConcreteBitvector::<W>::all_with_width_iter();
-        zeros_iter.flat_map(|zeros| {
-            let ones_iter = ConcreteBitvector::<W>::all_with_width_iter();
-            ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
-        })
-    }
-
-    fn field_value(&self) -> ThreeValuedFieldValue {
-        ThreeValuedFieldValue {
-            zeros: self.zeros.to_u64(),
-            ones: self.ones.to_u64(),
-        }
-    }
-}
-
-impl<const W: u32> MetaEq for ThreeValued<W> {
-    fn meta_eq(&self, other: &Self) -> bool {
-        self.ones == other.ones && self.zeros == other.zeros
-    }
-}
-
-impl ThreeValued<1> {
-    fn from_bools(can_be_zero: bool, can_be_one: bool) -> Self {
-        Self::from_zeros_ones(
-            ConcreteBitvector::new(can_be_zero as u64),
-            ConcreteBitvector::new(can_be_one as u64),
-        )
-    }
-}
-
-impl From<Boolean> for ThreeValued<1> {
-    fn from(value: Boolean) -> Self {
-        Self::from_bools(value.can_be_false(), value.can_be_true())
-    }
-}
-
-impl ThreeValued<1> {
-    pub fn can_be_true(self) -> bool {
-        self.ones.is_nonzero()
-    }
-
-    pub fn can_be_false(self) -> bool {
-        self.zeros.is_nonzero()
-    }
-}
-
-impl<const W: u32> Default for ThreeValued<W> {
-    fn default() -> Self {
-        // default to fully unknown
-        Self::new_unknown()
-    }
-}
-
-impl<const W: u32> Phi for ThreeValued<W> {
-    fn phi(self, other: Self) -> Self {
-        let zeros = self.zeros.bit_or(other.zeros);
-        let ones = self.ones.bit_or(other.ones);
-
-        Self::from_zeros_ones(zeros, ones)
-    }
-
-    fn uninit() -> Self {
-        // present unknown so there is no loss of soundness in case of bug
-        Self::new_unknown()
-    }
-}
-
-impl<const W: u32> BitvectorDomain<W> for ThreeValued<W> {
-    fn unsigned_interval(&self) -> UnsignedInterval<W> {
-        UnsignedInterval::new(self.umin(), self.umax())
-    }
-
-    fn element_description(&self) -> BitvectorElement {
-        BitvectorElement {
-            three_valued: Some(self.field_value()),
-            dual_interval: None,
-        }
-    }
-
-    fn join(self, other: Self) -> Self {
-        self.phi(other)
-    }
-
-    fn meet(self, other: Self) -> Option<Self> {
-        let zeros = self.zeros.bit_and(other.zeros);
-        let ones = self.ones.bit_and(other.ones);
-
-        Self::try_from_zeros_ones(zeros, ones).ok()
-    }
-}
-
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct ThreeValuedFieldValue {
-    zeros: u64,
-    ones: u64,
-}
-
-impl ThreeValuedFieldValue {
-    pub fn write(&self, f: &mut std::fmt::Formatter<'_>, bit_width: u32) -> std::fmt::Result {
-        format_zeros_ones(f, bit_width, self.zeros, self.ones)
-    }
-}
-
-impl<const W: u32> ManipField for ThreeValued<W> {
-    fn num_bits(&self) -> Option<u32> {
-        Some(W)
-    }
-
-    fn min_unsigned(&self) -> Option<u64> {
-        Some(self.umin().to_u64())
-    }
-
-    fn max_unsigned(&self) -> Option<u64> {
-        Some(self.umax().to_u64())
-    }
-
-    fn min_signed(&self) -> Option<i64> {
-        Some(self.smin().to_i64())
-    }
-
-    fn max_signed(&self) -> Option<i64> {
-        Some(self.smax().to_i64())
-    }
-
-    fn index(&self, _index: u64) -> Option<&dyn ManipField> {
-        None
-    }
-
-    fn description(&self) -> Field {
-        Field::Bitvector(BitvectorField {
-            bit_width: W,
-            element: self.element_description(),
-        })
-    }
-}
-
-impl<const W: u32> Debug for ThreeValued<W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.field_value().write(f, W)
-    }
-}
-
-impl<const W: u32> Display for ThreeValued<W> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        <Self as Debug>::fmt(self, f)
-    }
-}
-
-pub fn format_zeros_ones(
-    f: &mut std::fmt::Formatter<'_>,
-    bit_width: u32,
-    zeros: u64,
-    ones: u64,
-) -> std::fmt::Result {
-    let nxor = !(ones ^ zeros);
-    if nxor == 0 {
-        // concrete value
-        return write!(f, "{:?}", ones);
-    }
-
-    write!(f, "\"")?;
-    for little_k in 0..bit_width {
-        let big_k = bit_width - little_k - 1;
-        let zero = (zeros >> (big_k as usize)) & 1 != 0;
-        let one = (ones >> (big_k as usize)) & 1 != 0;
-        let c = match (zero, one) {
-            (true, true) => 'X',
-            (true, false) => '0',
-            (false, true) => '1',
-            (false, false) => 'V',
-        };
-        write!(f, "{}", c)?;
-    }
-    write!(f, "\"")
-}
-*/

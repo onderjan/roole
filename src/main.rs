@@ -1,7 +1,9 @@
 use std::io::BufReader;
 
 mod bitvector;
+mod check;
 mod evaluate;
+mod formula;
 
 fn main() {
     let mut args = std::env::args();

@@ -1,39 +1,40 @@
-/*use super::ThreeValued;
-use crate::bitvector::{abstr::Primitive, util};
+use super::ThreeValued;
+use crate::bitvector::concr::RUnsigned;
 
-impl<T: Primitive> ThreeValued<T> {
-    fn arith_neg(self, width: u32) -> Self {
+impl<T: RUnsigned> ThreeValued<T> {
+    fn arith_neg(self, width: T::Width) -> Self {
         // arithmetic negation
         // since we use wrapping arithmetic, same as subtracting the value from 0
 
-        Self::sub(Self::new(0), self, width)
+        let zero = Self::new(T::zero(width), width);
+        Self::sub(zero, self, width)
     }
-    fn add(self, rhs: Self, width: u32) -> Self {
-        minmax_compute(self, rhs, |lhs, rhs, k| {
-            addsub_zeta_k_fn(
-                lhs.umin(),
-                lhs.umax(),
-                rhs.umin(),
-                rhs.umax(),
+    pub fn add(self, rhs: Self, width: T::Width) -> Self {
+        Self::minmax_compute(self, rhs, width, |lhs, rhs, k| {
+            Self::addsub_zeta_k_fn(
+                lhs.umin(width),
+                lhs.umax(width),
+                rhs.umin(width),
+                rhs.umax(width),
                 k,
-                |lhs, rhs| lhs.overflowing_add(rhs),
+                |lhs, rhs| lhs.add_shr(rhs, k, width),
             )
         })
     }
-    fn sub(self, rhs: Self, width: u32) -> Self {
-        minmax_compute(self, rhs, |lhs, rhs, k| {
+    pub fn sub(self, rhs: Self, width: T::Width) -> Self {
+        Self::minmax_compute(self, rhs, width, |lhs, rhs, k| {
             // swap rhs min and max as it is applied in negative
-            addsub_zeta_k_fn(
-                lhs.umin(),
-                lhs.umax(),
-                rhs.umax(),
-                rhs.umin(),
+            Self::addsub_zeta_k_fn(
+                lhs.umin(width),
+                lhs.umax(width),
+                rhs.umax(width),
+                rhs.umin(width),
                 k,
-                |lhs, rhs| lhs.overflowing_sub(rhs),
+                |lhs, rhs| lhs.sub_shr(rhs, k, width),
             )
         })
     }
-    fn mul(self, rhs: Self, width: u32) -> Self {
+    /*fn mul(self, rhs: Self, width: u32) -> Self {
         // use the minmax algorithm for now
         minmax_compute(self, rhs, |lhs, rhs, k| {
             // prepare a mask that selects interval [0, k]
@@ -49,72 +50,88 @@ impl<T: Primitive> ThreeValued<T> {
             let zeta_k_max = ((left_max * right_max) >> k) as u64;
             (zeta_k_min, zeta_k_max)
         })
-    }
-}
+    }*/
 
-fn minmax_compute(
-    lhs: ThreeValued,
-    rhs: ThreeValued,
-    zeta_k_fn: fn(ThreeValued, ThreeValued, u32) -> (u64, u64),
-) -> ThreeValued {
-    // from previous paper
+    fn minmax_compute(
+        lhs: ThreeValued<T>,
+        rhs: ThreeValued<T>,
+        width: T::Width,
+        zeta_k_fn: impl Fn(ThreeValued<T>, ThreeValued<T>, T::Index) -> (T, T),
+    ) -> ThreeValued<T> {
+        // from previous paper
 
-    // start with no possibilites
-    let mut ones = 0u64;
-    let mut zeros = 0u64;
+        // start with no possibilites
+        let mut zeros = T::zero(width);
+        let mut ones = T::zero(width);
 
-    // iterate over output bits
-    for k in 0..W {
-        // compute h_k extremes
-        let (zeta_k_min, zeta_k_max) = zeta_k_fn(lhs, rhs, k);
+        // iterate over output bits
+        for k in T::index_iter(width) {
+            // compute h_k extremes
+            let (zeta_k_min, zeta_k_max) = zeta_k_fn(lhs, rhs, k);
 
-        // see if minimum and maximum differs
-        if zeta_k_min != zeta_k_max {
-            // set result bit unknown
-            zeros |= 1 << k;
-            ones |= 1 << k;
-        } else {
-            // set value of bit k, converted to ones-zeros encoding
-            zeros |= (!zeta_k_min & 1) << k;
-            ones |= (zeta_k_min & 1) << k;
+            let index_flag = T::index_flag(k);
+
+            // see if minimum and maximum differs
+            if zeta_k_min != zeta_k_max {
+                // set result bit unknown
+                zeros = zeros.bitor(index_flag, width);
+                ones = ones.bitor(index_flag, width);
+            } else {
+                // set value of bit k, converted to ones-zeros encoding
+                let k_is_one = zeta_k_min.bitand(index_flag, width) != T::zero(width);
+                if k_is_one {
+                    ones = ones.bitor(index_flag, width);
+                } else {
+                    zeros = zeros.bitor(index_flag, width);
+                }
+            }
+            println!(
+                "Computed k, min: {:?}, max: {:?}, zeros: {:?}, ones: {:?}",
+                zeta_k_min, zeta_k_max, zeros, ones
+            );
         }
+        ThreeValued::from_zeros_ones(zeros, ones, width)
     }
-    ThreeValued::from_zeros_ones(ConcreteBitvector::new(zeros), ConcreteBitvector::new(ones))
+
+    fn addsub_zeta_k_fn(
+        left_min: T,
+        left_max: T,
+        right_min: T,
+        right_max: T,
+        k: T::Index,
+        func: impl Fn(T, T) -> T,
+    ) -> (T, T) {
+        // prepare a mask that selects interval [0, k]
+        let mod_mask = T::width_up_to(k);
+
+        let left_min = left_min.limited(mod_mask);
+        let left_max = left_max.limited(mod_mask);
+        let right_min = right_min.limited(mod_mask);
+        let right_max = right_max.limited(mod_mask);
+
+        // shift right, using the overflow as well
+        let zeta_k_min = func(left_min, right_min);
+        let zeta_k_max = func(left_max, right_max);
+
+        println!(
+            "Left [{:?}, {:?}], right [{:?}, {:?}]",
+            left_min, left_max, right_min, right_max
+        );
+
+        (zeta_k_min, zeta_k_max)
+    }
 }
 
-fn addsub_zeta_k_fn<const W: u32>(
-    left_min: UnsignedBitvector<W>,
-    left_max: UnsignedBitvector<W>,
-    right_min: UnsignedBitvector<W>,
-    right_max: UnsignedBitvector<W>,
-    k: u32,
-    func: fn(u64, u64) -> (u64, bool),
-) -> (u64, u64) {
-    // prepare a mask that selects interval [0, k]
-    let mod_mask = util::compute_u64_mask(k + 1);
-
-    let left_min = left_min.to_u64() & mod_mask;
-    let left_max = left_max.to_u64() & mod_mask;
-    let right_min = right_min.to_u64() & mod_mask;
-    let right_max = right_max.to_u64() & mod_mask;
-
-    // shift right, using the overflow as well
-    let zeta_k_min = shr_overflowing(func(left_min, right_min), k);
-    let zeta_k_max = shr_overflowing(func(left_max, right_max), k);
-
-    (zeta_k_min, zeta_k_max)
-}
-
-fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
+/*fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
     let mut result = overflowing_result.0 >> k;
     if overflowing_result.1 && k > 0 {
         let overflow_pos = u64::BITS - k;
         result |= 1u64 << overflow_pos;
     }
     result
-}
+}*/
 
-fn convert_uarith<const W: u32>(min: u64, max: u64) -> ThreeValued<W> {
+/*fn convert_uarith<const W: u32>(min: u64, max: u64) -> ThreeValued<W> {
     // make highest different bit and all after it unknown
     let different = min ^ max;
     if different == 0 {

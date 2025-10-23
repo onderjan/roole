@@ -1,24 +1,24 @@
-use crate::bitvector::abstr::Primitive;
+use crate::bitvector::abstr::RUnsigned;
 
 use super::ThreeValued;
 
-impl<T: Primitive> ThreeValued<T> {
-    fn eq(self, rhs: Self, width: u32) -> Self {
-        let width_mask = T::width_mask(width);
-
+impl<T: RUnsigned> ThreeValued<T> {
+    pub fn eq(self, rhs: Self, width: T::Width) -> Self {
         // result can be true if all bits can be the same
         // result can be false if at least one bit can be different
 
-        let can_be_same_bits = (self.zeros & rhs.zeros) | (self.ones & rhs.ones);
-        let can_be_different_bits = (self.zeros & rhs.ones) | (self.ones & rhs.zeros);
+        let can_be_same_bits =
+            (self.zeros.bitand(rhs.zeros, width)).bitor(self.ones.bitand(rhs.ones, width), width);
+        let can_be_different_bits =
+            (self.zeros.bitand(rhs.ones, width)).bitor(self.ones.bitand(rhs.zeros, width), width);
 
-        let can_be_different = can_be_different_bits != T::zero();
-        let can_be_same = (can_be_same_bits & width_mask) == width_mask;
+        let can_be_different = can_be_different_bits != T::zero(width);
+        let can_be_same = can_be_same_bits == T::max_value(width);
 
         ThreeValued::from_bools(can_be_different, can_be_same)
     }
 
-    fn ne(self, rhs: Self, width: u32) -> Self {
-        self.eq(rhs, width).bit_not(1)
+    pub fn ne(self, rhs: Self, width: T::Width) -> Self {
+        self.eq(rhs, width).not(T::single_bit_width())
     }
 }
