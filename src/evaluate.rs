@@ -5,13 +5,14 @@ use aws_smt_ir::{CommandStream, smt2parser::concrete};
 use indexmap::IndexMap;
 
 use crate::check;
-use crate::formula::{BiOp, Formula, UniOp, VariableId};
+use crate::formula::{BiOp, FormulaId, Operation, OperationId, UniOp, VariableId};
 
 #[derive(Debug)]
 struct Evaluator {
-    variable_indices: IndexMap<String, VariableId>,
-    variable_widths: Vec<u32>,
-    assertions: Vec<Formula>,
+    names: IndexMap<String, FormulaId>,
+    variables: Vec<u32>,
+    operations: Vec<Operation>,
+    assertions: Vec<FormulaId>,
 }
 
 pub fn evaluate(reader: impl std::io::BufRead, path: Option<String>) {
@@ -21,8 +22,9 @@ pub fn evaluate(reader: impl std::io::BufRead, path: Option<String>) {
         .expect("File should be SMT-LIB-2 parseable");
 
     let mut evaluator = Evaluator {
-        variable_indices: IndexMap::new(),
-        variable_widths: Vec::new(),
+        names: IndexMap::new(),
+        variables: Vec::new(),
+        operations: Vec::new(),
         assertions: Vec::new(),
     };
 
@@ -38,8 +40,9 @@ impl Evaluator {
         //println!("{:#?}", command);
         match command {
             concrete::Command::Assert { term } => {
-                let formula = self.create_formula(term);
-                self.assertions.push(formula);
+                let formula_id = self.create_formula(term);
+
+                self.assertions.push(formula_id);
             }
             concrete::Command::CheckSat => {
                 self.check_sat();
@@ -110,31 +113,31 @@ impl Evaluator {
             panic!("Bitvector width must fit into u32");
         };
 
-        let variable_index = VariableId(self.variable_widths.len());
-        self.variable_widths.push(width);
+        let variable_id = VariableId(self.variables.len());
+        self.variables.push(width);
 
         if self
-            .variable_indices
-            .insert(fn_symbol.0.clone(), variable_index)
+            .names
+            .insert(fn_symbol.0.clone(), FormulaId::Variable(variable_id))
             .is_some()
         {
             panic!("Multiple variables with same name '{}'", fn_symbol.0);
         }
     }
 
-    fn create_formula(&self, term: concrete::Term) -> Formula {
+    fn create_formula(&mut self, term: concrete::Term) -> FormulaId {
         match term {
             concrete::Term::Constant(constant) => {
                 todo!("Create formula for constant {:?}", constant);
             }
             concrete::Term::QualIdentifier(qual_ident) => {
                 let name = extract_qualified_identifier(qual_ident);
-                let var_id = self
-                    .variable_indices
+                let formula_id = self
+                    .names
                     .get(&name)
                     .expect("Qualified identifier should be in variables");
 
-                Formula::Variable(*var_id)
+                *formula_id
             }
             concrete::Term::Application {
                 qual_identifier: qual_ident,
@@ -146,20 +149,35 @@ impl Evaluator {
                 }
 
                 let application_name = extract_qualified_identifier(qual_ident);
-                match application_name.as_str() {
-                    "not" => create_uni_op(UniOp::Not, arguments),
-                    "=" => create_bi_op(BiOp::Eq, arguments),
-                    "bvadd" => create_bi_op(BiOp::Add, arguments),
-                    "bvsub" => create_bi_op(BiOp::Sub, arguments),
-                    "and" => create_bi_op(BiOp::BitAnd, arguments),
-                    "or" => create_bi_op(BiOp::BitOr, arguments),
-                    "xor" => create_bi_op(BiOp::BitXor, arguments),
+                let formula = match application_name.as_str() {
+                    "not" => self.create_uni_op(UniOp::Not, arguments),
+                    "=" => self.create_bi_op(BiOp::Eq, arguments),
+                    "bvadd" => self.create_bi_op(BiOp::Add, arguments),
+                    "bvsub" => self.create_bi_op(BiOp::Sub, arguments),
+                    "and" => self.create_bi_op(BiOp::BitAnd, arguments),
+                    "or" => self.create_bi_op(BiOp::BitOr, arguments),
+                    "xor" => self.create_bi_op(BiOp::BitXor, arguments),
                     _ => {
                         panic!("Unsupported application '{}'", application_name);
                     }
-                }
+                };
+
+                self.operations.push(formula);
+                FormulaId::Operation(OperationId(self.operations.len() - 1))
             }
-            concrete::Term::Let { var_bindings, term } => panic!("Let not supported"),
+            concrete::Term::Let { var_bindings, term } => {
+                // TODO: scopes
+                todo!("Let")
+                /*for (symbol, term) in var_bindings {
+                    let name = symbol.0;
+                    let formula_id = self.create_formula(term);
+
+                    self.names.insert(name, formula_id);
+                }
+                // TODO add variable bindings
+                let result = self.create_formula(*term);
+                result*/
+            }
             concrete::Term::Forall { vars, term } => panic!("Quantifiers not supported"),
             concrete::Term::Exists { vars, term } => panic!("Quantifiers not supported"),
             concrete::Term::Match { term, cases } => panic!("Match not supported"),
@@ -167,16 +185,20 @@ impl Evaluator {
         }
     }
 
-    fn check_sat(&self) {
+    fn check_sat(&mut self) {
         let mut result_assertion = None;
         for assertion in &self.assertions {
             result_assertion = match result_assertion {
-                Some(result_assertion) => Some(Formula::BiOp(
-                    BiOp::BitAnd,
-                    Box::new(result_assertion),
-                    Box::new(assertion.clone()),
-                )),
-                None => Some(assertion.clone()),
+                Some(result_assertion) => {
+                    self.operations.push(Operation::BiOp(
+                        BiOp::BitAnd,
+                        result_assertion,
+                        *assertion,
+                    ));
+
+                    Some(FormulaId::Operation(OperationId(self.operations.len() - 1)))
+                }
+                None => Some(*assertion),
             }
         }
 
@@ -186,40 +208,41 @@ impl Evaluator {
         };
 
         check::Checker {
-            variable_widths: self.variable_widths.clone(),
+            variable_widths: self.variables.clone(),
+            operations: self.operations.clone(),
             assertion,
         }
         .check();
     }
-}
 
-fn create_uni_op(op: UniOp, arguments: Vec<Formula>) -> Formula {
-    let mut iter = arguments.into_iter();
-    let inner = iter
-        .next()
-        .expect("Binary operation should have first argument");
+    fn create_uni_op(&mut self, op: UniOp, arguments: Vec<FormulaId>) -> Operation {
+        let mut iter = arguments.into_iter();
+        let inner = iter
+            .next()
+            .expect("Binary operation should have first argument");
 
-    if iter.next().is_some() {
-        panic!("Binary operation should not have more than one argument");
+        if iter.next().is_some() {
+            panic!("Binary operation should not have more than one argument");
+        }
+
+        Operation::UniOp(op, inner)
     }
 
-    Formula::UniOp(op, Box::new(inner))
-}
+    fn create_bi_op(&mut self, op: BiOp, arguments: Vec<FormulaId>) -> Operation {
+        let mut iter = arguments.into_iter();
+        let left = iter
+            .next()
+            .expect("Binary operation should have first argument");
+        let right = iter
+            .next()
+            .expect("Binary operation should have second argument");
 
-fn create_bi_op(op: BiOp, arguments: Vec<Formula>) -> Formula {
-    let mut iter = arguments.into_iter();
-    let left = iter
-        .next()
-        .expect("Binary operation should have first argument");
-    let right = iter
-        .next()
-        .expect("Binary operation should have second argument");
+        if iter.next().is_some() {
+            panic!("Binary operation should not have more than two arguments");
+        }
 
-    if iter.next().is_some() {
-        panic!("Binary operation should not have more than two arguments");
+        Operation::BiOp(op, left, right)
     }
-
-    Formula::BiOp(op, Box::new(left), Box::new(right))
 }
 
 fn extract_qualified_identifier(qualified_ident: concrete::QualIdentifier) -> String {
@@ -227,7 +250,10 @@ fn extract_qualified_identifier(qualified_ident: concrete::QualIdentifier) -> St
         identifier: concrete::Identifier::Simple { symbol },
     } = qualified_ident
     else {
-        panic!("Only simple qualified identifier supported");
+        panic!(
+            "Only simple qualified identifier supported, not {:?}",
+            qualified_ident
+        );
     };
 
     symbol.0

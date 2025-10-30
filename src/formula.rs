@@ -1,7 +1,22 @@
 use std::fmt::Debug;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum FormulaId {
+    Variable(VariableId),
+    Operation(OperationId),
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VariableId(pub usize);
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OperationId(pub usize);
+
+#[derive(Clone)]
+pub enum Operation {
+    UniOp(UniOp, FormulaId),
+    BiOp(BiOp, FormulaId, FormulaId),
+}
 
 #[derive(Clone, Debug)]
 pub enum UniOp {
@@ -20,11 +35,13 @@ pub enum BiOp {
     Eq,
 }
 
-#[derive(Clone)]
-pub enum Formula {
-    Variable(VariableId),
-    UniOp(UniOp, Box<Formula>),
-    BiOp(BiOp, Box<Formula>, Box<Formula>),
+impl Debug for FormulaId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FormulaId::Variable(variable_id) => variable_id.fmt(f),
+            FormulaId::Operation(operation_id) => operation_id.fmt(f),
+        }
+    }
 }
 
 impl Debug for VariableId {
@@ -33,33 +50,27 @@ impl Debug for VariableId {
     }
 }
 
-impl Debug for Formula {
+impl Debug for OperationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "${}", self.0)
+    }
+}
+
+impl Debug for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Variable(var_id) => var_id.fmt(f),
             Self::UniOp(op, inner) => {
-                if matches!(inner.as_ref(), Formula::Variable(_)) {
-                    write!(f, "{:?}({:?})", op, inner)
-                } else {
-                    write!(f, "{:?}", op)?;
-                    let mut franz = f.debug_tuple("");
-                    franz.field(inner);
-                    franz.finish()
-                }
+                write!(f, "{:?}", op)?;
+                let mut franz = f.debug_tuple("");
+                franz.field(inner);
+                franz.finish()
             }
             Self::BiOp(op, left, right) => {
-                if matches!(
-                    (left.as_ref(), right.as_ref()),
-                    (Formula::Variable(_), Formula::Variable(_))
-                ) {
-                    write!(f, "{:?}({:?},{:?})", op, left, right)
-                } else {
-                    write!(f, "{:?}", op)?;
-                    let mut franz = f.debug_tuple("");
-                    franz.field(left);
-                    franz.field(right);
-                    franz.finish()
-                }
+                write!(f, "{:?}", op)?;
+                let mut franz = f.debug_tuple("");
+                franz.field(left);
+                franz.field(right);
+                franz.finish()
             }
         }
     }

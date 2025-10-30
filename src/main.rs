@@ -1,7 +1,7 @@
 use std::io::BufReader;
 
-mod bitvector;
 mod check;
+mod domain;
 mod evaluate;
 mod formula;
 
@@ -30,5 +30,9 @@ fn main() {
     };
     let reader = BufReader::new(file);
 
+    println!("Evaluating file {}", path);
+
     evaluate::evaluate(reader, Some(path));
+
+    println!("Finished evaluation");
 }

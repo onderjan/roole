@@ -1,14 +1,21 @@
-/*use crate::bitvector::abstr::Concrete;
+use crate::domain::{
+    bitvector::{BitvectorBound, abstr::BitvectorDomain},
+    traits::forward::TypedCmp,
+};
 
-use super::ThreeValued;
+use super::ThreeValuedBitvector;
 
-impl<T: Concrete> ThreeValued<T> {
-    fn ult(self, rhs: Self, width: u32) -> Self {
+impl<B: BitvectorBound> TypedCmp for ThreeValuedBitvector<B> {
+    type Output = ThreeValuedBitvector<B::SingleBit>;
+
+    fn ult(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.bound(), rhs.bound());
+
         // use unsigned versions
-        let lhs_min = self.umin(width);
-        let lhs_max = self.umax(width);
-        let rhs_min = rhs.umin(width);
-        let rhs_max = rhs.umax(width);
+        let lhs_min = self.umin();
+        let lhs_max = self.umax();
+        let rhs_min = rhs.umin();
+        let rhs_max = rhs.umax();
 
         // can be zero if lhs can be greater or equal to rhs
         // this is only possible if lhs max can be greater or equal to rhs min
@@ -18,15 +25,17 @@ impl<T: Concrete> ThreeValued<T> {
         // this is only possible if lhs min can be lesser than rhs max
         let result_can_be_one = lhs_min < rhs_max;
 
-        ThreeValued::from_bools(result_can_be_zero, result_can_be_one)
+        Self::Output::from_bools(result_can_be_zero, result_can_be_one)
     }
 
-    fn ule(self, rhs: Self, width: u32) -> Self {
+    fn ule(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.bound(), rhs.bound());
+
         // use unsigned versions
-        let lhs_min = self.umin(width);
-        let lhs_max = self.umax(width);
-        let rhs_min = rhs.umin(width);
-        let rhs_max = rhs.umax(width);
+        let lhs_min = self.umin();
+        let lhs_max = self.umax();
+        let rhs_min = rhs.umin();
+        let rhs_max = rhs.umax();
 
         // can be zero if lhs can be greater than rhs
         // this is only possible if lhs max can be greater to rhs min
@@ -36,15 +45,17 @@ impl<T: Concrete> ThreeValued<T> {
         // this is only possible if lhs min can be lesser or equal to rhs max
         let result_can_be_one = lhs_min <= rhs_max;
 
-        ThreeValued::from_bools(result_can_be_zero, result_can_be_one)
+        Self::Output::from_bools(result_can_be_zero, result_can_be_one)
     }
 
-    fn slt(self, rhs: Self, width: u32) -> Self {
+    fn slt(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.bound(), rhs.bound());
+
         // use signed versions
-        let lhs_min = self.smin(width);
-        let lhs_max = self.smax(width);
-        let rhs_min = rhs.smin(width);
-        let rhs_max = rhs.smax(width);
+        let lhs_min = self.smin();
+        let lhs_max = self.smax();
+        let rhs_min = rhs.smin();
+        let rhs_max = rhs.smax();
 
         // can be zero if lhs can be greater or equal to rhs
         // this is only possible if lhs max can be greater or equal to rhs min
@@ -54,15 +65,17 @@ impl<T: Concrete> ThreeValued<T> {
         // this is only possible if lhs min can be lesser than rhs max
         let result_can_be_one = lhs_min < rhs_max;
 
-        ThreeValued::from_bools(result_can_be_zero, result_can_be_one)
+        Self::Output::from_bools(result_can_be_zero, result_can_be_one)
     }
 
-    fn sle(self, rhs: Self, width: u32) -> Self {
+    fn sle(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.bound(), rhs.bound());
+
         // use signed versions
-        let lhs_min = self.smin(width);
-        let lhs_max = self.smax(width);
-        let rhs_min = rhs.smin(width);
-        let rhs_max = rhs.smax(width);
+        let lhs_min = self.smin();
+        let lhs_max = self.smax();
+        let rhs_min = rhs.smin();
+        let rhs_max = rhs.smax();
 
         // can be zero if lhs can be greater than rhs
         // this is only possible if lhs max can be greater to rhs min
@@ -72,7 +85,6 @@ impl<T: Concrete> ThreeValued<T> {
         // this is only possible if lhs min can be lesser or equal to rhs max
         let result_can_be_one = lhs_min <= rhs_max;
 
-        ThreeValued::from_bools(result_can_be_zero, result_can_be_one)
+        Self::Output::from_bools(result_can_be_zero, result_can_be_one)
     }
 }
-*/
