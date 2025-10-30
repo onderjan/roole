@@ -1,3 +1,6 @@
+use core::f32;
+
+use indicatif::ProgressStyle;
 use num::{BigUint, One, ToPrimitive, Zero};
 
 use crate::{
@@ -29,6 +32,7 @@ struct SearchSpaceInfo {
     num_nodes: BigUint,
     opened_nodes: BigUint,
     closed_leaves: BigUint,
+    progress_bar: indicatif::ProgressBar,
 }
 
 impl Checker {
@@ -105,25 +109,28 @@ impl Checker {
         let num_leaves = BigUint::one() << total_width;
         let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
 
+        let progress_bar = indicatif::ProgressBar::new(PRECISION_CONST);
+
+        progress_bar.set_style(
+            ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}").unwrap(),
+        );
+
         let mut info = SearchSpaceInfo {
             total_width,
             num_leaves,
             num_nodes,
             opened_nodes: BigUint::zero(),
             closed_leaves: BigUint::zero(),
+            progress_bar,
         };
 
-        if !self.dpll_recursion(&mut info, &mut assignments, 0, 0, 0) {
-            eprintln!("Unsatisfiable");
-        }
+        let satisfiable = self.dpll_recursion(&mut info, &mut assignments, 0, 0, 0);
 
-        fn percent(dividend: &BigUint, divisor: &BigUint) -> f64 {
-            const PRECISION_CONST: u32 = 1_000_000;
-            (dividend.clone() * PRECISION_CONST / divisor.clone())
-                .to_f64()
-                .unwrap_or(f64::NAN)
-                / (PRECISION_CONST as f64)
-                * 100.
+        if !satisfiable {
+            info.progress_bar.set_position(PRECISION_CONST);
+            info.progress_bar.set_message("100.00%");
+            info.progress_bar.finish();
+            eprintln!("Unsatisfiable");
         }
 
         let percent_opened_nodes = percent(&info.opened_nodes, &info.num_nodes);
@@ -149,6 +156,19 @@ impl Checker {
         bit_index: u32,
     ) -> bool {
         info.opened_nodes += 1u32;
+
+        if decision_level < 12 {
+            // update progress bar
+            let progress = (info.closed_leaves.clone() * PRECISION_CONST) / info.num_leaves.clone();
+
+            let progress_ratio = progress.to_f32().unwrap_or(f32::NAN) / PRECISION_CONST as f32;
+            let progress_percent = progress_ratio * 100.;
+
+            info.progress_bar
+                .set_position(progress.to_u64().unwrap_or(0));
+            info.progress_bar
+                .set_message(format!("{:.2}%", progress_percent));
+        }
 
         let result = self.eval_formula(assignments, self.assertion);
 
@@ -298,4 +318,14 @@ impl Checker {
             },
         }
     }
+}
+
+const PRECISION_CONST: u64 = 1_000_000;
+
+fn percent(dividend: &BigUint, divisor: &BigUint) -> f32 {
+    (dividend.clone() * PRECISION_CONST / divisor.clone())
+        .to_f32()
+        .unwrap_or(f32::NAN)
+        / (PRECISION_CONST as f32)
+        * 100.
 }
