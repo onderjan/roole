@@ -1,5 +1,6 @@
 use std::ops::ControlFlow;
 
+use aws_smt_ir::smt2parser::concrete::QualIdentifier;
 use aws_smt_ir::smt2parser::visitors::Index;
 use aws_smt_ir::{CommandStream, smt2parser::concrete};
 use indexmap::IndexMap;
@@ -9,10 +10,23 @@ use crate::formula::{BiOp, FormulaId, Operation, OperationId, UniOp, VariableId}
 
 #[derive(Debug)]
 struct Evaluator {
-    names: IndexMap<String, FormulaId>,
+    scopes: Vec<Scope>,
     variables: Vec<u32>,
     operations: Vec<Operation>,
     assertions: Vec<FormulaId>,
+}
+
+#[derive(Debug)]
+struct Scope {
+    names: IndexMap<String, FormulaId>,
+}
+
+impl Scope {
+    fn new() -> Scope {
+        Scope {
+            names: IndexMap::new(),
+        }
+    }
 }
 
 pub fn evaluate(reader: impl std::io::BufRead, path: Option<String>) {
@@ -22,7 +36,7 @@ pub fn evaluate(reader: impl std::io::BufRead, path: Option<String>) {
         .expect("File should be SMT-LIB-2 parseable");
 
     let mut evaluator = Evaluator {
-        names: IndexMap::new(),
+        scopes: vec![Scope::new()],
         variables: Vec::new(),
         operations: Vec::new(),
         assertions: Vec::new(),
@@ -117,6 +131,7 @@ impl Evaluator {
         self.variables.push(width);
 
         if self
+            .current_scope_mut()
             .names
             .insert(fn_symbol.0.clone(), FormulaId::Variable(variable_id))
             .is_some()
@@ -130,15 +145,41 @@ impl Evaluator {
             concrete::Term::Constant(constant) => {
                 todo!("Create formula for constant {:?}", constant);
             }
-            concrete::Term::QualIdentifier(qual_ident) => {
-                let name = extract_qualified_identifier(qual_ident);
-                let formula_id = self
-                    .names
-                    .get(&name)
-                    .expect("Qualified identifier should be in variables");
+            concrete::Term::QualIdentifier(qual_ident) => match qual_ident {
+                QualIdentifier::Simple { identifier } => match identifier {
+                    concrete::Identifier::Simple { symbol } => self.find_name(&symbol.0),
+                    concrete::Identifier::Indexed { symbol, indices } => {
+                        if let Some(bitvector_width) = symbol.0.strip_prefix("bv")
+                            && let Ok(width) = bitvector_width.parse()
+                        {
+                            assert_eq!(indices.len(), 1);
 
-                *formula_id
-            }
+                            let Some(Index::Numeral(constant)) = indices.into_iter().next() else {
+                                panic!("Unexpected non-numeral index in bit-vector constant")
+                            };
+
+                            let Ok(constant) = constant.try_into() else {
+                                panic!("Bitvector constant too big for u64");
+                            };
+
+                            let formula = Operation::Constant(constant, width);
+                            self.operations.push(formula);
+                            FormulaId::Operation(OperationId(self.operations.len() - 1))
+                        } else {
+                            panic!(
+                                "Qualified identifier {:?} with indices {:?} not supported",
+                                symbol, indices
+                            )
+                        }
+                    }
+                },
+                QualIdentifier::Sorted { identifier, sort } => {
+                    panic!(
+                        "Qualified identifier {:?} with sort {:?} not supported",
+                        identifier, sort
+                    );
+                }
+            },
             concrete::Term::Application {
                 qual_identifier: qual_ident,
                 arguments: term_arguments,
@@ -148,40 +189,52 @@ impl Evaluator {
                     arguments.push(self.create_formula(argument));
                 }
 
-                let application_name = extract_qualified_identifier(qual_ident);
-                let formula = match application_name.as_str() {
-                    "not" => self.create_uni_op(UniOp::Not, arguments),
-                    "=" => self.create_bi_op(BiOp::Eq, arguments),
-                    "bvadd" => self.create_bi_op(BiOp::Add, arguments),
-                    "bvsub" => self.create_bi_op(BiOp::Sub, arguments),
-                    "and" => self.create_bi_op(BiOp::BitAnd, arguments),
-                    "or" => self.create_bi_op(BiOp::BitOr, arguments),
-                    "xor" => self.create_bi_op(BiOp::BitXor, arguments),
-                    _ => {
-                        panic!("Unsupported application '{}'", application_name);
+                let operation = if let Some(application_name) = qual_name(qual_ident.clone()) {
+                    match application_name.as_str() {
+                        "not" => self.create_uni_op(UniOp::Not, arguments),
+                        "=" => self.create_bi_op(BiOp::Eq, arguments),
+                        "bvadd" => self.create_bi_op(BiOp::Add, arguments),
+                        "bvsub" => self.create_bi_op(BiOp::Sub, arguments),
+                        "and" => self.create_bi_op(BiOp::BitAnd, arguments),
+                        "or" => self.create_bi_op(BiOp::BitOr, arguments),
+                        "xor" => self.create_bi_op(BiOp::BitXor, arguments),
+                        _ => {
+                            panic!("Unsupported application '{}'", application_name);
+                        }
                     }
+                } else {
+                    panic!(
+                        "Only simple qualified identifier supported for application, not {:?}",
+                        qual_ident
+                    );
                 };
 
-                self.operations.push(formula);
+                self.operations.push(operation);
                 FormulaId::Operation(OperationId(self.operations.len() - 1))
             }
             concrete::Term::Let { var_bindings, term } => {
-                // TODO: scopes
-                todo!("Let")
-                /*for (symbol, term) in var_bindings {
+                // push a new scope with bindings
+                self.scopes.push(Scope::new());
+
+                for (symbol, term) in var_bindings {
                     let name = symbol.0;
                     let formula_id = self.create_formula(term);
 
-                    self.names.insert(name, formula_id);
+                    self.current_scope_mut().names.insert(name, formula_id);
                 }
                 // TODO add variable bindings
                 let result = self.create_formula(*term);
-                result*/
+
+                // pop the scope
+                self.scopes.pop();
+
+                result
             }
-            concrete::Term::Forall { vars, term } => panic!("Quantifiers not supported"),
-            concrete::Term::Exists { vars, term } => panic!("Quantifiers not supported"),
-            concrete::Term::Match { term, cases } => panic!("Match not supported"),
-            concrete::Term::Attributes { term, attributes } => panic!("Attributes not supported"),
+            concrete::Term::Forall { .. } | concrete::Term::Exists { .. } => {
+                panic!("Quantifiers not supported")
+            }
+            concrete::Term::Match { .. } => panic!("Match not supported"),
+            concrete::Term::Attributes { .. } => panic!("Attributes not supported"),
         }
     }
 
@@ -243,18 +296,32 @@ impl Evaluator {
 
         Operation::BiOp(op, left, right)
     }
+
+    fn current_scope_mut(&mut self) -> &mut Scope {
+        self.scopes
+            .first_mut()
+            .expect("A scope should be available")
+    }
+
+    fn find_name(&self, name: &str) -> FormulaId {
+        // search the scopes in reverse order
+
+        for scope in self.scopes.iter().rev() {
+            if let Some(formula_id) = scope.names.get(name) {
+                return *formula_id;
+            }
+        }
+        panic!("Qualified identifier should be in variables");
+    }
 }
 
-fn extract_qualified_identifier(qualified_ident: concrete::QualIdentifier) -> String {
+fn qual_name(qualified_ident: concrete::QualIdentifier) -> Option<String> {
     let concrete::QualIdentifier::Simple {
         identifier: concrete::Identifier::Simple { symbol },
     } = qualified_ident
     else {
-        panic!(
-            "Only simple qualified identifier supported, not {:?}",
-            qualified_ident
-        );
+        return None;
     };
 
-    symbol.0
+    Some(symbol.0)
 }

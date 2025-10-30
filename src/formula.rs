@@ -14,6 +14,7 @@ pub struct OperationId(pub usize);
 
 #[derive(Clone)]
 pub enum Operation {
+    Constant(u64, u32),
     UniOp(UniOp, FormulaId),
     BiOp(BiOp, FormulaId, FormulaId),
 }
@@ -59,13 +60,16 @@ impl Debug for OperationId {
 impl Debug for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UniOp(op, inner) => {
+            Operation::Constant(value, width) => {
+                write!(f, "bv{}({})", width, value)
+            }
+            Operation::UniOp(op, inner) => {
                 write!(f, "{:?}", op)?;
                 let mut franz = f.debug_tuple("");
                 franz.field(inner);
                 franz.finish()
             }
-            Self::BiOp(op, left, right) => {
+            Operation::BiOp(op, left, right) => {
                 write!(f, "{:?}", op)?;
                 let mut franz = f.debug_tuple("");
                 franz.field(left);

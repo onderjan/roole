@@ -17,6 +17,6 @@ pub struct ThreeValuedBitvector<B: BitvectorBound> {
 
 use serde::{Deserialize, Serialize};
 
-use crate::domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector};
+use crate::domain::bitvector::{BitvectorBound, concr::ConcreteBitvector};
 
 pub struct InvalidZerosOnes;

@@ -39,6 +39,9 @@ impl Checker {
             ),
 
             FormulaId::Operation(operation_id) => match &self.operations[operation_id.0] {
+                Operation::Constant(value, width) => {
+                    (*width, AbstractBitvector::new(*value, RBound::new(*width)))
+                }
                 Operation::UniOp(uni_op, inner) => {
                     let (width, inner) = self.eval_formula(assignments, *inner);
                     match uni_op {
