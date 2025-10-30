@@ -1,9 +1,15 @@
 use crate::{
     domain::{
-        bitvector::{RBound, abstr::AbstractBitvector},
-        traits::forward::{Bitwise, HwArith, TypedEq},
+        bitvector::{
+            BitvectorBound, RBound,
+            abstr::{AbstractBitvector, BitvectorDomain},
+        },
+        traits::{
+            Join,
+            forward::{BExt, Bitwise, HwArith, HwShift, TypedEq},
+        },
     },
-    formula::{BiOp, BiOperator, FormulaId, Operation, UniOp, UniOperator},
+    formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator},
 };
 
 #[derive(Debug)]
@@ -65,6 +71,47 @@ impl Checker {
                         BiOperator::BitOr => left.bit_or(right),
                         BiOperator::BitXor => left.bit_xor(right),
                         BiOperator::Eq => TypedEq::eq(left, right),
+                        BiOperator::Shl => left.logic_shl(right),
+                        BiOperator::Lshr => left.logic_shr(right),
+                        BiOperator::Ashr => left.arith_shr(right),
+                    }
+                }
+                Operation::ExtOp(ExtOp {
+                    signed,
+                    input_width: _,
+                    output_width,
+                    inner,
+                }) => {
+                    let inner = self.eval_formula(assignments, *inner);
+                    let output_bound = RBound::new(*output_width);
+                    if *signed {
+                        BExt::sext(inner, output_bound)
+                    } else {
+                        BExt::uext(inner, output_bound)
+                    }
+                }
+                Operation::IteOp(IteOp {
+                    condition,
+                    width: _,
+                    formula_then,
+                    formula_else,
+                }) => {
+                    let condition = self.eval_formula(assignments, *condition);
+                    assert_eq!(condition.bound().width(), 1);
+
+                    if let Some(condition_value) = condition.concrete_value() {
+                        if condition_value.is_nonzero() {
+                            // only then taken
+                            self.eval_formula(assignments, *formula_then)
+                        } else {
+                            // only else taken
+                            self.eval_formula(assignments, *formula_else)
+                        }
+                    } else {
+                        // both can be taken, join them
+                        let value_then = self.eval_formula(assignments, *formula_then);
+                        let value_else = self.eval_formula(assignments, *formula_else);
+                        value_then.join(&value_else)
                     }
                 }
             },

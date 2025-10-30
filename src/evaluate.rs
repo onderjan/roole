@@ -4,10 +4,12 @@ use aws_smt_ir::smt2parser::concrete::QualIdentifier;
 use aws_smt_ir::smt2parser::visitors::Index;
 use aws_smt_ir::{CommandStream, smt2parser::concrete};
 use indexmap::IndexMap;
+use itertools::Itertools;
 
 use crate::check;
 use crate::formula::{
-    BiOp, BiOperator, FormulaId, Operation, OperationId, UniOp, UniOperator, VariableId,
+    BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, OperationId, UniOp, UniOperator,
+    VariableId,
 };
 
 #[derive(Debug)]
@@ -152,19 +154,19 @@ impl Evaluator {
                     concrete::Identifier::Simple { symbol } => self.find_name(&symbol.0),
                     concrete::Identifier::Indexed { symbol, indices } => {
                         if let Some(bitvector_width) = symbol.0.strip_prefix("bv")
-                            && let Ok(width) = bitvector_width.parse()
+                            && let Ok(value) = bitvector_width.parse()
                         {
                             assert_eq!(indices.len(), 1);
 
-                            let Some(Index::Numeral(constant)) = indices.into_iter().next() else {
+                            let Some(Index::Numeral(width)) = indices.into_iter().next() else {
                                 panic!("Unexpected non-numeral index in bit-vector constant")
                             };
 
-                            let Ok(constant) = constant.try_into() else {
-                                panic!("Bitvector constant too big for u64");
+                            let Ok(width) = width.try_into() else {
+                                panic!("Bitvector width too big");
                             };
 
-                            let formula = Operation::Constant(constant, width);
+                            let formula = Operation::Constant(value, width);
                             self.operations.push(formula);
                             FormulaId::Operation(OperationId(self.operations.len() - 1))
                         } else {
@@ -191,24 +193,42 @@ impl Evaluator {
                     arguments.push(self.create_formula(argument));
                 }
 
-                let operation = if let Some(application_name) = qual_name(qual_ident.clone()) {
-                    match application_name.as_str() {
-                        "not" => self.create_uni_op(UniOperator::Not, arguments),
-                        "=" => self.create_bi_op(BiOperator::Eq, arguments),
-                        "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
-                        "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
-                        "and" => self.create_bi_op(BiOperator::BitAnd, arguments),
-                        "or" => self.create_bi_op(BiOperator::BitOr, arguments),
-                        "xor" => self.create_bi_op(BiOperator::BitXor, arguments),
-                        _ => {
-                            panic!("Unsupported application '{}'", application_name);
+                let operation = match qual_ident {
+                    concrete::QualIdentifier::Simple { identifier } => match identifier {
+                        concrete::Identifier::Simple { symbol } => match symbol.0.as_str() {
+                            "not" | "bvnot" => self.create_uni_op(UniOperator::Not, arguments),
+                            "=" => self.create_bi_op(BiOperator::Eq, arguments),
+                            "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
+                            "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
+                            "and" | "bvand" => self.create_bi_op(BiOperator::BitAnd, arguments),
+                            "or" | "bvor" => self.create_bi_op(BiOperator::BitOr, arguments),
+                            "xor" | "bvxor" => self.create_bi_op(BiOperator::BitXor, arguments),
+                            "bvshl" => self.create_bi_op(BiOperator::Shl, arguments),
+                            "bvlshr" => self.create_bi_op(BiOperator::Lshr, arguments),
+                            "bvashr" => self.create_bi_op(BiOperator::Ashr, arguments),
+                            "ite" => self.create_ite_op(arguments),
+                            _ => {
+                                panic!("Unsupported application '{}'", symbol.0);
+                            }
+                        },
+                        concrete::Identifier::Indexed { symbol, indices } => {
+                            match symbol.0.as_str() {
+                                "zero_extend" => self.create_ext_op(false, indices, arguments),
+                                _ => {
+                                    panic!(
+                                        "Unsupported qualified identifier {:?} with indices {:?}",
+                                        symbol, indices
+                                    )
+                                }
+                            }
                         }
+                    },
+                    concrete::QualIdentifier::Sorted { identifier, sort } => {
+                        panic!(
+                            "Qualified identifier {:?} with sort {:?} not supported within application",
+                            identifier, sort
+                        );
                     }
-                } else {
-                    panic!(
-                        "Only simple qualified identifier supported for application, not {:?}",
-                        qual_ident
-                    );
                 };
 
                 self.operations.push(operation);
@@ -272,14 +292,9 @@ impl Evaluator {
     }
 
     fn create_uni_op(&mut self, op: UniOperator, arguments: Vec<FormulaId>) -> Operation {
-        let mut iter = arguments.into_iter();
-        let inner = iter
-            .next()
-            .expect("Binary operation should have first argument");
-
-        if iter.next().is_some() {
-            panic!("Binary operation should not have more than one argument");
-        }
+        let Ok(inner) = arguments.into_iter().exactly_one() else {
+            panic!("Unary operation should have exactly one argument");
+        };
 
         let input_width = self.formula_result_width(inner);
 
@@ -291,17 +306,9 @@ impl Evaluator {
     }
 
     fn create_bi_op(&mut self, op: BiOperator, arguments: Vec<FormulaId>) -> Operation {
-        let mut iter = arguments.into_iter();
-        let left = iter
-            .next()
-            .expect("Binary operation should have first argument");
-        let right = iter
-            .next()
-            .expect("Binary operation should have second argument");
-
-        if iter.next().is_some() {
-            panic!("Binary operation should not have more than two arguments");
-        }
+        let Some((left, right)) = arguments.into_iter().collect_tuple() else {
+            panic!("Binary operation should have exactly two arguments");
+        };
 
         let left_result_width = self.formula_result_width(left);
         let right_result_width = self.formula_result_width(right);
@@ -313,6 +320,58 @@ impl Evaluator {
             input_width: left_result_width,
             left,
             right,
+        })
+    }
+
+    fn create_ext_op(
+        &mut self,
+        signed: bool,
+        indices: Vec<Index>,
+        arguments: Vec<FormulaId>,
+    ) -> Operation {
+        let Ok(extend_by) = indices.into_iter().exactly_one() else {
+            panic!("Extension operation should have exactly one index");
+        };
+        let Index::Numeral(extend_by) = extend_by else {
+            panic!("Only numeral extension index supported");
+        };
+        let Ok(extend_by) = TryInto::<u32>::try_into(extend_by) else {
+            panic!("Numeral extension index should fit into u32");
+        };
+
+        let Ok(inner) = arguments.into_iter().exactly_one() else {
+            panic!("Extension operation should have exactly one argument");
+        };
+
+        let input_width = self.formula_result_width(inner);
+        let output_width = input_width + extend_by;
+
+        Operation::ExtOp(ExtOp {
+            signed,
+            input_width,
+            output_width,
+            inner,
+        })
+    }
+
+    fn create_ite_op(&mut self, arguments: Vec<FormulaId>) -> Operation {
+        let Some((condition, left, right)) = arguments.into_iter().collect_tuple() else {
+            panic!("If-then-else operation should have exactly three arguments");
+        };
+
+        let condition_width = self.formula_result_width(condition);
+        assert_eq!(condition_width, 1);
+
+        let left_result_width = self.formula_result_width(left);
+        let right_result_width = self.formula_result_width(right);
+
+        assert_eq!(left_result_width, right_result_width);
+
+        Operation::IteOp(IteOp {
+            condition,
+            width: left_result_width,
+            formula_then: left,
+            formula_else: right,
         })
     }
 
@@ -339,15 +398,4 @@ impl Evaluator {
             FormulaId::Operation(operation_id) => self.operations[operation_id.0].result_width(),
         }
     }
-}
-
-fn qual_name(qualified_ident: concrete::QualIdentifier) -> Option<String> {
-    let concrete::QualIdentifier::Simple {
-        identifier: concrete::Identifier::Simple { symbol },
-    } = qualified_ident
-    else {
-        return None;
-    };
-
-    Some(symbol.0)
 }

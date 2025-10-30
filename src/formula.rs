@@ -17,6 +17,8 @@ pub enum Operation {
     Constant(u64, u32),
     UniOp(UniOp),
     BiOp(BiOp),
+    ExtOp(ExtOp),
+    IteOp(IteOp),
 }
 
 #[derive(Clone)]
@@ -34,6 +36,22 @@ pub struct BiOp {
     pub right: FormulaId,
 }
 
+#[derive(Clone)]
+pub struct ExtOp {
+    pub signed: bool,
+    pub input_width: u32,
+    pub output_width: u32,
+    pub inner: FormulaId,
+}
+
+#[derive(Clone)]
+pub struct IteOp {
+    pub condition: FormulaId,
+    pub width: u32,
+    pub formula_then: FormulaId,
+    pub formula_else: FormulaId,
+}
+
 #[derive(Clone, Debug)]
 pub enum UniOperator {
     Not,
@@ -49,6 +67,10 @@ pub enum BiOperator {
     BitXor,
 
     Eq,
+
+    Shl,
+    Lshr,
+    Ashr,
 }
 
 impl Operation {
@@ -59,10 +81,11 @@ impl Operation {
                 UniOperator::Not => uni_op.input_width,
             },
             Operation::BiOp(bi_op) => match bi_op.op {
-                BiOperator::Add | BiOperator::Sub => bi_op.input_width,
-                BiOperator::BitAnd | BiOperator::BitOr | BiOperator::BitXor => bi_op.input_width,
                 BiOperator::Eq => 1,
+                _ => bi_op.input_width,
             },
+            Operation::ExtOp(ext_op) => ext_op.output_width,
+            Operation::IteOp(ite_op) => ite_op.width,
         }
     }
 }
@@ -92,14 +115,14 @@ impl Debug for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Operation::Constant(value, width) => {
-                write!(f, "bv{}({})", width, value)
+                write!(f, "bv_{}({})", width, value)
             }
             Operation::UniOp(UniOp {
                 op,
                 input_width: width,
                 inner,
             }) => {
-                write!(f, "{:?}{}", op, width)?;
+                write!(f, "{:?}_{}", op, width)?;
                 let mut franz = f.debug_tuple("");
                 franz.field(inner);
                 franz.finish()
@@ -110,10 +133,40 @@ impl Debug for Operation {
                 left,
                 right,
             }) => {
-                write!(f, "{:?}{}", op, width)?;
+                write!(f, "{:?}_{}", op, width)?;
                 let mut franz = f.debug_tuple("");
                 franz.field(left);
                 franz.field(right);
+                franz.finish()
+            }
+            Operation::ExtOp(ExtOp {
+                signed,
+                input_width,
+                output_width,
+                inner,
+            }) => {
+                write!(
+                    f,
+                    "{:?}_{}_{}",
+                    if *signed { "sext" } else { "uext" },
+                    input_width,
+                    output_width
+                )?;
+                let mut franz = f.debug_tuple("");
+                franz.field(inner);
+                franz.finish()
+            }
+            Operation::IteOp(IteOp {
+                condition,
+                width,
+                formula_then,
+                formula_else,
+            }) => {
+                write!(f, "ite_{}", width)?;
+                let mut franz = f.debug_tuple("");
+                franz.field(condition);
+                franz.field(formula_then);
+                franz.field(formula_else);
                 franz.finish()
             }
         }

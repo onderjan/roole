@@ -459,6 +459,7 @@ version = "0.1.0"
 dependencies = [
  "aws-smt-ir",
  "indexmap",
+ "itertools",
  "num",
  "seq-macro",
  "serde",
