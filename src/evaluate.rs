@@ -6,7 +6,9 @@ use aws_smt_ir::{CommandStream, smt2parser::concrete};
 use indexmap::IndexMap;
 
 use crate::check;
-use crate::formula::{BiOp, FormulaId, Operation, OperationId, UniOp, VariableId};
+use crate::formula::{
+    BiOp, BiOperator, FormulaId, Operation, OperationId, UniOp, UniOperator, VariableId,
+};
 
 #[derive(Debug)]
 struct Evaluator {
@@ -191,13 +193,13 @@ impl Evaluator {
 
                 let operation = if let Some(application_name) = qual_name(qual_ident.clone()) {
                     match application_name.as_str() {
-                        "not" => self.create_uni_op(UniOp::Not, arguments),
-                        "=" => self.create_bi_op(BiOp::Eq, arguments),
-                        "bvadd" => self.create_bi_op(BiOp::Add, arguments),
-                        "bvsub" => self.create_bi_op(BiOp::Sub, arguments),
-                        "and" => self.create_bi_op(BiOp::BitAnd, arguments),
-                        "or" => self.create_bi_op(BiOp::BitOr, arguments),
-                        "xor" => self.create_bi_op(BiOp::BitXor, arguments),
+                        "not" => self.create_uni_op(UniOperator::Not, arguments),
+                        "=" => self.create_bi_op(BiOperator::Eq, arguments),
+                        "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
+                        "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
+                        "and" => self.create_bi_op(BiOperator::BitAnd, arguments),
+                        "or" => self.create_bi_op(BiOperator::BitOr, arguments),
+                        "xor" => self.create_bi_op(BiOperator::BitXor, arguments),
                         _ => {
                             panic!("Unsupported application '{}'", application_name);
                         }
@@ -243,11 +245,12 @@ impl Evaluator {
         for assertion in &self.assertions {
             result_assertion = match result_assertion {
                 Some(result_assertion) => {
-                    self.operations.push(Operation::BiOp(
-                        BiOp::BitAnd,
-                        result_assertion,
-                        *assertion,
-                    ));
+                    self.operations.push(Operation::BiOp(BiOp {
+                        op: BiOperator::BitAnd,
+                        input_width: 1,
+                        left: result_assertion,
+                        right: *assertion,
+                    }));
 
                     Some(FormulaId::Operation(OperationId(self.operations.len() - 1)))
                 }
@@ -268,7 +271,7 @@ impl Evaluator {
         .check();
     }
 
-    fn create_uni_op(&mut self, op: UniOp, arguments: Vec<FormulaId>) -> Operation {
+    fn create_uni_op(&mut self, op: UniOperator, arguments: Vec<FormulaId>) -> Operation {
         let mut iter = arguments.into_iter();
         let inner = iter
             .next()
@@ -278,10 +281,16 @@ impl Evaluator {
             panic!("Binary operation should not have more than one argument");
         }
 
-        Operation::UniOp(op, inner)
+        let input_width = self.formula_result_width(inner);
+
+        Operation::UniOp(UniOp {
+            op,
+            input_width,
+            inner,
+        })
     }
 
-    fn create_bi_op(&mut self, op: BiOp, arguments: Vec<FormulaId>) -> Operation {
+    fn create_bi_op(&mut self, op: BiOperator, arguments: Vec<FormulaId>) -> Operation {
         let mut iter = arguments.into_iter();
         let left = iter
             .next()
@@ -294,7 +303,17 @@ impl Evaluator {
             panic!("Binary operation should not have more than two arguments");
         }
 
-        Operation::BiOp(op, left, right)
+        let left_result_width = self.formula_result_width(left);
+        let right_result_width = self.formula_result_width(right);
+
+        assert_eq!(left_result_width, right_result_width);
+
+        Operation::BiOp(BiOp {
+            op,
+            input_width: left_result_width,
+            left,
+            right,
+        })
     }
 
     fn current_scope_mut(&mut self) -> &mut Scope {
@@ -312,6 +331,13 @@ impl Evaluator {
             }
         }
         panic!("Qualified identifier should be in variables");
+    }
+
+    fn formula_result_width(&self, id: FormulaId) -> u32 {
+        match id {
+            FormulaId::Variable(variable_id) => self.variables[variable_id.0],
+            FormulaId::Operation(operation_id) => self.operations[operation_id.0].result_width(),
+        }
     }
 }
 

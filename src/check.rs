@@ -3,7 +3,7 @@ use crate::{
         bitvector::{RBound, abstr::AbstractBitvector},
         traits::forward::{Bitwise, HwArith, TypedEq},
     },
-    formula::{BiOp, FormulaId, Operation, UniOp},
+    formula::{BiOp, BiOperator, FormulaId, Operation, UniOp, UniOperator},
 };
 
 #[derive(Debug)]
@@ -31,40 +31,41 @@ impl Checker {
         &self,
         assignments: &[AbstractBitvector<RBound>],
         formula_id: FormulaId,
-    ) -> (u32, AbstractBitvector<RBound>) {
+    ) -> AbstractBitvector<RBound> {
         let result = match formula_id {
-            FormulaId::Variable(variable_id) => (
-                self.variable_widths[variable_id.0],
-                assignments[variable_id.0],
-            ),
+            FormulaId::Variable(variable_id) => assignments[variable_id.0],
 
             FormulaId::Operation(operation_id) => match &self.operations[operation_id.0] {
                 Operation::Constant(value, width) => {
-                    (*width, AbstractBitvector::new(*value, RBound::new(*width)))
+                    AbstractBitvector::new(*value, RBound::new(*width))
                 }
-                Operation::UniOp(uni_op, inner) => {
-                    let (width, inner) = self.eval_formula(assignments, *inner);
-                    match uni_op {
-                        UniOp::Not => (width, inner.bit_not()),
+                Operation::UniOp(UniOp {
+                    op,
+                    input_width: _,
+                    inner,
+                }) => {
+                    let inner = self.eval_formula(assignments, *inner);
+                    match op {
+                        UniOperator::Not => inner.bit_not(),
                     }
                 }
-                Operation::BiOp(bi_op, left, right) => {
-                    let (left_width, left) = self.eval_formula(assignments, *left);
-                    let (right_width, right) = self.eval_formula(assignments, *right);
-                    assert_eq!(left_width, right_width);
-                    let width = left_width;
+                Operation::BiOp(BiOp {
+                    op,
+                    input_width: _,
+                    left,
+                    right,
+                }) => {
+                    let left = self.eval_formula(assignments, *left);
+                    let right = self.eval_formula(assignments, *right);
 
-                    let result = match bi_op {
-                        BiOp::Add => left.add(right),
-                        BiOp::Sub => left.sub(right),
-                        BiOp::BitAnd => left.bit_and(right),
-                        BiOp::BitOr => left.bit_or(right),
-                        BiOp::BitXor => left.bit_xor(right),
-                        BiOp::Eq => {
-                            return (1, TypedEq::eq(left, right));
-                        }
-                    };
-                    (width, result)
+                    match op {
+                        BiOperator::Add => left.add(right),
+                        BiOperator::Sub => left.sub(right),
+                        BiOperator::BitAnd => left.bit_and(right),
+                        BiOperator::BitOr => left.bit_or(right),
+                        BiOperator::BitXor => left.bit_xor(right),
+                        BiOperator::Eq => TypedEq::eq(left, right),
+                    }
                 }
             },
         };

@@ -15,17 +15,32 @@ pub struct OperationId(pub usize);
 #[derive(Clone)]
 pub enum Operation {
     Constant(u64, u32),
-    UniOp(UniOp, FormulaId),
-    BiOp(BiOp, FormulaId, FormulaId),
+    UniOp(UniOp),
+    BiOp(BiOp),
+}
+
+#[derive(Clone)]
+pub struct UniOp {
+    pub op: UniOperator,
+    pub input_width: u32,
+    pub inner: FormulaId,
+}
+
+#[derive(Clone)]
+pub struct BiOp {
+    pub op: BiOperator,
+    pub input_width: u32,
+    pub left: FormulaId,
+    pub right: FormulaId,
 }
 
 #[derive(Clone, Debug)]
-pub enum UniOp {
+pub enum UniOperator {
     Not,
 }
 
 #[derive(Clone, Debug)]
-pub enum BiOp {
+pub enum BiOperator {
     Add,
     Sub,
 
@@ -34,6 +49,22 @@ pub enum BiOp {
     BitXor,
 
     Eq,
+}
+
+impl Operation {
+    pub fn result_width(&self) -> u32 {
+        match self {
+            Operation::Constant(_value, width) => *width,
+            Operation::UniOp(uni_op) => match uni_op.op {
+                UniOperator::Not => uni_op.input_width,
+            },
+            Operation::BiOp(bi_op) => match bi_op.op {
+                BiOperator::Add | BiOperator::Sub => bi_op.input_width,
+                BiOperator::BitAnd | BiOperator::BitOr | BiOperator::BitXor => bi_op.input_width,
+                BiOperator::Eq => 1,
+            },
+        }
+    }
 }
 
 impl Debug for FormulaId {
@@ -63,14 +94,23 @@ impl Debug for Operation {
             Operation::Constant(value, width) => {
                 write!(f, "bv{}({})", width, value)
             }
-            Operation::UniOp(op, inner) => {
-                write!(f, "{:?}", op)?;
+            Operation::UniOp(UniOp {
+                op,
+                input_width: width,
+                inner,
+            }) => {
+                write!(f, "{:?}{}", op, width)?;
                 let mut franz = f.debug_tuple("");
                 franz.field(inner);
                 franz.finish()
             }
-            Operation::BiOp(op, left, right) => {
-                write!(f, "{:?}", op)?;
+            Operation::BiOp(BiOp {
+                op,
+                input_width: width,
+                left,
+                right,
+            }) => {
+                write!(f, "{:?}{}", op, width)?;
                 let mut franz = f.debug_tuple("");
                 franz.field(left);
                 franz.field(right);
