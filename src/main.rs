@@ -2,8 +2,8 @@ use std::io::BufReader;
 
 mod check;
 mod domain;
-mod evaluate;
 mod formula;
+mod parse;
 
 fn main() {
     let mut args = std::env::args();
@@ -32,7 +32,7 @@ fn main() {
 
     println!("Evaluating file {}", path);
 
-    evaluate::evaluate(reader, Some(path));
+    parse::evaluate(reader, Some(path));
 
     println!("Finished evaluation");
 }
