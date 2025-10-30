@@ -81,7 +81,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     }
 
     #[must_use]
-    pub(super) fn new_unknown(bound: B) -> Self {
+    pub fn new_unknown(bound: B) -> Self {
         // all zeros and ones set within mask
         let zeros = ConcreteBitvector::bit_mask(bound);
         let ones = ConcreteBitvector::bit_mask(bound);
