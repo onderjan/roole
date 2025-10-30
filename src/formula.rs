@@ -122,10 +122,7 @@ impl Debug for Operation {
                 input_width: width,
                 inner,
             }) => {
-                write!(f, "{:?}_{}", op, width)?;
-                let mut franz = f.debug_tuple("");
-                franz.field(inner);
-                franz.finish()
+                write!(f, "{:?}_{}({:?})", op, width, inner)
             }
             Operation::BiOp(BiOp {
                 op,
@@ -133,11 +130,7 @@ impl Debug for Operation {
                 left,
                 right,
             }) => {
-                write!(f, "{:?}_{}", op, width)?;
-                let mut franz = f.debug_tuple("");
-                franz.field(left);
-                franz.field(right);
-                franz.finish()
+                write!(f, "{:?}_{}({:?},{:?})", op, width, left, right)
             }
             Operation::ExtOp(ExtOp {
                 signed,
@@ -147,14 +140,12 @@ impl Debug for Operation {
             }) => {
                 write!(
                     f,
-                    "{:?}_{}_{}",
+                    "{:?}_{}_{}({:?})",
                     if *signed { "sext" } else { "uext" },
                     input_width,
-                    output_width
-                )?;
-                let mut franz = f.debug_tuple("");
-                franz.field(inner);
-                franz.finish()
+                    output_width,
+                    inner
+                )
             }
             Operation::IteOp(IteOp {
                 condition,
@@ -162,12 +153,11 @@ impl Debug for Operation {
                 formula_then,
                 formula_else,
             }) => {
-                write!(f, "ite_{}", width)?;
-                let mut franz = f.debug_tuple("");
-                franz.field(condition);
-                franz.field(formula_then);
-                franz.field(formula_else);
-                franz.finish()
+                write!(
+                    f,
+                    "ite_{}({:?},{:?},{:?})",
+                    width, condition, formula_then, formula_else
+                )
             }
         }
     }
