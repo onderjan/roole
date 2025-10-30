@@ -24,9 +24,11 @@ pub struct Checker {
 }
 
 struct SearchSpaceInfo {
-    num_leafs: BigUint,
+    total_width: u128,
+    num_leaves: BigUint,
     num_nodes: BigUint,
     opened_nodes: BigUint,
+    closed_leaves: BigUint,
 }
 
 impl Checker {
@@ -100,31 +102,41 @@ impl Checker {
                 .expect("Total width should be in u128");
         }
 
-        let num_leafs = BigUint::one() << total_width;
-        let num_nodes = (num_leafs.clone() * 2u32) - 1u32;
+        let num_leaves = BigUint::one() << total_width;
+        let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
 
         let mut info = SearchSpaceInfo {
-            num_leafs,
+            total_width,
+            num_leaves,
             num_nodes,
             opened_nodes: BigUint::zero(),
+            closed_leaves: BigUint::zero(),
         };
 
-        if !self.dpll_recursion(&mut info, &mut assignments, 0, 0) {
+        if !self.dpll_recursion(&mut info, &mut assignments, 0, 0, 0) {
             eprintln!("Unsatisfiable");
         }
 
-        let precision_const = 1_000_000u32;
+        fn percent(dividend: &BigUint, divisor: &BigUint) -> f64 {
+            const PRECISION_CONST: u32 = 1_000_000;
+            (dividend.clone() * PRECISION_CONST / divisor.clone())
+                .to_f64()
+                .unwrap_or(f64::NAN)
+                / (PRECISION_CONST as f64)
+                * 100.
+        }
 
-        let percent_opened: f64 = (info.opened_nodes.clone() * precision_const
-            / info.num_nodes.clone())
-        .to_f64()
-        .unwrap_or(f64::NAN)
-            / (precision_const as f64)
-            * 100.;
+        let percent_opened_nodes = percent(&info.opened_nodes, &info.num_nodes);
+        let percent_closed_leaves = percent(&info.closed_leaves, &info.num_leaves);
 
         eprintln!(
-            "Info: {} leafs, {} nodes, {} opened ({:.2}%)",
-            info.num_leafs, info.num_nodes, info.opened_nodes, percent_opened
+            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%)",
+            info.num_nodes,
+            info.opened_nodes,
+            percent_opened_nodes,
+            info.num_leaves,
+            info.closed_leaves,
+            percent_closed_leaves
         );
     }
 
@@ -132,6 +144,7 @@ impl Checker {
         &self,
         info: &mut SearchSpaceInfo,
         assignments: &mut [AbstractBitvector<RBound>],
+        decision_level: u128,
         variable_index: usize,
         bit_index: u32,
     ) -> bool {
@@ -145,6 +158,8 @@ impl Checker {
                 return true;
             } else {
                 // unsatisfiable branch
+                info.closed_leaves += BigUint::one() << (info.total_width - decision_level);
+
                 return false;
             }
         };
@@ -153,6 +168,7 @@ impl Checker {
         let bound = original_value.bound();
         let bit_index_mask = ConcreteBitvector::from_masked_u64(1 << bit_index, bound);
 
+        let next_decision_level = decision_level + 1;
         let mut next_variable_index = variable_index;
         let mut next_bit_index = bit_index + 1;
         if next_bit_index >= bound.width() {
@@ -166,7 +182,13 @@ impl Checker {
             ThreeValuedBitvector::from_concrete_value(bit_index_mask.bit_not()),
         );
 
-        if self.dpll_recursion(info, assignments, next_variable_index, next_bit_index) {
+        if self.dpll_recursion(
+            info,
+            assignments,
+            next_decision_level,
+            next_variable_index,
+            next_bit_index,
+        ) {
             return true;
         }
 
@@ -175,7 +197,13 @@ impl Checker {
         assignments[variable_index] =
             original_value.bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
 
-        if self.dpll_recursion(info, assignments, next_variable_index, next_bit_index) {
+        if self.dpll_recursion(
+            info,
+            assignments,
+            next_decision_level,
+            next_variable_index,
+            next_bit_index,
+        ) {
             return true;
         }
 
