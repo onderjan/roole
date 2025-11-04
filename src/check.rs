@@ -1,6 +1,7 @@
 use core::f32;
 
 use indicatif::ProgressStyle;
+use itertools::Itertools;
 use num::{BigUint, ToPrimitive};
 
 use crate::{
@@ -48,6 +49,17 @@ impl Checker {
             Some(assignment) => eprintln!("Satisfiable: {:?}", assignment.values),
             None => eprintln!("Unsatisfiable"),
         }
+    }
+}
+
+impl Assignment {
+    fn contains(&self, other: &Assignment) -> bool {
+        for (our_value, other_value) in self.values.iter().zip_eq(&other.values) {
+            if !our_value.contains(other_value) {
+                return false;
+            }
+        }
+        true
     }
 }
 

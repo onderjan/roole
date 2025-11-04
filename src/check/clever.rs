@@ -24,6 +24,7 @@ struct Decision {
 struct SearchSpace {
     assignment: Assignment,
     learning_assignment: Assignment,
+    learned_assignments: Vec<Assignment>,
     decisions: Vec<Decision>,
 
     total_width: u64,
@@ -102,6 +103,7 @@ impl super::Checker {
         let mut space = SearchSpace {
             assignment: Assignment { values },
             learning_assignment: Assignment { values: Vec::new() },
+            learned_assignments: Vec::new(),
             decisions: Vec::new(),
             total_width,
             num_leaves,
@@ -130,14 +132,19 @@ impl super::Checker {
         let percent_closed_leaves = percent(&space.closed_leaves, &space.num_leaves);
 
         eprintln!(
-            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%)",
+            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%), learned: {}",
             space.num_nodes,
             space.opened_nodes,
             percent_opened_nodes,
             space.num_leaves,
             space.closed_leaves,
-            percent_closed_leaves
+            percent_closed_leaves,
+            space.learned_assignments.len(),
         );
+
+        /*for learned in space.learned_assignments {
+            eprintln!("Learned: {:?}", learned);
+        }*/
 
         result
     }
@@ -162,20 +169,26 @@ impl super::Checker {
                 .set_message(format!("{:.2}%", progress_percent));
         }
 
-        let result = self.eval_formula(&space.assignment, self.assertion);
+        // see if we have already learned this
 
-        let Some(concrete_result) = result.concrete_value() else {
-            // unknown result, just push another decision
-            space.push_decision();
-            return ControlFlow::Continue(());
-        };
-        if concrete_result.is_nonzero() {
-            // satisfiable with these decisions, break immediately
-            return ControlFlow::Break(true);
+        if !self.is_learned(space, &space.assignment) {
+            let result = self.eval_formula(&space.assignment, self.assertion);
+
+            let Some(concrete_result) = result.concrete_value() else {
+                // unknown result, just push another decision
+                space.push_decision();
+                return ControlFlow::Continue(());
+            };
+            if concrete_result.is_nonzero() {
+                // satisfiable with these decisions, break immediately
+                return ControlFlow::Break(true);
+            }
+
+            // unsatisfiable with these decisions, learn
+            self.learn(space);
         }
 
-        // unsatisfiable with these decisions, learn, increment decision and continue
-        //self.learn(space);
+        // unsatisfiable, increment decision and continue
 
         space.closed_leaves += BigUint::one() << (space.total_width - decision_level as u64);
         if !space.inc_decision() {
@@ -219,12 +232,27 @@ impl super::Checker {
             }
         }
 
+        assert!(!self.is_learned(space, &space.learning_assignment));
+
         if has_unnecessary_decisions {
-            eprintln!(
+            /*eprintln!(
                 "Unnecesary decisions\nfrom {:?}\ninto {:?}",
                 space.assignment, space.learning_assignment
-            );
+            );*/
+            space
+                .learned_assignments
+                .push(space.learning_assignment.clone());
         }
+    }
+
+    fn is_learned(&self, space: &SearchSpace, assignment: &Assignment) -> bool {
+        for learned_assignment in &space.learned_assignments {
+            if learned_assignment.contains(assignment) {
+                // we already know this is unsatisfiable
+                return true;
+            }
+        }
+        false
     }
 }
 
