@@ -3,7 +3,7 @@ use num::{BigUint, One, ToPrimitive, Zero};
 use std::ops::ControlFlow;
 
 use crate::{
-    check::{Assignment, PRECISION_CONST, percent},
+    check::{Assignment, PRECISION_CONST, clever::learned::Learned, percent},
     domain::{
         bitvector::{
             BitvectorBound, RBound,
@@ -14,6 +14,8 @@ use crate::{
     },
 };
 
+mod learned;
+
 #[derive(Debug, Clone, Copy)]
 struct Decision {
     variable_index: usize,
@@ -22,10 +24,11 @@ struct Decision {
 }
 
 struct SearchSpace {
-    assignment: Assignment,
-    learning_assignment: Assignment,
-    learned_assignments: Vec<Assignment>,
     decisions: Vec<Decision>,
+    assignment: Assignment,
+
+    learning_assignment: Assignment,
+    learned: Learned,
 
     total_width: u64,
     num_leaves: BigUint,
@@ -119,7 +122,7 @@ impl super::Checker {
         let mut space = SearchSpace {
             assignment: Assignment { values },
             learning_assignment: Assignment { values: Vec::new() },
-            learned_assignments: Vec::new(),
+            learned: Learned::new(),
             decisions: Vec::new(),
             total_width,
             num_leaves,
@@ -155,8 +158,10 @@ impl super::Checker {
             space.num_leaves,
             space.closed_leaves,
             percent_closed_leaves,
-            space.learned_assignments.len(),
+            space.learned.number(),
         );
+
+        space.learned.print();
 
         /*for learned in space.learned_assignments {
             println!("{:?}", learned);
@@ -187,10 +192,10 @@ impl super::Checker {
 
         // see if we have already learned this
 
-        if let Some(already_learned) =
-            self.find_learned(&space.learned_assignments, &space.assignment)
-        {
+        if space.learned.contains(&space.assignment) {
             // part unsatisfiable
+
+            /*
             // backtrack by popping decisions until it is no longer contained within the learned clause
             let already_learned = already_learned.clone();
 
@@ -207,7 +212,7 @@ impl super::Checker {
                 }
                 // push last back
                 space.push_decision(popped_decision);
-            }
+            }*/
         } else {
             let result = self.eval_formula(&space.assignment, self.assertion);
 
@@ -264,19 +269,7 @@ impl super::Checker {
             "Unnecesary decisions\nfrom {:?}\ninto {:?}",
             space.assignment, space.learning_assignment
         );*/
-        space
-            .learned_assignments
-            .push(space.learning_assignment.clone());
-    }
-
-    fn find_learned<'a>(
-        &self,
-        learned_assignments: &'a [Assignment],
-        assignment: &Assignment,
-    ) -> Option<&'a Assignment> {
-        learned_assignments
-            .iter()
-            .find(|&learned_assignment| learned_assignment.contains(assignment))
+        space.learned.add(&space.learning_assignment);
     }
 }
 
