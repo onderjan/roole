@@ -1,6 +1,6 @@
 use core::f32;
-
 use num::{BigUint, One, ToPrimitive, Zero};
+use std::ops::ControlFlow;
 
 use crate::{
     check::{PRECISION_CONST, percent},
@@ -23,6 +23,7 @@ struct Decision {
 
 struct SearchSpace {
     assignments: Vec<AbstractBitvector<RBound>>,
+    learning_assignments: Vec<AbstractBitvector<RBound>>,
     decisions: Vec<Decision>,
 
     total_width: u64,
@@ -59,40 +60,22 @@ impl SearchSpace {
             }
         };
 
-        let next_variable_bound = self.assignments[next_decision.variable_index].bound();
-        let next_bit_index_mask =
-            ConcreteBitvector::from_masked_u64(1 << next_decision.bit_index, next_variable_bound);
-
         // assign zero
-        self.assignments[next_decision.variable_index] =
-            self.assignments[next_decision.variable_index].bit_and(
-                ThreeValuedBitvector::from_concrete_value(next_bit_index_mask.bit_not()),
-            );
+        from_unknown_to_zero(&mut self.assignments, next_decision);
         self.decisions.push(next_decision);
     }
 
     fn inc_decision(&mut self) -> bool {
         while let Some(decision) = self.decisions.last_mut() {
-            let bound = self.assignments[decision.variable_index].bound();
-            let bit_index_mask = ConcreteBitvector::from_masked_u64(1 << decision.bit_index, bound);
-
             if decision.is_true {
                 // go back to unknown, pop
-                let zero_value = self.assignments[decision.variable_index].bit_and(
-                    ThreeValuedBitvector::from_concrete_value(bit_index_mask.bit_not()),
-                );
-
-                self.assignments[decision.variable_index] =
-                    self.assignments[decision.variable_index].join(&zero_value);
-
+                from_one_to_unknown(&mut self.assignments, *decision);
                 self.decisions.pop();
             } else {
                 // assign true and return
                 decision.is_true = true;
 
-                self.assignments[decision.variable_index] = self.assignments
-                    [decision.variable_index]
-                    .bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
+                from_zero_to_one(&mut self.assignments, *decision);
                 return true;
             }
         }
@@ -100,12 +83,6 @@ impl SearchSpace {
         // increment wrapped
         false
     }
-}
-
-enum PartResult {
-    Sat,
-    UnsatPart,
-    Unknown,
 }
 
 impl super::Checker {
@@ -124,6 +101,7 @@ impl super::Checker {
 
         let mut space = SearchSpace {
             assignments,
+            learning_assignments: Vec::new(),
             decisions: Vec::new(),
             total_width,
             num_leaves,
@@ -134,17 +112,8 @@ impl super::Checker {
 
         let satisfiable = loop {
             match self.dpll_eval(&mut space) {
-                PartResult::Sat => {
-                    break true;
-                }
-                PartResult::Unknown => {
-                    space.push_decision();
-                }
-                PartResult::UnsatPart => {
-                    if !space.inc_decision() {
-                        break false;
-                    }
-                }
+                ControlFlow::Continue(()) => {}
+                ControlFlow::Break(satisfiable) => break satisfiable,
             }
         };
 
@@ -169,7 +138,7 @@ impl super::Checker {
         );
     }
 
-    fn dpll_eval(&self, space: &mut SearchSpace) -> PartResult {
+    fn dpll_eval(&self, space: &mut SearchSpace) -> ControlFlow<bool> {
         //eprintln!("Eval assignments: {:?}", space.assignments);
         space.opened_nodes += 1u32;
 
@@ -191,21 +160,103 @@ impl super::Checker {
 
         let result = self.eval_formula(&space.assignments, self.assertion);
 
-        if let Some(concrete_result) = result.concrete_value() {
-            if concrete_result.is_nonzero() {
-                eprintln!("Satisfiable: {:?}", space.assignments);
-                return PartResult::Sat;
-            } else {
-                // unsatisfiable branch
-                space.closed_leaves +=
-                    BigUint::one() << (space.total_width - decision_level as u64);
-
-                //eprintln!("Unsatisfiable part: {:?}", space.assignments);
-
-                return PartResult::UnsatPart;
-            }
+        let Some(concrete_result) = result.concrete_value() else {
+            // unknown result, just push another decision
+            space.push_decision();
+            return ControlFlow::Continue(());
         };
+        if concrete_result.is_nonzero() {
+            // satisfiable with these decisions, break immediately
+            eprintln!("Satisfiable: {:?}", space.assignments);
+            return ControlFlow::Break(true);
+        }
 
-        PartResult::Unknown
+        // unsatisfiable with these decisions, learn, increment decision and continue
+        self.learn(space);
+
+        space.closed_leaves += BigUint::one() << (space.total_width - decision_level as u64);
+        if !space.inc_decision() {
+            return ControlFlow::Break(false);
+        }
+        ControlFlow::Continue(())
     }
+
+    fn learn(&self, space: &mut SearchSpace) {
+        //eprintln!("Unsatisfiable part: {:?}", space.assignments);
+
+        space.learning_assignments.clone_from(&space.assignments);
+
+        let mut has_unnecessary_decisions = false;
+
+        for decision in &space.decisions {
+            // make decision bit unknown
+
+            let bit_index_mask = bit_index_mask(&space.learning_assignments, *decision);
+            let decision_assignment = &mut space.learning_assignments[decision.variable_index];
+            let original = *decision_assignment;
+
+            let zero_value = decision_assignment.bit_and(
+                ThreeValuedBitvector::from_concrete_value(bit_index_mask.bit_not()),
+            );
+            let one_value = decision_assignment
+                .bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
+
+            *decision_assignment = decision_assignment.join(&zero_value).join(&one_value);
+
+            // evaluate
+            let result = self.eval_formula(&space.learning_assignments, self.assertion);
+
+            if let Some(concrete_value) = result.concrete_value() {
+                assert!(concrete_value.is_zero());
+                has_unnecessary_decisions = true;
+            } else {
+                // go back
+                space.learning_assignments[decision.variable_index] = original;
+            }
+        }
+
+        if has_unnecessary_decisions {
+            eprintln!(
+                "Unnecesary decisions\nfrom {:?}\ninto {:?}",
+                space.assignments, space.learning_assignments
+            );
+        }
+    }
+}
+
+fn from_unknown_to_zero(assignments: &mut [AbstractBitvector<RBound>], decision: Decision) {
+    let bit_index_mask = bit_index_mask(assignments, decision);
+    let decision_assignment = &mut assignments[decision.variable_index];
+
+    *decision_assignment = decision_assignment.bit_and(ThreeValuedBitvector::from_concrete_value(
+        bit_index_mask.bit_not(),
+    ));
+}
+
+fn from_zero_to_one(assignments: &mut [AbstractBitvector<RBound>], decision: Decision) {
+    let bit_index_mask = bit_index_mask(assignments, decision);
+    let decision_assignment = &mut assignments[decision.variable_index];
+
+    *decision_assignment =
+        decision_assignment.bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
+}
+
+fn from_one_to_unknown(assignments: &mut [AbstractBitvector<RBound>], decision: Decision) {
+    let bit_index_mask = bit_index_mask(assignments, decision);
+    let decision_assignment = &mut assignments[decision.variable_index];
+
+    let zero_value = decision_assignment.bit_and(ThreeValuedBitvector::from_concrete_value(
+        bit_index_mask.bit_not(),
+    ));
+
+    *decision_assignment = decision_assignment.join(&zero_value);
+}
+
+fn bit_index_mask(
+    assignments: &[AbstractBitvector<RBound>],
+    decision: Decision,
+) -> ConcreteBitvector<RBound> {
+    let next_variable_bound = assignments[decision.variable_index].bound();
+
+    ConcreteBitvector::from_masked_u64(1 << decision.bit_index, next_variable_bound)
 }
