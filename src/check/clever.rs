@@ -35,7 +35,7 @@ struct SearchSpace {
 }
 
 impl SearchSpace {
-    fn push_decision(&mut self) {
+    fn push_zero_decision(&mut self) {
         let next_decision = if let Some(last_decision) = self.decisions.last() {
             let mut next_variable_index = last_decision.variable_index;
             let mut next_bit_index = last_decision.bit_index + 1;
@@ -64,6 +64,22 @@ impl SearchSpace {
         // assign zero
         from_unknown_to_zero(&mut self.assignment, next_decision);
         self.decisions.push(next_decision);
+    }
+
+    fn push_decision(&mut self, decision: Decision) {
+        if decision.is_true {
+            from_unknown_to_one(&mut self.assignment, decision);
+        } else {
+            from_unknown_to_zero(&mut self.assignment, decision);
+        }
+
+        self.decisions.push(decision);
+    }
+
+    fn pop_decision(&mut self) -> Option<Decision> {
+        let decision = self.decisions.pop()?;
+        to_unknown(&mut self.assignment, decision);
+        Some(decision)
     }
 
     fn inc_decision(&mut self) -> bool {
@@ -142,9 +158,9 @@ impl super::Checker {
             space.learned_assignments.len(),
         );
 
-        for learned in space.learned_assignments {
+        /*for learned in space.learned_assignments {
             println!("{:?}", learned);
-        }
+        }*/
 
         result
     }
@@ -171,12 +187,33 @@ impl super::Checker {
 
         // see if we have already learned this
 
-        if !self.is_learned(space, &space.assignment) {
+        if let Some(already_learned) =
+            self.find_learned(&space.learned_assignments, &space.assignment)
+        {
+            // part unsatisfiable
+            // backtrack by popping decisions until it is no longer contained within the learned clause
+            let already_learned = already_learned.clone();
+
+            //eprintln!("Ours: {:?}\nLear: {:?}", space.assignment, already_learned);
+
+            if let Some(mut popped_decision) = space.pop_decision() {
+                while already_learned.contains(&space.assignment) {
+                    eprintln!("Backtracked successfully");
+                    if let Some(decision) = space.pop_decision() {
+                        popped_decision = decision;
+                    } else {
+                        break;
+                    }
+                }
+                // push last back
+                space.push_decision(popped_decision);
+            }
+        } else {
             let result = self.eval_formula(&space.assignment, self.assertion);
 
             let Some(concrete_result) = result.concrete_value() else {
                 // unknown result, just push another decision
-                space.push_decision();
+                space.push_zero_decision();
                 return ControlFlow::Continue(());
             };
             if concrete_result.is_nonzero() {
@@ -186,12 +223,13 @@ impl super::Checker {
 
             // unsatisfiable with these decisions, learn
             self.learn(space);
-        }
+        };
 
-        // unsatisfiable, increment decision and continue
+        // increment decision and continue
 
         space.closed_leaves += BigUint::one() << (space.total_width - decision_level as u64);
         if !space.inc_decision() {
+            // whole unsatisfiable
             return ControlFlow::Break(false);
         }
         ControlFlow::Continue(())
@@ -202,57 +240,43 @@ impl super::Checker {
 
         space.learning_assignment.clone_from(&space.assignment);
 
-        let mut has_unnecessary_decisions = false;
-
         for decision in space.decisions.iter().rev() {
             // make decision bit unknown
-
-            let bit_index_mask = bit_index_mask(&space.learning_assignment, *decision);
-            let decision_assignment =
-                &mut space.learning_assignment.values[decision.variable_index];
-            let original = *decision_assignment;
-
-            let zero_value = decision_assignment.bit_and(
-                ThreeValuedBitvector::from_concrete_value(bit_index_mask.bit_not()),
-            );
-            let one_value = decision_assignment
-                .bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
-
-            *decision_assignment = decision_assignment.join(&zero_value).join(&one_value);
+            let original = space.learning_assignment.values[decision.variable_index];
+            to_unknown(&mut space.learning_assignment, *decision);
 
             // evaluate
             let result = self.eval_formula(&space.learning_assignment, self.assertion);
 
             if let Some(concrete_value) = result.concrete_value() {
                 assert!(concrete_value.is_zero());
-                has_unnecessary_decisions = true;
             } else {
                 // go back
                 space.learning_assignment.values[decision.variable_index] = original;
             }
         }
 
-        assert!(!self.is_learned(space, &space.learning_assignment));
+        //assert!(!self.is_learned(space, &space.learning_assignment));
 
-        if has_unnecessary_decisions {
-            /*eprintln!(
-                "Unnecesary decisions\nfrom {:?}\ninto {:?}",
-                space.assignment, space.learning_assignment
-            );*/
-            space
-                .learned_assignments
-                .push(space.learning_assignment.clone());
-        }
+        println!("Learned assignment {:?}", space.learning_assignment);
+
+        /*eprintln!(
+            "Unnecesary decisions\nfrom {:?}\ninto {:?}",
+            space.assignment, space.learning_assignment
+        );*/
+        space
+            .learned_assignments
+            .push(space.learning_assignment.clone());
     }
 
-    fn is_learned(&self, space: &SearchSpace, assignment: &Assignment) -> bool {
-        for learned_assignment in &space.learned_assignments {
-            if learned_assignment.contains(assignment) {
-                // we already know this is unsatisfiable
-                return true;
-            }
-        }
-        false
+    fn find_learned<'a>(
+        &self,
+        learned_assignments: &'a [Assignment],
+        assignment: &Assignment,
+    ) -> Option<&'a Assignment> {
+        learned_assignments
+            .iter()
+            .find(|&learned_assignment| learned_assignment.contains(assignment))
     }
 }
 
@@ -263,6 +287,14 @@ fn from_unknown_to_zero(assignment: &mut Assignment, decision: Decision) {
     *decision_assignment = decision_assignment.bit_and(ThreeValuedBitvector::from_concrete_value(
         bit_index_mask.bit_not(),
     ));
+}
+
+fn from_unknown_to_one(assignment: &mut Assignment, decision: Decision) {
+    let bit_index_mask = bit_index_mask(assignment, decision);
+    let decision_assignment = &mut assignment.values[decision.variable_index];
+
+    *decision_assignment =
+        decision_assignment.bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
 }
 
 fn from_zero_to_one(assignment: &mut Assignment, decision: Decision) {
@@ -282,6 +314,19 @@ fn from_one_to_unknown(assignment: &mut Assignment, decision: Decision) {
     ));
 
     *decision_assignment = decision_assignment.join(&zero_value);
+}
+
+fn to_unknown(assignment: &mut Assignment, decision: Decision) {
+    let bit_index_mask = bit_index_mask(assignment, decision);
+    let decision_assignment = &mut assignment.values[decision.variable_index];
+
+    let zero_value = decision_assignment.bit_and(ThreeValuedBitvector::from_concrete_value(
+        bit_index_mask.bit_not(),
+    ));
+    let one_value =
+        decision_assignment.bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
+
+    *decision_assignment = decision_assignment.join(&zero_value).join(&one_value);
 }
 
 fn bit_index_mask(assignment: &Assignment, decision: Decision) -> ConcreteBitvector<RBound> {
