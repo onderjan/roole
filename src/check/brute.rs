@@ -1,15 +1,20 @@
-use crate::domain::bitvector::{
-    RBound,
-    abstr::{AbstractBitvector, BitvectorDomain},
-    compute_u64_mask,
+use crate::{
+    check::Assignment,
+    domain::bitvector::{
+        RBound,
+        abstr::{AbstractBitvector, BitvectorDomain},
+        compute_u64_mask,
+    },
 };
 
 impl super::Checker {
-    pub fn brute_force(&self) {
-        let mut assignments = Vec::new();
+    pub fn brute_force(&self) -> Option<Assignment> {
+        let mut values = Vec::new();
         for width in self.variable_widths.iter().cloned() {
-            assignments.push(AbstractBitvector::new(0, RBound::new(width)));
+            values.push(AbstractBitvector::new(0, RBound::new(width)));
         }
+
+        let mut assignment = Assignment { values };
 
         let mut iterators: Vec<_> = self
             .variable_widths
@@ -17,21 +22,20 @@ impl super::Checker {
             .map(|width| (width, 0..compute_u64_mask(*width)))
             .collect();
 
-        let mut satisfiable = false;
-
         loop {
             let mut early = false;
             for (index, (width, iterator)) in iterators.iter_mut().enumerate() {
                 match iterator.next() {
                     Some(value) => {
-                        assignments[index] = AbstractBitvector::new(value, RBound::new(**width));
+                        assignment.values[index] =
+                            AbstractBitvector::new(value, RBound::new(**width));
 
                         early = true;
                         break;
                     }
                     None => {
                         *iterator = 0..compute_u64_mask(**width);
-                        assignments[index] = AbstractBitvector::new(0, RBound::new(**width));
+                        assignment.values[index] = AbstractBitvector::new(0, RBound::new(**width));
                     }
                 }
             }
@@ -39,7 +43,7 @@ impl super::Checker {
                 break;
             }
 
-            let result = self.eval_formula(&assignments, self.assertion);
+            let result = self.eval_formula(&assignment, self.assertion);
 
             let Some(concrete_result) = result.concrete_value() else {
                 panic!("Concrete values should produce concrete result");
@@ -48,13 +52,10 @@ impl super::Checker {
             //eprintln!("Assignments: {:?}, result: {:?}", assignments, result);
 
             if concrete_result.is_nonzero() {
-                satisfiable = true;
-                eprintln!("Satisfiable: {:?}", assignments);
-                break;
+                return Some(assignment);
             }
         }
-        if !satisfiable {
-            eprintln!("Unsatisfiable");
-        }
+
+        None
     }
 }

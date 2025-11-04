@@ -3,7 +3,10 @@ use core::f32;
 use indicatif::ProgressStyle;
 use num::{BigUint, ToPrimitive};
 
-use crate::formula::{FormulaId, Operation};
+use crate::{
+    domain::bitvector::{RBound, abstr::AbstractBitvector},
+    formula::{FormulaId, Operation},
+};
 
 mod brute;
 mod clever;
@@ -15,6 +18,11 @@ pub struct Checker {
     operations: Vec<Operation>,
     assertion: FormulaId,
     progress_bar: indicatif::ProgressBar,
+}
+
+#[derive(Debug, Clone)]
+pub struct Assignment {
+    values: Vec<AbstractBitvector<RBound>>,
 }
 
 impl Checker {
@@ -33,8 +41,13 @@ impl Checker {
             progress_bar,
         };
 
-        //checker.brute_force();
-        checker.recursive_dpll();
+        //let result = checker.brute_force();
+        let result = checker.dpll();
+
+        match result {
+            Some(assignment) => eprintln!("Satisfiable: {:?}", assignment.values),
+            None => eprintln!("Unsatisfiable"),
+        }
     }
 }
 

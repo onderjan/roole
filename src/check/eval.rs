@@ -1,4 +1,5 @@
 use crate::{
+    check::Assignment,
     domain::{
         bitvector::{
             BitvectorBound, RBound,
@@ -15,12 +16,12 @@ use crate::{
 impl super::Checker {
     pub(super) fn eval_formula(
         &self,
-        assignments: &[AbstractBitvector<RBound>],
+        assignment: &Assignment,
         formula_id: FormulaId,
     ) -> AbstractBitvector<RBound> {
         //eprintln!("Evaluated {:?} with result: {:?}", formula_id, result);
         match formula_id {
-            FormulaId::Variable(variable_id) => assignments[variable_id.0],
+            FormulaId::Variable(variable_id) => assignment.values[variable_id.0],
 
             FormulaId::Operation(operation_id) => match &self.operations[operation_id.0] {
                 Operation::Constant(value, width) => {
@@ -31,7 +32,7 @@ impl super::Checker {
                     input_width: _,
                     inner,
                 }) => {
-                    let inner = self.eval_formula(assignments, *inner);
+                    let inner = self.eval_formula(assignment, *inner);
                     match op {
                         UniOperator::Not => inner.bit_not(),
                     }
@@ -42,8 +43,8 @@ impl super::Checker {
                     left,
                     right,
                 }) => {
-                    let left = self.eval_formula(assignments, *left);
-                    let right = self.eval_formula(assignments, *right);
+                    let left = self.eval_formula(assignment, *left);
+                    let right = self.eval_formula(assignment, *right);
 
                     match op {
                         BiOperator::Add => left.add(right),
@@ -63,7 +64,7 @@ impl super::Checker {
                     output_width,
                     inner,
                 }) => {
-                    let inner = self.eval_formula(assignments, *inner);
+                    let inner = self.eval_formula(assignment, *inner);
                     let output_bound = RBound::new(*output_width);
                     if *signed {
                         BExt::sext(inner, output_bound)
@@ -77,21 +78,21 @@ impl super::Checker {
                     formula_then,
                     formula_else,
                 }) => {
-                    let condition = self.eval_formula(assignments, *condition);
+                    let condition = self.eval_formula(assignment, *condition);
                     assert_eq!(condition.bound().width(), 1);
 
                     if let Some(condition_value) = condition.concrete_value() {
                         if condition_value.is_nonzero() {
                             // only then taken
-                            self.eval_formula(assignments, *formula_then)
+                            self.eval_formula(assignment, *formula_then)
                         } else {
                             // only else taken
-                            self.eval_formula(assignments, *formula_else)
+                            self.eval_formula(assignment, *formula_else)
                         }
                     } else {
                         // both can be taken, join them
-                        let value_then = self.eval_formula(assignments, *formula_then);
-                        let value_else = self.eval_formula(assignments, *formula_else);
+                        let value_then = self.eval_formula(assignment, *formula_then);
+                        let value_else = self.eval_formula(assignment, *formula_else);
                         value_then.join(&value_else)
                     }
                 }
