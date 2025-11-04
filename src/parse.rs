@@ -283,12 +283,7 @@ impl Evaluator {
             return;
         };
 
-        check::Checker {
-            variable_widths: self.variables.clone(),
-            operations: self.operations.clone(),
-            assertion,
-        }
-        .check();
+        check::Checker::check(self.variables.clone(), self.operations.clone(), assertion);
     }
 
     fn create_uni_op(&mut self, op: UniOperator, arguments: Vec<FormulaId>) -> Operation {

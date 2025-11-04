@@ -1,15 +1,13 @@
 use core::f32;
 
 use indicatif::ProgressStyle;
-use num::{BigUint, One, ToPrimitive, Zero};
+use num::{BigUint, ToPrimitive};
 
 use crate::{
     domain::{
         bitvector::{
             BitvectorBound, RBound,
-            abstr::{AbstractBitvector, BitvectorDomain, three_valued::ThreeValuedBitvector},
-            compute_u64_mask,
-            concr::ConcreteBitvector,
+            abstr::{AbstractBitvector, BitvectorDomain},
         },
         traits::{
             Join,
@@ -19,11 +17,15 @@ use crate::{
     formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator},
 };
 
+mod brute;
+mod clever;
+
 #[derive(Debug)]
 pub struct Checker {
-    pub variable_widths: Vec<u32>,
-    pub operations: Vec<Operation>,
-    pub assertion: FormulaId,
+    variable_widths: Vec<u32>,
+    operations: Vec<Operation>,
+    assertion: FormulaId,
+    progress_bar: indicatif::ProgressBar,
 }
 
 struct SearchSpaceInfo {
@@ -32,208 +34,29 @@ struct SearchSpaceInfo {
     num_nodes: BigUint,
     opened_nodes: BigUint,
     closed_leaves: BigUint,
-    progress_bar: indicatif::ProgressBar,
 }
 
 impl Checker {
-    pub fn check(&self) {
-        eprintln!("Should check-sat with {:#?}", self);
-
-        //self.brute_force();
-        self.recursive_dpll();
-    }
-
-    pub fn brute_force(&self) {
-        let mut assignments = Vec::new();
-        for width in self.variable_widths.iter().cloned() {
-            assignments.push(AbstractBitvector::new(0, RBound::new(width)));
-        }
-
-        let mut iterators: Vec<_> = self
-            .variable_widths
-            .iter()
-            .map(|width| (width, 0..compute_u64_mask(*width)))
-            .collect();
-
-        let mut satisfiable = false;
-
-        loop {
-            let mut early = false;
-            for (index, (width, iterator)) in iterators.iter_mut().enumerate() {
-                match iterator.next() {
-                    Some(value) => {
-                        assignments[index] = AbstractBitvector::new(value, RBound::new(**width));
-
-                        early = true;
-                        break;
-                    }
-                    None => {
-                        *iterator = 0..compute_u64_mask(**width);
-                        assignments[index] = AbstractBitvector::new(0, RBound::new(**width));
-                    }
-                }
-            }
-            if !early {
-                break;
-            }
-
-            let result = self.eval_formula(&assignments, self.assertion);
-
-            let Some(concrete_result) = result.concrete_value() else {
-                panic!("Concrete values should produce concrete result");
-            };
-
-            //eprintln!("Assignments: {:?}, result: {:?}", assignments, result);
-
-            if concrete_result.is_nonzero() {
-                satisfiable = true;
-                eprintln!("Satisfiable: {:?}", assignments);
-                break;
-            }
-        }
-        if !satisfiable {
-            eprintln!("Unsatisfiable");
-        }
-    }
-
-    pub fn recursive_dpll(&self) {
-        let mut total_width = 0u128;
-        let mut assignments = Vec::new();
-        for width in self.variable_widths.iter().cloned() {
-            assignments.push(AbstractBitvector::new_unknown(RBound::new(width)));
-            total_width = total_width
-                .checked_add(width as u128)
-                .expect("Total width should be in u128");
-        }
-
-        let num_leaves = BigUint::one() << total_width;
-        let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
+    pub fn check(variable_widths: Vec<u32>, operations: Vec<Operation>, assertion: FormulaId) {
+        eprintln!("Checking satisfiability");
 
         let progress_bar = indicatif::ProgressBar::new(PRECISION_CONST);
-
         progress_bar.set_style(
             ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}").unwrap(),
         );
 
-        let mut info = SearchSpaceInfo {
-            total_width,
-            num_leaves,
-            num_nodes,
-            opened_nodes: BigUint::zero(),
-            closed_leaves: BigUint::zero(),
+        let checker = Self {
+            variable_widths,
+            operations,
+            assertion,
             progress_bar,
         };
 
-        let satisfiable = self.dpll_recursion(&mut info, &mut assignments, 0, 0, 0);
-
-        if !satisfiable {
-            info.progress_bar.set_position(PRECISION_CONST);
-            info.progress_bar.set_message("100.00%");
-            info.progress_bar.finish();
-            eprintln!("Unsatisfiable");
-        }
-
-        let percent_opened_nodes = percent(&info.opened_nodes, &info.num_nodes);
-        let percent_closed_leaves = percent(&info.closed_leaves, &info.num_leaves);
-
-        eprintln!(
-            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%)",
-            info.num_nodes,
-            info.opened_nodes,
-            percent_opened_nodes,
-            info.num_leaves,
-            info.closed_leaves,
-            percent_closed_leaves
-        );
+        //checker.brute_force();
+        checker.recursive_dpll();
     }
 
-    fn dpll_recursion(
-        &self,
-        info: &mut SearchSpaceInfo,
-        assignments: &mut [AbstractBitvector<RBound>],
-        decision_level: u128,
-        variable_index: usize,
-        bit_index: u32,
-    ) -> bool {
-        info.opened_nodes += 1u32;
-
-        if decision_level < 12 {
-            // update progress bar
-            let progress = (info.closed_leaves.clone() * PRECISION_CONST) / info.num_leaves.clone();
-
-            let progress_ratio = progress.to_f32().unwrap_or(f32::NAN) / PRECISION_CONST as f32;
-            let progress_percent = progress_ratio * 100.;
-
-            info.progress_bar
-                .set_position(progress.to_u64().unwrap_or(0));
-            info.progress_bar
-                .set_message(format!("{:.2}%", progress_percent));
-        }
-
-        let result = self.eval_formula(assignments, self.assertion);
-
-        if let Some(concrete_result) = result.concrete_value() {
-            if concrete_result.is_nonzero() {
-                eprintln!("Satisfiable: {:?}", assignments);
-                return true;
-            } else {
-                // unsatisfiable branch
-                info.closed_leaves += BigUint::one() << (info.total_width - decision_level);
-
-                return false;
-            }
-        };
-
-        let original_value = assignments[variable_index];
-        let bound = original_value.bound();
-        let bit_index_mask = ConcreteBitvector::from_masked_u64(1 << bit_index, bound);
-
-        let next_decision_level = decision_level + 1;
-        let mut next_variable_index = variable_index;
-        let mut next_bit_index = bit_index + 1;
-        if next_bit_index >= bound.width() {
-            next_bit_index = 0;
-            next_variable_index += 1;
-        }
-
-        // assign zero
-
-        assignments[variable_index] = original_value.bit_and(
-            ThreeValuedBitvector::from_concrete_value(bit_index_mask.bit_not()),
-        );
-
-        if self.dpll_recursion(
-            info,
-            assignments,
-            next_decision_level,
-            next_variable_index,
-            next_bit_index,
-        ) {
-            return true;
-        }
-
-        // assign one
-
-        assignments[variable_index] =
-            original_value.bit_or(ThreeValuedBitvector::from_concrete_value(bit_index_mask));
-
-        if self.dpll_recursion(
-            info,
-            assignments,
-            next_decision_level,
-            next_variable_index,
-            next_bit_index,
-        ) {
-            return true;
-        }
-
-        // go back to unknown
-        assignments[variable_index] = original_value;
-
-        false
-    }
-
-    pub fn eval_formula(
+    fn eval_formula(
         &self,
         assignments: &[AbstractBitvector<RBound>],
         formula_id: FormulaId,
