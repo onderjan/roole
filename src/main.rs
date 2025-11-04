@@ -30,9 +30,9 @@ fn main() {
     };
     let reader = BufReader::new(file);
 
-    println!("Evaluating file {}", path);
+    eprintln!("Evaluating file {}", path);
 
     parse::evaluate(reader, Some(path));
 
-    println!("Finished evaluation");
+    eprintln!("Finished evaluation");
 }

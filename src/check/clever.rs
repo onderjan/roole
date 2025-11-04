@@ -142,9 +142,9 @@ impl super::Checker {
             space.learned_assignments.len(),
         );
 
-        /*for learned in space.learned_assignments {
-            eprintln!("Learned: {:?}", learned);
-        }*/
+        for learned in space.learned_assignments {
+            println!("{:?}", learned);
+        }
 
         result
     }

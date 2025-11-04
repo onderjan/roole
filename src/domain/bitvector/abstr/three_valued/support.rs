@@ -119,9 +119,13 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     #[must_use]
     pub fn contains(&self, rhs: &Self) -> bool {
         // rhs zeros must be within our zeros and rhs ones must be within our ones
-        let excessive_rhs_zeros = rhs.zeros.bit_and(self.zeros.bit_not());
-        let excessive_rhs_ones = rhs.ones.bit_and(self.ones.bit_not());
-        excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
+        // make faster by using the primitives directly
+        // and only asserting bound equality in debug mode
+        debug_assert_eq!(self.bound(), rhs.bound());
+
+        let excessive_rhs_zeros = rhs.zeros.to_u64() & (!self.zeros.to_u64());
+        let excessive_rhs_ones = rhs.ones.to_u64() & (!self.ones.to_u64());
+        excessive_rhs_zeros == 0 && excessive_rhs_ones == 0
     }
 
     #[allow(dead_code)]
