@@ -28,14 +28,6 @@ pub struct Checker {
     progress_bar: indicatif::ProgressBar,
 }
 
-struct SearchSpaceInfo {
-    total_width: u128,
-    num_leaves: BigUint,
-    num_nodes: BigUint,
-    opened_nodes: BigUint,
-    closed_leaves: BigUint,
-}
-
 impl Checker {
     pub fn check(variable_widths: Vec<u32>, operations: Vec<Operation>, assertion: FormulaId) {
         eprintln!("Checking satisfiability");
