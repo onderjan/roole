@@ -263,7 +263,7 @@ impl super::Checker {
 
         //assert!(!self.is_learned(space, &space.learning_assignment));
 
-        println!("Learned assignment {:?}", space.learning_assignment);
+        //println!("Learned assignment {:?}", space.learning_assignment);
 
         /*eprintln!(
             "Unnecesary decisions\nfrom {:?}\ninto {:?}",

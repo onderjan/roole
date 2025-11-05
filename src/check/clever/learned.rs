@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use num::{BigUint, Zero};
 
 use crate::{
@@ -8,11 +10,12 @@ use crate::{
 pub struct Learned {
     assignments: Vec<Assignment>,
 
-    bdd: Vec<LearnedNode>,
+    bdd_list: Vec<LearnedNode>,
+    bdd_unique: HashMap<LearnedNode, usize>,
     bdd_index: Option<isize>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct LearnedNode {
     var: u64,
     low: isize,
@@ -26,19 +29,49 @@ impl Learned {
     pub fn new() -> Self {
         Self {
             assignments: Vec::new(),
-            bdd: vec![],
+            bdd_list: vec![],
+            bdd_unique: HashMap::new(),
             bdd_index: None,
         }
     }
 
     pub fn print(&self) {
-        //println!("BDD: {:#?}", self.bdd);
+        //println!("BDD: {:#?}", self.bdd_list);
 
-        for (index, bdd) in self.bdd.iter().enumerate() {
+        let Some(bdd_index) = self.bdd_index else {
+            return;
+        };
+
+        let mut open = vec![bdd_index];
+        let mut closed = Vec::new();
+
+        println!("digraph G {{");
+
+        while let Some(index) = open.pop() {
+            if closed.contains(&index) {
+                continue;
+            }
+
+            if index == NODE_ZERO_INDEX {
+                println!("{} [label=\"f\"]", index);
+                continue;
+            } else if index == NODE_ONE_INDEX {
+                println!("{} [label=\"t\"]", index);
+                continue;
+            }
+
+            let bdd = &self.bdd_list[index as usize];
+
             println!("{} [label=\"{}\"]", index, bdd.var);
-            println!("{} -> {} [style=\"dashed\"]", index, bdd.low);
             println!("{} -> {}", index, bdd.high);
+            println!("{} -> {} [style=\"dashed\"]", index, bdd.low);
+
+            open.push(bdd.low);
+            open.push(bdd.high);
+            closed.push(index);
         }
+
+        println!("}}\n\n\n");
     }
 
     pub fn number(&self) -> usize {
@@ -66,6 +99,8 @@ impl Learned {
         }
 
         self.assignments.push(assignment.clone());
+
+        //self.print();
     }
 
     fn bdd_state(&mut self, assignment: &Assignment) -> isize {
@@ -77,29 +112,34 @@ impl Learned {
             let zero = zeros.bit(i);
             let one = ones.bit(i);
 
-            match (zero, one) {
+            let new_node = match (zero, one) {
                 (true, true) => {
                     // both possible, do nothing
+                    None
                 }
-                (true, false) => {
-                    self.bdd.push(LearnedNode {
-                        var: i,
-                        low: bdd_index,
-                        high: NODE_ZERO_INDEX,
-                    });
-
-                    bdd_index = (self.bdd.len() - 1) as isize;
-                }
-                (false, true) => {
-                    self.bdd.push(LearnedNode {
-                        var: i,
-                        low: NODE_ZERO_INDEX,
-                        high: bdd_index,
-                    });
-
-                    bdd_index = (self.bdd.len() - 1) as isize;
-                }
+                (true, false) => Some(LearnedNode {
+                    var: i,
+                    low: bdd_index,
+                    high: NODE_ZERO_INDEX,
+                }),
+                (false, true) => Some(LearnedNode {
+                    var: i,
+                    low: NODE_ZERO_INDEX,
+                    high: bdd_index,
+                }),
                 (false, false) => panic!("Three-valued bit must be either zero or one"),
+            };
+
+            if let Some(new_node) = new_node {
+                assert_ne!(new_node.low, new_node.high);
+
+                if let Some(unique_index) = self.bdd_unique.get(&new_node) {
+                    bdd_index = *unique_index as isize;
+                } else {
+                    self.bdd_list.push(new_node);
+                    self.bdd_unique.insert(new_node, self.bdd_list.len() - 1);
+                    bdd_index = (self.bdd_list.len() - 1) as isize;
+                }
             }
         }
 
@@ -107,6 +147,10 @@ impl Learned {
     }
 
     fn bdd_union(&mut self, left: isize, right: isize) -> isize {
+        if left == right {
+            return left;
+        }
+
         if left == NODE_ZERO_INDEX && right == NODE_ZERO_INDEX {
             return NODE_ZERO_INDEX;
         }
@@ -124,8 +168,10 @@ impl Learned {
         assert!(left >= 0);
         assert!(right >= 0);
 
-        let left_node = self.bdd[left as usize];
-        let right_node = self.bdd[right as usize];
+        assert_ne!(left, right);
+
+        let left_node = self.bdd_list[left as usize];
+        let right_node = self.bdd_list[right as usize];
 
         let node = if left_node.var < right_node.var {
             LearnedNode {
@@ -147,8 +193,19 @@ impl Learned {
             }
         };
 
-        self.bdd.push(node);
-        (self.bdd.len() - 1) as isize
+        if node.low == node.high {
+            return node.low;
+        }
+
+        if let Some(unique_index) = self.bdd_unique.get(&node) {
+            *unique_index as isize
+        } else {
+            assert_ne!(node.low, node.high);
+
+            self.bdd_list.push(node);
+            self.bdd_unique.insert(node, self.bdd_list.len() - 1);
+            (self.bdd_list.len() - 1) as isize
+        }
     }
 }
 
