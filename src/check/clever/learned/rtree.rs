@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use crate::check::Assignment;
 
 #[derive(Debug, Clone)]
@@ -6,6 +8,8 @@ pub struct RTree {
 }
 
 const MAXIMUM_ENTRIES: usize = 8;
+const MINIMUM_ENTRIES: usize = MAXIMUM_ENTRIES / 2;
+//const MINIMUM_ENTRIES: usize = 4;
 
 impl RTree {
     pub fn new() -> Self {
@@ -175,12 +179,11 @@ impl NonLeaf {
                     NodeUpward::Inserted(together_bound)
                 } else {
                     // split
-                    // TODO: implement reasonable splits
-                    let mut second_part = self.entries.split_off(MAXIMUM_ENTRIES / 2);
-                    second_part.push((new_node.compute_bound(), new_node));
+                    let new_entry = (new_node.compute_bound(), new_node);
+                    let new_entries = split_entries(&mut self.entries, new_entry, |entry| &entry.0);
 
                     NodeUpward::Split(Node::NonLeaf(NonLeaf {
-                        entries: second_part,
+                        entries: new_entries,
                     }))
                 }
             }
@@ -223,10 +226,9 @@ impl Leaf {
         } else {
             // split
             // TODO: implement reasonable splits
-            let mut second_part = self.entries.split_off(MAXIMUM_ENTRIES / 2);
-            second_part.push(assignment);
+            let new_entries = split_entries(&mut self.entries, assignment, |a| a);
             NodeUpward::Split(Node::Leaf(Leaf {
-                entries: second_part,
+                entries: new_entries,
             }))
         }
     }
@@ -249,4 +251,128 @@ fn compute_assignments_bound<'a>(
             }
         })
         .expect("Assignments should have at least one element")
+}
+
+fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
+    our_entries: &mut Vec<T>,
+    new_entry: T,
+    bound_fn: F,
+) -> Vec<T> {
+    // Guttman quadratic for now
+    // pick seeds
+    our_entries.push(new_entry);
+
+    //eprintln!("Splitting: {:?}", our_entries);
+
+    let mut chosen = None;
+
+    let mut first_iter = our_entries.iter().enumerate();
+    while let Some((first_index, first)) = first_iter.next() {
+        let first_bound = bound_fn(first);
+        for (second_index, second) in first_iter.clone() {
+            let second_bound = bound_fn(second);
+            // calculate inefficiency
+            let first_volume = first_bound.volume();
+            let second_volume = second_bound.volume();
+            let join_volume = first_bound.clone().join(second_bound).volume();
+
+            let inefficiency =
+                //(1i64 << join_volume) - (1i64 << first_volume) - (1i64 << second_volume);
+                join_volume as i64 - first_volume as i64 - second_volume as i64;
+
+            // choose the most inefficient pair
+            let replace_chosen = if let Some((chosen_inefficiency, _, _)) = chosen {
+                inefficiency > chosen_inefficiency
+            } else {
+                true
+            };
+
+            if replace_chosen {
+                chosen = Some((inefficiency, first_index, second_index));
+            }
+        }
+    }
+
+    let (_inefficiency, first_index, second_index) =
+        chosen.expect("Most inefficient combination should be chosen");
+
+    //eprintln!("Inefficiency: {}", inefficiency);
+
+    // remove second index first to avoid too much shifting and other index renumbering
+
+    let second_seed = our_entries.remove(second_index);
+    let mut second_bound = (bound_fn)(&second_seed).clone();
+    let mut second_group = vec![second_seed];
+
+    let first_seed = our_entries.remove(first_index);
+    let mut first_bound = (bound_fn)(&first_seed).clone();
+    let mut first_group = vec![first_seed];
+
+    let mut remaining_entries = our_entries.len();
+
+    for entry in our_entries.drain(..) {
+        /*eprintln!(
+            "F: {:?} S: {:?} ({}, {}, {})",
+            first_group,
+            second_group,
+            first_group.len(),
+            second_group.len(),
+            MINIMUM_ENTRIES
+        );*/
+        let (insert_to_first, join) = if remaining_entries + first_group.len() <= MINIMUM_ENTRIES {
+            //eprintln!("First");
+            let first_join = (bound_fn)(&entry).clone().join(&first_bound);
+            (true, first_join)
+        } else if remaining_entries + second_group.len() <= MINIMUM_ENTRIES {
+            //eprintln!("Second");
+            let second_join = (bound_fn)(&entry).clone().join(&second_bound);
+            (false, second_join)
+        } else {
+            //eprintln!("Decide");
+            let bound = (bound_fn)(&entry);
+            // compute which group will be enlarged the least
+            let first_join = bound.clone().join(&first_bound);
+            let second_join = bound.clone().join(&second_bound);
+
+            let first_volume = first_bound.volume();
+            let second_volume = second_bound.volume();
+
+            let first_enlargment = first_join.volume() - first_volume;
+            let second_enlargment = second_join.volume() - second_volume;
+
+            // prefer least enlargement, then smaller volume, then fewer entries
+
+            let insert_to_first = (first_enlargment, first_volume, first_group.len())
+                <= (second_enlargment, second_volume, second_group.len());
+
+            if insert_to_first {
+                (true, first_join)
+            } else {
+                (false, second_join)
+            }
+        };
+
+        if insert_to_first {
+            first_bound = join;
+            first_group.push(entry);
+        } else {
+            second_bound = join;
+            second_group.push(entry);
+        }
+
+        remaining_entries -= 1;
+    }
+
+    /*eprintln!("First group: {:?}", first_group);
+    eprintln!("Second group: {:?}", second_group);
+    eprintln!("Split: {}/{}", first_group.len(), second_group.len());*/
+
+    assert!(first_group.len() >= MINIMUM_ENTRIES);
+    assert!(second_group.len() >= MINIMUM_ENTRIES);
+
+    // assign first group to ours and return second group
+
+    *our_entries = first_group;
+
+    second_group
 }

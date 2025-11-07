@@ -23,9 +23,11 @@ impl Learned {
     }
 
     pub fn contains(&self, assignment: &Assignment) -> bool {
-        self.assignments
-            .iter()
-            .any(|learned| learned.contains(assignment))
+        /*self.assignments
+        .iter()
+        .any(|learned| learned.contains(assignment))*/
+
+        self.rtree.contains(assignment)
     }
 
     pub fn add(&mut self, assignment: &Assignment) {
