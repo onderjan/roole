@@ -1,11 +1,15 @@
 use core::f32;
+use std::fmt::Debug;
 
 use indicatif::ProgressStyle;
 use itertools::Itertools;
 use num::{BigUint, ToPrimitive};
 
 use crate::{
-    domain::bitvector::{RBound, abstr::AbstractBitvector},
+    domain::{
+        bitvector::{RBound, abstr::AbstractBitvector},
+        traits::Join,
+    },
     formula::{FormulaId, Operation},
 };
 
@@ -21,7 +25,7 @@ pub struct Checker {
     progress_bar: indicatif::ProgressBar,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Assignment {
     values: Vec<AbstractBitvector<RBound>>,
 }
@@ -60,6 +64,40 @@ impl Assignment {
             }
         }
         true
+    }
+
+    fn join(mut self, other: &Assignment) -> Assignment {
+        for (our_value, other_value) in self.values.iter_mut().zip_eq(&other.values) {
+            *our_value = our_value.join(other_value);
+        }
+
+        self
+    }
+
+    fn volume(&self) -> u64 {
+        let mut count = 0;
+
+        for our_value in self.values.iter() {
+            count += our_value.get_unknown_bits().to_u64().count_ones() as u64;
+        }
+
+        count
+    }
+}
+
+impl Debug for Assignment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "\"")?;
+        let mut first = true;
+        for value in &self.values {
+            if first {
+                first = false;
+            } else {
+                write!(f, "_")?;
+            }
+            value.write_nonenclosed(f)?;
+        }
+        write!(f, "\"")
     }
 }
 

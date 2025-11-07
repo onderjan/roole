@@ -155,6 +155,13 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         let unknown_mask = ConcreteBitvector::from_ones_width(unknown_positions + 1, bound);
         Self::new_value_unknown(min, unknown_mask)
     }
+
+    pub fn write_nonenclosed(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let zeros = self.zeros.to_u64();
+        let ones = self.ones.to_u64();
+
+        format_zeros_ones(f, self.bound().width(), zeros, ones, false)
+    }
 }
 
 impl<B: BitvectorBound<SingleBit = B>> ThreeValuedBitvector<B> {
@@ -246,7 +253,7 @@ impl<B: BitvectorBound> Debug for ThreeValuedBitvector<B> {
         let zeros = self.zeros.to_u64();
         let ones = self.ones.to_u64();
 
-        format_zeros_ones(f, self.bound().width(), zeros, ones)
+        format_zeros_ones(f, self.bound().width(), zeros, ones, true)
     }
 }
 
@@ -261,6 +268,7 @@ pub fn format_zeros_ones(
     bit_width: u32,
     zeros: u64,
     ones: u64,
+    enclosed: bool,
 ) -> std::fmt::Result {
     let nxor = !(ones ^ zeros);
     if nxor == 0 {
@@ -268,7 +276,9 @@ pub fn format_zeros_ones(
         return write!(f, "{:?}", ones);
     }
 
-    write!(f, "\"")?;
+    if enclosed {
+        write!(f, "\"")?;
+    }
     for little_k in 0..bit_width {
         let big_k = bit_width - little_k - 1;
         let zero = (zeros >> (big_k as usize)) & 1 != 0;
@@ -281,5 +291,5 @@ pub fn format_zeros_ones(
         };
         write!(f, "{}", c)?;
     }
-    write!(f, "\"")
+    if enclosed { write!(f, "\"") } else { Ok(()) }
 }
