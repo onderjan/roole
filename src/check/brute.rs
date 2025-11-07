@@ -8,6 +8,7 @@ use crate::{
 };
 
 impl super::Checker {
+    #[allow(dead_code)]
     pub fn brute_force(&self) -> Option<Assignment> {
         let mut values = Vec::new();
         for width in self.variable_widths.iter().cloned() {
