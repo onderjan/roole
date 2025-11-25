@@ -162,6 +162,27 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
         format_zeros_ones(f, self.bound().width(), zeros, ones, false)
     }
+
+    pub fn set_bit_to_zero(&mut self, bit_index: u32) {
+        let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
+
+        self.zeros = self.zeros.bit_or(bit_mask);
+        self.ones = self.ones.bit_and(bit_mask.bit_not());
+    }
+
+    pub fn set_bit_to_one(&mut self, bit_index: u32) {
+        let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
+
+        self.zeros = self.zeros.bit_and(bit_mask.bit_not());
+        self.ones = self.ones.bit_or(bit_mask);
+    }
+
+    pub fn set_bit_to_unknown(&mut self, bit_index: u32) {
+        let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
+
+        self.zeros = self.zeros.bit_or(bit_mask);
+        self.ones = self.ones.bit_or(bit_mask);
+    }
 }
 
 impl<B: BitvectorBound<SingleBit = B>> ThreeValuedBitvector<B> {
