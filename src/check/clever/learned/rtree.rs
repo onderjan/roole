@@ -2,12 +2,12 @@ use std::fmt::Debug;
 
 use crate::check::Assignment;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct RTree {
     root: Node,
 }
 
-const MAXIMUM_ENTRIES: usize = 8;
+const MAXIMUM_ENTRIES: usize = 4;
 const MINIMUM_ENTRIES: usize = MAXIMUM_ENTRIES / 2;
 //const MINIMUM_ENTRIES: usize = 4;
 
@@ -25,6 +25,7 @@ impl RTree {
     }
 
     pub fn insert(&mut self, assignment: Assignment) {
+        eprintln!("Inserting {:?}", assignment);
         match self.root.insert(assignment) {
             NodeUpward::Inserted(_assignment) => {
                 // do nothing
@@ -40,6 +41,16 @@ impl RTree {
                 });
             }
         }
+
+        eprintln!("After inserting: {:#?}", self);
+
+        /*eprintln!("Inserted");
+
+        let mut buf = String::new();
+        std::io::stderr().flush().expect("Flushing should succeed");
+        std::io::stdin()
+            .read_line(&mut buf)
+            .expect("Reading should succeed");*/
     }
 
     pub fn print_dot(&self) {
@@ -53,7 +64,13 @@ impl RTree {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Debug for RTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.root.fmt(f)
+    }
+}
+
+#[derive(Clone)]
 enum Node {
     NonLeaf(NonLeaf),
     Leaf(Leaf),
@@ -81,6 +98,13 @@ impl Node {
         }
     }
 
+    fn compute_enlargement(&self, assignment: &Assignment) -> i64 {
+        match self {
+            Node::NonLeaf(non_leaf) => non_leaf.compute_enlargement(assignment),
+            Node::Leaf(leaf) => leaf.compute_enlargement(assignment),
+        }
+    }
+
     fn print_dot(&self, unique: &mut u64) {
         let our_unique = *unique;
         *unique += 1;
@@ -105,7 +129,16 @@ impl Node {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Debug for Node {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NonLeaf(arg0) => arg0.fmt(f),
+            Self::Leaf(arg0) => arg0.fmt(f),
+        }
+    }
+}
+
+#[derive(Clone)]
 struct NonLeaf {
     entries: Vec<(Assignment, Node)>,
 }
@@ -126,17 +159,32 @@ impl NonLeaf {
         false
     }
 
+    fn compute_enlargement(&self, assignment: &Assignment) -> i64 {
+        let mut min_enlargement = i64::MAX;
+        //eprintln!("Computing enlargement");
+        for (_, entry_node) in self.entries.iter() {
+            min_enlargement = min_enlargement.min(entry_node.compute_enlargement(assignment));
+        }
+        //eprintln!("Enlargement: {}", min_enlargement);
+        min_enlargement
+    }
+
     fn insert(&mut self, assignment: Assignment) -> NodeUpward {
         // non-leaf node
         let mut chosen = None;
 
+        //eprintln!("Inserting");
+
         for (entry_index, (entry_bound, _entry_node)) in self.entries.iter().enumerate() {
             let entry_volume = entry_bound.volume();
-            let join = assignment.clone().join(entry_bound);
+            /*let join = assignment.clone().join(entry_bound);
             let enlargement = join
                 .volume()
                 .checked_sub(entry_volume)
-                .expect("Join volume should be at least as big as before");
+                .expect("Join volume should be at least as big as before");*/
+
+            // compute enlargement of leafs
+            let enlargement = self.compute_enlargement(&assignment);
 
             if let Some((_, chosen_volume, chosen_enlargement)) = chosen {
                 // prefer smaller enlargement, then same enlargement of smaller volume
@@ -149,6 +197,7 @@ impl NonLeaf {
                 chosen = Some((entry_index, entry_volume, enlargement));
             }
         }
+        eprintln!("Old bound: {:?}", self.compute_bound());
 
         let (chosen_index, _, _) = chosen.expect("Some child should be chosen");
         let num_entries = self.entries.len();
@@ -162,10 +211,19 @@ impl NonLeaf {
                 // TODO: avoid cloning
                 *chosen_bound = chosen_bound.clone().join(&assignment);
                 // we can just keep returning the assignment to enlarge the ancestors as well
+
+                eprintln!("Inserted under non-leaf, now {:?}", self.entries);
                 NodeUpward::Inserted(assignment)
             }
             NodeUpward::Split(new_node) => {
                 *chosen_bound = chosen_node.compute_bound();
+
+                let chosen_clone = chosen_bound.clone();
+
+                eprintln!(
+                    "Split under non-leaf to {:?} and {:?}",
+                    self.entries, new_node
+                );
 
                 // propagate node split upward
                 // TODO: deduplicate logic
@@ -173,9 +231,14 @@ impl NonLeaf {
                 if num_entries < MAXIMUM_ENTRIES {
                     // insert child
                     let new_node_bound = new_node.compute_bound();
-                    let together_bound = chosen_bound.clone().join(&new_node_bound);
+                    let together_bound = chosen_clone.join(&new_node_bound);
+
+                    eprintln!("After spl: {:?}", self.compute_bound());
 
                     self.entries.push((new_node_bound, new_node));
+
+                    eprintln!("New bound: {:?}", self.compute_bound());
+
                     NodeUpward::Inserted(together_bound)
                 } else {
                     // split
@@ -195,7 +258,19 @@ impl NonLeaf {
     }
 }
 
-#[derive(Debug, Clone)]
+impl Debug for NonLeaf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut franz = f.debug_map();
+
+        for (bound, node) in &self.entries {
+            franz.entry(bound, node);
+        }
+
+        franz.finish()
+    }
+}
+
+#[derive(Clone)]
 struct Leaf {
     entries: Vec<Assignment>,
 }
@@ -236,6 +311,39 @@ impl Leaf {
     fn compute_bound(&self) -> Assignment {
         compute_assignments_bound(&self.entries)
     }
+
+    fn compute_enlargement(&self, assignment: &Assignment) -> i64 {
+        let mut least_differences = u64::MAX;
+        for entry in &self.entries {
+            let differences = entry.num_differences(assignment);
+            least_differences = least_differences.min(differences);
+        }
+
+        least_differences as i64
+
+        //let our_bound = self.compute_bound();
+        //let join_bound = our_bound.clone().join(assignment);
+
+        /*eprintln!("Our assignments: {:?}", self.entries);
+
+        eprintln!(
+            "Ours: {:?} (volume {}), assignment: {:?} (volume {}), join: {:?} (volume {})",
+            our_bound,
+            our_bound.volume(),
+            assignment,
+            assignment.volume(),
+            join_bound,
+            join_bound.volume()
+        );*/
+
+        //join_bound.volume() as i64 - assignment.volume() as i64
+    }
+}
+
+impl Debug for Leaf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(&self.entries).finish()
+    }
 }
 
 fn compute_assignments_bound<'a>(
@@ -272,13 +380,15 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
         for (second_index, second) in first_iter.clone() {
             let second_bound = bound_fn(second);
             // calculate inefficiency
-            let first_volume = first_bound.volume();
+            /*let first_volume = first_bound.volume();
             let second_volume = second_bound.volume();
             let join_volume = first_bound.clone().join(second_bound).volume();
 
             let inefficiency =
                 //(1i64 << join_volume) - (1i64 << first_volume) - (1i64 << second_volume);
                 join_volume as i64 - first_volume as i64 - second_volume as i64;
+            */
+            let inefficiency = first_bound.num_differences(second_bound);
 
             // choose the most inefficient pair
             let replace_chosen = if let Some((chosen_inefficiency, _, _)) = chosen {
@@ -308,6 +418,76 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
     let mut first_bound = (bound_fn)(&first_seed).clone();
     let mut first_group = vec![first_seed];
 
+    while !our_entries.is_empty() {
+        if our_entries.len() + first_group.len() <= MINIMUM_ENTRIES {
+            eprintln!("Forcing first");
+
+            for entry in our_entries.drain(..) {
+                let bound = (bound_fn)(&entry);
+                first_bound = bound.clone().join(&first_bound);
+                first_group.push(entry);
+            }
+
+            break;
+        }
+
+        if our_entries.len() + second_group.len() <= MINIMUM_ENTRIES {
+            eprintln!("Forcing second");
+
+            for entry in our_entries.drain(..) {
+                let bound = (bound_fn)(&entry);
+                second_bound = bound.clone().join(&second_bound);
+                second_group.push(entry);
+            }
+
+            break;
+        }
+
+        let mut chosen = None;
+
+        for (index, entry) in our_entries.iter().enumerate() {
+            let bound = (bound_fn)(entry);
+
+            let first_enlargement = bound.num_differences(&first_bound);
+            let second_enlargement = bound.num_differences(&second_bound);
+
+            let (enlargement, insert_to_first) = if first_enlargement <= second_enlargement {
+                (first_enlargement, true)
+            } else {
+                (second_enlargement, false)
+            };
+
+            let join = if insert_to_first {
+                bound.clone().join(&first_bound)
+            } else {
+                bound.clone().join(&second_bound)
+            };
+
+            let replace_chosen = if let Some((chosen_enlargement, _, _, _)) = chosen {
+                enlargement < chosen_enlargement
+            } else {
+                true
+            };
+
+            if replace_chosen {
+                chosen = Some((enlargement, index, insert_to_first, join))
+            }
+        }
+
+        let (_, chosen_index, insert_to_first, join) = chosen.expect("Some entry should be chosen");
+
+        let entry = our_entries.remove(chosen_index);
+
+        if insert_to_first {
+            first_bound = join;
+            first_group.push(entry);
+        } else {
+            second_bound = join;
+            second_group.push(entry);
+        }
+    }
+
+    /*
     let mut remaining_entries = our_entries.len();
 
     for entry in our_entries.drain(..) {
@@ -320,11 +500,11 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
             MINIMUM_ENTRIES
         );*/
         let (insert_to_first, join) = if remaining_entries + first_group.len() <= MINIMUM_ENTRIES {
-            //eprintln!("First");
+            eprintln!("Forcing first");
             let first_join = (bound_fn)(&entry).clone().join(&first_bound);
             (true, first_join)
         } else if remaining_entries + second_group.len() <= MINIMUM_ENTRIES {
-            //eprintln!("Second");
+            eprintln!("Forcing second");
             let second_join = (bound_fn)(&entry).clone().join(&second_bound);
             (false, second_join)
         } else {
@@ -337,13 +517,21 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
             let first_volume = first_bound.volume();
             let second_volume = second_bound.volume();
 
-            let first_enlargment = first_join.volume() - first_volume;
-            let second_enlargment = second_join.volume() - second_volume;
+            //let first_enlargement = first_join.volume() - first_volume;
+            //let second_enlargement = second_join.volume() - second_volume;
+
+            let first_enlargement = bound.num_differences(&first_bound);
+            let second_enlargement = bound.num_differences(&second_bound);
+
+            eprintln!(
+                "Deciding {:?}, first bound: {:?}, second bound: {:?}",
+                bound, first_bound, second_bound,
+            );
 
             // prefer least enlargement, then smaller volume, then fewer entries
 
-            let insert_to_first = (first_enlargment, first_volume, first_group.len())
-                <= (second_enlargment, second_volume, second_group.len());
+            let insert_to_first = (first_enlargement, first_volume, first_group.len())
+                <= (second_enlargement, second_volume, second_group.len());
 
             if insert_to_first {
                 (true, first_join)
@@ -361,11 +549,11 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
         }
 
         remaining_entries -= 1;
-    }
+    }*/
 
-    /*eprintln!("First group: {:?}", first_group);
+    eprintln!("First group: {:?}", first_group);
     eprintln!("Second group: {:?}", second_group);
-    eprintln!("Split: {}/{}", first_group.len(), second_group.len());*/
+    /*eprintln!("Split: {}/{}", first_group.len(), second_group.len());*/
 
     assert!(first_group.len() >= MINIMUM_ENTRIES);
     assert!(second_group.len() >= MINIMUM_ENTRIES);
