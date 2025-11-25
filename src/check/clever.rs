@@ -126,6 +126,7 @@ impl super::Checker {
 
         if space.learned.contains(space.partition.assignment()) {
             // part unsatisfiable
+            space.partition.set_current_value(false, false);
 
             //space.partitions.inner.push(space.assignment.clone());
 
@@ -151,16 +152,20 @@ impl super::Checker {
             let result = self.eval_formula(space.partition.assignment(), self.assertion);
 
             let Some(concrete_result) = result.concrete_value() else {
-                // unknown result, just push another decision
-                space.partition.push_zero_decision();
+                // unknown result, choose another decision
+                space.partition.choose_decision();
                 return ControlFlow::Continue(());
             };
             if concrete_result.is_nonzero() {
                 // satisfiable with these decisions, break immediately
+                space.partition.set_current_value(true, true);
                 return ControlFlow::Break(true);
             }
 
-            // unsatisfiable with these decisions, learn
+            // unsatisfiable with these decisions
+            space.partition.set_current_value(false, true);
+
+            // learn
             self.learn(space);
         };
 
