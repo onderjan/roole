@@ -5,16 +5,13 @@ use std::ops::ControlFlow;
 use crate::{
     check::{
         Assignment, PRECISION_CONST,
-        clever::{learned::Learned, partition::Partition},
+        clever::{
+            learned::Learned,
+            partition::{Partition, ValueType},
+        },
         percent,
     },
-    domain::{
-        bitvector::{
-            RBound,
-            abstr::{AbstractBitvector, BitvectorDomain},
-        },
-        value::ThreeValued,
-    },
+    domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
 };
 
 mod learned;
@@ -37,20 +34,13 @@ impl SearchSpace {}
 
 impl super::Checker {
     pub fn dpll(&self) -> Option<Assignment> {
-        let mut total_width = 0u64;
-        let mut values = Vec::new();
-        for width in self.variable_widths.iter().cloned() {
-            values.push(AbstractBitvector::new_unknown(RBound::new(width)));
-            total_width = total_width
-                .checked_add(width as u64)
-                .expect("Total width should be in u64");
-        }
+        let total_width: u64 = self.variable_widths.iter().map(|width| *width as u64).sum();
 
         let num_leaves = BigUint::one() << total_width;
         let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
 
         let mut space = SearchSpace {
-            partition: Partition::new(Assignment { values }),
+            partition: Partition::new(&self.variable_widths),
 
             learned: Learned::new(),
             learning_assignment: Assignment { values: Vec::new() },
@@ -103,7 +93,7 @@ impl super::Checker {
     }
 
     fn dpll_eval(&self, space: &mut SearchSpace) -> ControlFlow<bool> {
-        //eprintln!("Eval assignments: {:?}", space.assignments);
+        //eprintln!("Eval assignment: {:?}", space.partition.assignment());
         space.opened_nodes += 1u32;
 
         let decision_level = space.partition.decision_level();
@@ -124,46 +114,31 @@ impl super::Checker {
 
         // see if we have already learned this
 
-        if space.learned.contains(space.partition.assignment()) {
-            // part unsatisfiable
-            space.partition.set_current_value(false, false);
+        if let Some(current_value) = space.partition.current_value() {
+            assert!(!current_value);
+        } else if space.learned.contains(space.partition.assignment()) {
+            // already learned that this is false
+            space.partition.set_current_value(false, ValueType::Learned);
 
-            //space.partitions.inner.push(space.assignment.clone());
-
-            /*
-            // backtrack by popping decisions until it is no longer contained within the learned clause
-            let already_learned = already_learned.clone();
-
-            //eprintln!("Ours: {:?}\nLear: {:?}", space.assignment, already_learned);
-
-            if let Some(mut popped_decision) = space.pop_decision() {
-                while already_learned.contains(&space.assignment) {
-                    eprintln!("Backtracked successfully");
-                    if let Some(decision) = space.pop_decision() {
-                        popped_decision = decision;
-                    } else {
-                        break;
-                    }
-                }
-                // push last back
-                space.push_decision(popped_decision);
-            }*/
+            if self.backtrack(space) {
+                return ControlFlow::Continue(());
+            }
         } else {
             let result = self.eval_formula(space.partition.assignment(), self.assertion);
 
             let Some(concrete_result) = result.concrete_value() else {
-                // unknown result, choose another decision
-                space.partition.choose_decision();
+                // unknown result, choose false decision
+                space.partition.choose_decision(false);
                 return ControlFlow::Continue(());
             };
             if concrete_result.is_nonzero() {
                 // satisfiable with these decisions, break immediately
-                space.partition.set_current_value(true, true);
+                space.partition.set_current_value(true, ValueType::Normal);
                 return ControlFlow::Break(true);
             }
 
             // unsatisfiable with these decisions
-            space.partition.set_current_value(false, true);
+            space.partition.set_current_value(false, ValueType::Normal);
 
             // learn
             self.learn(space);
@@ -186,7 +161,7 @@ impl super::Checker {
             .learning_assignment
             .clone_from(space.partition.assignment());
 
-        for decision in space.partition.rev_decision_iter() {
+        for (decision, _phase, _uses_backtracking) in space.partition.rev_decision_iter() {
             // make decision bit unknown
             let original = space.learning_assignment.values[decision.variable_index];
             space.learning_assignment.values[decision.variable_index]
@@ -212,5 +187,70 @@ impl super::Checker {
             space.assignment, space.learning_assignment
         );*/
         space.learned.add(&space.learning_assignment);
+    }
+
+    fn backtrack(&self, space: &mut SearchSpace) -> bool {
+        // for backtracking, we will try to successively make unknown every decision except last
+
+        let decision_level = space.partition.decision_level();
+
+        let mut backtrack_assignment = space.partition.assignment().clone();
+
+        let mut rev_decision_iter = space.partition.rev_decision_iter();
+
+        let Some((_last_decision, last_phase, _uses_backtracking)) = rev_decision_iter.next()
+        else {
+            // no backtracking possible
+            return false;
+        };
+
+        let mut num_inspected_levels = 0;
+        let mut num_yoinked_levels = 0;
+
+        for (decision, _phase, uses_backtracking) in rev_decision_iter {
+            // undo decision
+            backtrack_assignment.values[decision.variable_index]
+                .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
+
+            if !space.learned.contains(&backtrack_assignment) {
+                // cannot backtrack anymore
+                break;
+            }
+
+            num_inspected_levels += 1;
+
+            if !uses_backtracking {
+                // levels up to this decision level should be yoinked
+                num_yoinked_levels = num_inspected_levels;
+            }
+        }
+
+        if num_yoinked_levels == 0 {
+            // no backtracking to do
+            return false;
+        }
+
+        // pop last decision
+        space.partition.pop_decision();
+
+        // yoink decisions that do not contribute
+        for _ in 0..num_yoinked_levels {
+            space.partition.pop_decision();
+        }
+
+        /*eprintln!(
+            "Yoinking {} levels: {:?}",
+            num_yoinked_levels,
+            space.partition.assignment()
+        );*/
+
+        // force next decision
+        space
+            .partition
+            .force_next_decision(decision_level, last_phase, false);
+
+        //eprintln!("After forcing: {:?}", space.partition.assignment());
+
+        true
     }
 }

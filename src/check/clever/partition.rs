@@ -1,9 +1,9 @@
-use std::{fs::File, io::BufWriter};
+use std::{fmt::Debug, fs::File, io::BufWriter};
 
 use crate::{
     check::Assignment,
     domain::{
-        bitvector::{BitvectorBound, abstr::BitvectorDomain},
+        bitvector::{RBound, abstr::AbstractBitvector},
         value::ThreeValued,
     },
 };
@@ -11,13 +11,14 @@ use crate::{
 #[derive(Debug)]
 pub struct Partition {
     nodes: Vec<Node>,
+    decision_order: Vec<Decision>,
 
     current_node: Option<usize>,
     assignment: Assignment,
     decision_level: u64,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Decision {
     pub variable_index: usize,
     pub bit_index: u32,
@@ -46,13 +47,36 @@ struct NonLeaf {
 #[derive(Debug)]
 struct Value {
     inner: bool,
-    novel: bool,
+    ty: ValueType,
+}
+
+#[derive(Debug)]
+pub enum ValueType {
+    Normal,
+    Learned,
+    Backtracked,
 }
 
 impl Partition {
-    pub fn new(start_assignment: Assignment) -> Self {
+    pub fn new(variable_widths: &[u32]) -> Self {
+        // fully unknown assignment at the start
+        let mut assignment = Assignment { values: Vec::new() };
+        let mut decision_order = Vec::new();
+        for (variable_index, width) in variable_widths.iter().cloned().enumerate() {
+            assignment
+                .values
+                .push(AbstractBitvector::new_unknown(RBound::new(width)));
+            for bit_index in 0..width {
+                decision_order.push(Decision {
+                    variable_index,
+                    bit_index,
+                });
+            }
+        }
+
         Self {
-            assignment: start_assignment,
+            assignment,
+            decision_order,
             nodes: vec![Node {
                 parent: None,
                 ty: NodeType::Absent,
@@ -62,57 +86,29 @@ impl Partition {
         }
     }
 
-    pub fn set_current_value(&mut self, value: bool, novel: bool) {
+    pub fn current_value(&self) -> Option<bool> {
+        let current_node = self.current_node?;
+
+        match &self.nodes[current_node].ty {
+            NodeType::Absent => None,
+            NodeType::NonLeaf(_) => None,
+            NodeType::Value(value) => Some(value.inner),
+        }
+    }
+
+    pub fn set_current_value(&mut self, value: bool, ty: ValueType) {
         let current_node =
             &mut self.nodes[self.current_node.expect("Current node should be present")];
 
         assert!(matches!(current_node.ty, NodeType::Absent));
 
-        current_node.ty = NodeType::Value(Value {
-            inner: value,
-            novel,
-        });
+        current_node.ty = NodeType::Value(Value { inner: value, ty });
     }
 
-    pub fn choose_decision(&mut self) {
-        //eprintln!("Choosing decision: {:?}", self);
-
-        let current_node =
-            &mut self.nodes[self.current_node.expect("Current node should be present")];
-
-        let Some(parent_node) = current_node.parent else {
-            self.make_nonleaf(Decision {
-                variable_index: 0,
-                bit_index: 0,
-            });
-            self.push_decision(false);
-            return;
-        };
-
-        let NodeType::NonLeaf(parent) = &self.nodes[parent_node].ty else {
-            panic!("Parent should be non-leaf");
-        };
-        let parent_decision = parent.decision;
-
-        let mut next_variable_index = parent_decision.variable_index;
-        let mut next_bit_index = parent_decision.bit_index + 1;
-        if next_bit_index
-            >= self.assignment.values[parent_decision.variable_index]
-                .bound()
-                .width()
-        {
-            next_bit_index = 0;
-            next_variable_index += 1;
-        }
-
-        self.make_nonleaf(Decision {
-            variable_index: next_variable_index,
-            bit_index: next_bit_index,
-        });
-
-        self.push_decision(false);
-
-        //eprintln!("After choosing decision: {:?}", self);
+    pub fn choose_decision(&mut self, phase: bool) {
+        let decision = self.decision_order[self.decision_level as usize];
+        self.make_nonleaf(decision);
+        self.push_decision(phase);
     }
 
     fn make_nonleaf(&mut self, decision: Decision) {
@@ -136,32 +132,9 @@ impl Partition {
             child_zero,
             child_one,
         });
-
-        /*let new_node_index = self.nodes.len();
-
-                let new_node = Node {
-                    parent: self.current_node,
-                    decision,
-                    child_zero: None,
-                    child_one: None,
-                };
-                self.nodes.push(new_node);
-
-                if let Some(current_node) = self.current_node {
-                    let current_node = &mut self.nodes[current_node];
-                    let child = if decision.is_true {
-                        &mut current_node.child_one
-                    } else {
-                        &mut current_node.child_zero
-                    };
-
-                    assert!(child.is_none());
-                    *child = Some(new_node_index);
-                }
-        */
     }
 
-    fn push_decision(&mut self, selected_one: bool) {
+    pub fn push_decision(&mut self, phase: bool) {
         let current_node = self.current_node.expect("Current node should be present");
 
         let NodeType::NonLeaf(current_node) = &self.nodes[current_node].ty else {
@@ -169,17 +142,15 @@ impl Partition {
         };
         let decision = &current_node.decision;
 
-        if selected_one {
-            // go to child one
-            self.current_node = Some(current_node.child_one);
-            self.assignment.values[decision.variable_index]
-                .set_bit_to_three_valued(decision.bit_index, ThreeValued::True);
-        } else {
-            // go to child zero
-            self.current_node = Some(current_node.child_zero);
-            self.assignment.values[decision.variable_index]
-                .set_bit_to_three_valued(decision.bit_index, ThreeValued::False);
-        }
+        let (child, value) = match phase {
+            true => (current_node.child_one, ThreeValued::True),
+            false => (current_node.child_zero, ThreeValued::False),
+        };
+
+        self.current_node = Some(child);
+        self.assignment.values[decision.variable_index]
+            .set_bit_to_three_valued(decision.bit_index, value);
+
         self.decision_level += 1;
     }
 
@@ -215,7 +186,20 @@ impl Partition {
         }
     }
 
-    fn pop_decision(&mut self) {
+    /*pub fn last_decision(&self) -> Option<Decision> {
+        let current_node_index = self.current_node.expect("Current node should be present");
+        let current_node = &self.nodes[current_node_index];
+        let Some(parent_node) = current_node.parent else {
+            return None;
+        };
+
+        let NodeType::NonLeaf(parent_nonleaf) = &self.nodes[parent_node].ty else {
+            panic!("Parent should be non-leaf")
+        };
+        Some(parent_nonleaf.decision)
+    }*/
+
+    pub fn pop_decision(&mut self) {
         let current_node = self.current_node.expect("Current node should be present");
         let current_node = &self.nodes[current_node];
         let parent_node = current_node
@@ -232,6 +216,50 @@ impl Partition {
         self.assignment.values[decision.variable_index]
             .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
         self.decision_level -= 1;
+    }
+
+    pub fn force_next_decision(&mut self, force_level: u64, known_phase: bool, known_value: bool) {
+        //eprintln!("Before forcing decision: {:?}", self);
+
+        let next_decision_index = self.decision_level;
+        let force_decision_index = force_level - 1;
+
+        /*eprintln!(
+            "Forcing decision index {} to {}",
+            next_decision_index, force_decision_index
+        );*/
+        //eprintln!("Old decision order: {:?}", self.decision_order);
+        assert_ne!(next_decision_index, force_decision_index);
+        self.decision_order
+            .swap(next_decision_index as usize, force_decision_index as usize);
+        //eprintln!("New decision order: {:?}", self.decision_order);
+
+        // we need to make the current node absent
+        let current_node_index = self.current_node.expect("Current node should be present");
+        let current_node = &mut self.nodes[current_node_index];
+        current_node.ty = NodeType::Absent;
+
+        //eprintln!("After forcing decision: {:?}", self);
+
+        // choose the decision, add backtracked
+
+        let decision = self.decision_order[self.decision_level as usize];
+        self.make_nonleaf(decision);
+        let NodeType::NonLeaf(current_nonleaf) = &mut self.nodes[current_node_index].ty else {
+            panic!("Current node should be nonleaf");
+        };
+        let known_child = match known_phase {
+            false => current_nonleaf.child_zero,
+            true => current_nonleaf.child_one,
+        };
+
+        self.nodes[known_child].ty = NodeType::Value(Value {
+            inner: known_value,
+            ty: ValueType::Backtracked,
+        });
+
+        // resolve the other phase
+        self.push_decision(!known_phase);
     }
 
     pub fn assignment(&self) -> &Assignment {
@@ -260,8 +288,12 @@ impl Partition {
                     writeln!(f, "{} -> {}", index, non_leaf.child_one)?;
                 }
                 NodeType::Value(value) => {
-                    let label = format!("{}{}", value.inner, if value.novel { " (!)" } else { "" });
-                    writeln!(f, "{} [label=\"{}\"]", index, label)?;
+                    let type_label = match value.ty {
+                        ValueType::Normal => "",
+                        ValueType::Learned => " (L)",
+                        ValueType::Backtracked => " (B)",
+                    };
+                    writeln!(f, "{} [label=\"{}{}\"]", index, value.inner, type_label)?;
                 }
             }
         }
@@ -275,29 +307,68 @@ impl Partition {
             .expect("Partition file should be written");
     }
 
-    pub fn rev_decision_iter(&self) -> impl Iterator<Item = Decision> {
-        struct RevDecisionIter<'a>(&'a Vec<Node>, Option<usize>);
+    pub fn rev_decision_iter(&self) -> impl Iterator<Item = (Decision, bool, bool)> {
+        RevDecisionIter(&self.nodes, self.current_node, None)
+    }
+}
 
-        impl Iterator for RevDecisionIter<'_> {
-            type Item = Decision;
+impl Debug for Decision {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.variable_index, self.bit_index)
+    }
+}
 
-            fn next(&mut self) -> Option<Self::Item> {
-                loop {
-                    match self.1 {
-                        Some(current_node) => {
-                            let current_node = &self.0[current_node];
-                            self.1 = current_node.parent;
-                            let NodeType::NonLeaf(current_node) = &current_node.ty else {
-                                continue;
-                            };
-                            return Some(current_node.decision);
-                        }
-                        None => return None,
+struct RevDecisionIter<'a>(&'a Vec<Node>, Option<usize>, Option<bool>);
+
+impl Iterator for RevDecisionIter<'_> {
+    type Item = (Decision, bool, bool);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            match self.1 {
+                Some(current_node_index) => {
+                    let current_node = &self.0[current_node_index];
+                    self.1 = current_node.parent;
+
+                    let result = if let NodeType::NonLeaf(current_node) = &current_node.ty {
+                        let phase_true = self.2.expect("Non-leaf decision phase should be present");
+
+                        let backtracked_fn = |nodes: &Vec<Node>, child: usize| {
+                            matches!(
+                                nodes[child].ty,
+                                NodeType::Value(Value {
+                                    ty: ValueType::Backtracked,
+                                    ..
+                                })
+                            )
+                        };
+
+                        let uses_backtracking = backtracked_fn(self.0, current_node.child_zero)
+                            || backtracked_fn(self.0, current_node.child_one);
+
+                        Some((current_node.decision, phase_true, uses_backtracking))
+                    } else {
+                        None
+                    };
+
+                    let next_phase_true = if let Some(parent) = current_node.parent {
+                        let NodeType::NonLeaf(parent) = &self.0[parent].ty else {
+                            panic!("Parent should be non-leaf")
+                        };
+
+                        Some(current_node_index == parent.child_one)
+                    } else {
+                        None
+                    };
+
+                    self.2 = next_phase_true;
+
+                    if let Some(result) = result {
+                        return Some(result);
                     }
                 }
+                None => return None,
             }
         }
-
-        RevDecisionIter(&self.nodes, self.current_node)
     }
 }

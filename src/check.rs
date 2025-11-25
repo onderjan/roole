@@ -57,10 +57,6 @@ impl Checker {
 }
 
 impl Assignment {
-    fn new() -> Self {
-        Self { values: Vec::new() }
-    }
-
     fn contains(&self, other: &Assignment) -> bool {
         for (our_value, other_value) in self.values.iter().zip_eq(&other.values) {
             if !our_value.contains(other_value) {
