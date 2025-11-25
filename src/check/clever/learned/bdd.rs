@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use num::{BigUint, Zero};
 
 use crate::{
-    check::Assignment,
+    check::{Assignment, clever::learned::Learned},
     domain::bitvector::{BitvectorBound, abstr::BitvectorDomain},
 };
 
@@ -16,14 +16,14 @@ struct LearnedNode {
     high: isize,
 }
 
-pub struct Bdd {
+pub struct BddLearned {
     bdd_list: Vec<LearnedNode>,
     bdd_unique: HashMap<LearnedNode, usize>,
     bdd_index: Option<isize>,
 }
 
-impl Bdd {
-    pub fn new() -> Self {
+impl Learned for BddLearned {
+    fn new() -> Self {
         Self {
             bdd_list: vec![],
             bdd_unique: HashMap::new(),
@@ -31,7 +31,7 @@ impl Bdd {
         }
     }
 
-    pub fn add(&mut self, assignment: &Assignment) {
+    fn add(&mut self, assignment: &Assignment) {
         let assignment_bdd_index = self.bdd_state(assignment);
 
         if let Some(bdd_index) = self.bdd_index {
@@ -41,6 +41,51 @@ impl Bdd {
         }
     }
 
+    fn contains(&self, _assignment: &Assignment) -> bool {
+        todo!("BDD contains")
+    }
+
+    fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
+        let Some(bdd_index) = self.bdd_index else {
+            return Ok(());
+        };
+
+        let mut open = vec![bdd_index];
+        let mut closed = Vec::new();
+
+        writeln!(f, "digraph G {{")?;
+
+        while let Some(index) = open.pop() {
+            if closed.contains(&index) {
+                continue;
+            }
+
+            if index == NODE_ZERO_INDEX {
+                writeln!(f, "{} [label=\"f\"]", index)?;
+                continue;
+            } else if index == NODE_ONE_INDEX {
+                writeln!(f, "{} [label=\"t\"]", index)?;
+                continue;
+            }
+
+            let bdd = &self.bdd_list[index as usize];
+
+            writeln!(f, "{} [label=\"{}\"]", index, bdd.var)?;
+            writeln!(f, "{} -> {}", index, bdd.high)?;
+            writeln!(f, "{} -> {} [style=\"dashed\"]", index, bdd.low)?;
+
+            open.push(bdd.low);
+            open.push(bdd.high);
+            closed.push(index);
+        }
+
+        writeln!(f, "}}\n\n\n")?;
+
+        Ok(())
+    }
+}
+
+impl BddLearned {
     fn bdd_state(&mut self, assignment: &Assignment) -> isize {
         let (zeros, ones, total_width) = assignment_nums(assignment);
 
@@ -144,45 +189,6 @@ impl Bdd {
             self.bdd_unique.insert(node, self.bdd_list.len() - 1);
             (self.bdd_list.len() - 1) as isize
         }
-    }
-
-    pub fn print(&self) {
-        //println!("BDD: {:#?}", self.bdd_list);
-
-        let Some(bdd_index) = self.bdd_index else {
-            return;
-        };
-
-        let mut open = vec![bdd_index];
-        let mut closed = Vec::new();
-
-        println!("digraph G {{");
-
-        while let Some(index) = open.pop() {
-            if closed.contains(&index) {
-                continue;
-            }
-
-            if index == NODE_ZERO_INDEX {
-                println!("{} [label=\"f\"]", index);
-                continue;
-            } else if index == NODE_ONE_INDEX {
-                println!("{} [label=\"t\"]", index);
-                continue;
-            }
-
-            let bdd = &self.bdd_list[index as usize];
-
-            println!("{} [label=\"{}\"]", index, bdd.var);
-            println!("{} -> {}", index, bdd.high);
-            println!("{} -> {} [style=\"dashed\"]", index, bdd.low);
-
-            open.push(bdd.low);
-            open.push(bdd.high);
-            closed.push(index);
-        }
-
-        println!("}}\n\n\n");
     }
 }
 

@@ -1,9 +1,11 @@
+#![allow(dead_code)]
+
 use std::fmt::Debug;
 
-use crate::check::Assignment;
+use crate::check::{Assignment, clever::learned::Learned};
 
 #[derive(Clone)]
-pub struct RTree {
+pub struct RTreeLearned {
     root: Node,
 }
 
@@ -11,8 +13,8 @@ const MAXIMUM_ENTRIES: usize = 4;
 const MINIMUM_ENTRIES: usize = MAXIMUM_ENTRIES / 2;
 //const MINIMUM_ENTRIES: usize = 4;
 
-impl RTree {
-    pub fn new() -> Self {
+impl Learned for RTreeLearned {
+    fn new() -> Self {
         Self {
             root: Node::Leaf(Leaf {
                 entries: Vec::new(),
@@ -20,13 +22,13 @@ impl RTree {
         }
     }
 
-    pub fn contains(&self, assignment: &Assignment) -> bool {
+    fn contains(&self, assignment: &Assignment) -> bool {
         self.root.contains(assignment)
     }
 
-    pub fn insert(&mut self, assignment: Assignment) {
+    fn add(&mut self, assignment: &Assignment) {
         //eprintln!("Inserting {:?}", assignment);
-        match self.root.insert(assignment) {
+        match self.root.insert(assignment.clone()) {
             NodeUpward::Inserted(_assignment) => {
                 // do nothing
             }
@@ -53,7 +55,7 @@ impl RTree {
             .expect("Reading should succeed");*/
     }
 
-    pub fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
+    fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
         //println!("{:#?}", self);
 
         writeln!(f, "digraph {{")?;
@@ -64,7 +66,7 @@ impl RTree {
     }
 }
 
-impl Debug for RTree {
+impl Debug for RTreeLearned {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.root.fmt(f)
     }

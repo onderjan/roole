@@ -47,7 +47,7 @@ impl Checker {
         };
 
         //let result = checker.brute_force();
-        let result = checker.dpll();
+        let result = checker.dpll::<clever::LinearLearned>();
 
         match result {
             Some(assignment) => eprintln!("Satisfiable: {:?}", assignment.values),

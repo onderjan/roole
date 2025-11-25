@@ -1,6 +1,6 @@
 use core::f32;
 use num::{BigUint, One, ToPrimitive, Zero};
-use std::ops::ControlFlow;
+use std::{fs::File, io::BufWriter, ops::ControlFlow};
 
 use crate::{
     check::{
@@ -17,29 +17,30 @@ use crate::{
 mod learned;
 mod partition;
 
-struct SearchSpace {
+pub use learned::*;
+
+struct SearchSpace<L: Learned> {
     partition: Partition,
 
     learning_assignment: Assignment,
-    learned: Learned,
+    learned: L,
 
     total_width: u64,
     num_leaves: BigUint,
     num_nodes: BigUint,
     opened_nodes: BigUint,
     closed_leaves: BigUint,
+    num_learned: usize,
 }
 
-impl SearchSpace {}
-
 impl super::Checker {
-    pub fn dpll(&self) -> Option<Assignment> {
+    pub fn dpll<L: Learned>(&self) -> Option<Assignment> {
         let total_width: u64 = self.variable_widths.iter().map(|width| *width as u64).sum();
 
         let num_leaves = BigUint::one() << total_width;
         let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
 
-        let mut space = SearchSpace {
+        let mut space = SearchSpace::<L> {
             partition: Partition::new(&self.variable_widths),
 
             learned: Learned::new(),
@@ -50,6 +51,7 @@ impl super::Checker {
             num_nodes,
             opened_nodes: BigUint::zero(),
             closed_leaves: BigUint::zero(),
+            num_learned: 0,
         };
 
         let satisfiable = loop {
@@ -79,10 +81,15 @@ impl super::Checker {
             space.num_leaves,
             space.closed_leaves,
             percent_closed_leaves,
-            space.learned.number(),
+            space.num_learned,
         );
 
-        space.learned.write();
+        let learned_file = File::create("learned.dot").expect("Learned file should be created");
+        space
+            .learned
+            .write_dot(&mut BufWriter::new(learned_file))
+            .expect("Learned file should be written");
+
         space.partition.write();
 
         /*for learned in space.learned_assignments {
@@ -92,7 +99,7 @@ impl super::Checker {
         result
     }
 
-    fn dpll_eval(&self, space: &mut SearchSpace) -> ControlFlow<bool> {
+    fn dpll_eval<L: Learned>(&self, space: &mut SearchSpace<L>) -> ControlFlow<bool> {
         //eprintln!("Eval assignment: {:?}", space.partition.assignment());
         space.opened_nodes += 1u32;
 
@@ -154,7 +161,7 @@ impl super::Checker {
         ControlFlow::Continue(())
     }
 
-    fn learn(&self, space: &mut SearchSpace) {
+    fn learn<L: Learned>(&self, space: &mut SearchSpace<L>) {
         //eprintln!("Unsatisfiable part: {:?}", space.assignments);
 
         space
@@ -187,9 +194,10 @@ impl super::Checker {
             space.assignment, space.learning_assignment
         );*/
         space.learned.add(&space.learning_assignment);
+        space.num_learned += 1;
     }
 
-    fn backtrack(&self, space: &mut SearchSpace) -> bool {
+    fn backtrack<L: Learned>(&self, space: &mut SearchSpace<L>) -> bool {
         // for backtracking, we will try to successively make unknown every decision except last
 
         let decision_level = space.partition.decision_level();
@@ -213,8 +221,15 @@ impl super::Checker {
                 .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
 
             if !space.learned.contains(&backtrack_assignment) {
-                // cannot backtrack anymore
-                break;
+                // we still may be able to salvage this by evaluating the formula
+
+                let result = self.eval_formula(&backtrack_assignment, self.assertion);
+
+                let Some(concrete_result) = result.concrete_value() else {
+                    // unknown result, cannot backtrack anymore
+                    break;
+                };
+                assert!(concrete_result.is_zero());
             }
 
             num_inspected_levels += 1;

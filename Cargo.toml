@@ -16,3 +16,6 @@ indicatif = "0.18.2"
 
 [lints.clippy]
 uninlined_format_args = "allow"
+
+[profile.release]
+debug = true
