@@ -25,7 +25,7 @@ impl RTree {
     }
 
     pub fn insert(&mut self, assignment: Assignment) {
-        eprintln!("Inserting {:?}", assignment);
+        //eprintln!("Inserting {:?}", assignment);
         match self.root.insert(assignment) {
             NodeUpward::Inserted(_assignment) => {
                 // do nothing
@@ -42,7 +42,7 @@ impl RTree {
             }
         }
 
-        eprintln!("After inserting: {:#?}", self);
+        // eprintln!("After inserting: {:#?}", self);
 
         /*eprintln!("Inserted");
 
@@ -53,14 +53,14 @@ impl RTree {
             .expect("Reading should succeed");*/
     }
 
-    pub fn print_dot(&self) {
+    pub fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
         //println!("{:#?}", self);
 
-        println!("digraph {{");
-        println!("rankdir=\"LR\"");
-        println!("0 [label=\"root\"]");
-        self.root.print_dot(&mut 0);
-        println!("}}");
+        writeln!(f, "digraph {{")?;
+        writeln!(f, "rankdir=\"LR\"")?;
+        writeln!(f, "0 [label=\"root\"]")?;
+        self.root.write_dot(f, &mut 0)?;
+        writeln!(f, "}}")
     }
 }
 
@@ -105,27 +105,28 @@ impl Node {
         }
     }
 
-    fn print_dot(&self, unique: &mut u64) {
+    fn write_dot<W: std::io::Write>(&self, f: &mut W, unique: &mut u64) -> std::io::Result<()> {
         let our_unique = *unique;
         *unique += 1;
         match self {
             Node::NonLeaf(non_leaf) => {
                 for (entry_bound, entry_node) in &non_leaf.entries {
                     let bound_string = format!("{:?}", entry_bound).replace("\"", "\\\"");
-                    println!("{} [label=\"{}\"]", unique, bound_string);
-                    println!("{} -> {}", our_unique, unique);
-                    entry_node.print_dot(unique);
+                    writeln!(f, "{} [label=\"{}\"]", unique, bound_string)?;
+                    writeln!(f, "{} -> {}", our_unique, unique)?;
+                    entry_node.write_dot(f, unique)?;
                 }
             }
             Node::Leaf(leaf) => {
                 for entry in &leaf.entries {
                     let bound_string = format!("{:?}", entry).replace("\"", "\\\"");
-                    println!("{} [label=\"{}\"]", unique, bound_string);
-                    println!("{} -> {}", our_unique, unique);
+                    writeln!(f, "{} [label=\"{}\"]", unique, bound_string)?;
+                    writeln!(f, "{} -> {}", our_unique, unique)?;
                     *unique += 1;
                 }
             }
         }
+        Ok(())
     }
 }
 
@@ -197,7 +198,7 @@ impl NonLeaf {
                 chosen = Some((entry_index, entry_volume, enlargement));
             }
         }
-        eprintln!("Old bound: {:?}", self.compute_bound());
+        //eprintln!("Old bound: {:?}", self.compute_bound());
 
         let (chosen_index, _, _) = chosen.expect("Some child should be chosen");
         let num_entries = self.entries.len();
@@ -212,7 +213,7 @@ impl NonLeaf {
                 *chosen_bound = chosen_bound.clone().join(&assignment);
                 // we can just keep returning the assignment to enlarge the ancestors as well
 
-                eprintln!("Inserted under non-leaf, now {:?}", self.entries);
+                //eprintln!("Inserted under non-leaf, now {:?}", self.entries);
                 NodeUpward::Inserted(assignment)
             }
             NodeUpward::Split(new_node) => {
@@ -220,10 +221,10 @@ impl NonLeaf {
 
                 let chosen_clone = chosen_bound.clone();
 
-                eprintln!(
+                /*eprintln!(
                     "Split under non-leaf to {:?} and {:?}",
                     self.entries, new_node
-                );
+                );*/
 
                 // propagate node split upward
                 // TODO: deduplicate logic
@@ -233,11 +234,11 @@ impl NonLeaf {
                     let new_node_bound = new_node.compute_bound();
                     let together_bound = chosen_clone.join(&new_node_bound);
 
-                    eprintln!("After spl: {:?}", self.compute_bound());
+                    //eprintln!("After spl: {:?}", self.compute_bound());
 
                     self.entries.push((new_node_bound, new_node));
 
-                    eprintln!("New bound: {:?}", self.compute_bound());
+                    //eprintln!("New bound: {:?}", self.compute_bound());
 
                     NodeUpward::Inserted(together_bound)
                 } else {
@@ -420,7 +421,7 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
 
     while !our_entries.is_empty() {
         if our_entries.len() + first_group.len() <= MINIMUM_ENTRIES {
-            eprintln!("Forcing first");
+            //eprintln!("Forcing first");
 
             for entry in our_entries.drain(..) {
                 let bound = (bound_fn)(&entry);
@@ -432,7 +433,7 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
         }
 
         if our_entries.len() + second_group.len() <= MINIMUM_ENTRIES {
-            eprintln!("Forcing second");
+            //eprintln!("Forcing second");
 
             for entry in our_entries.drain(..) {
                 let bound = (bound_fn)(&entry);
@@ -551,9 +552,9 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
         remaining_entries -= 1;
     }*/
 
-    eprintln!("First group: {:?}", first_group);
+    /*eprintln!("First group: {:?}", first_group);
     eprintln!("Second group: {:?}", second_group);
-    /*eprintln!("Split: {}/{}", first_group.len(), second_group.len());*/
+    eprintln!("Split: {}/{}", first_group.len(), second_group.len());*/
 
     assert!(first_group.len() >= MINIMUM_ENTRIES);
     assert!(second_group.len() >= MINIMUM_ENTRIES);

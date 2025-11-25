@@ -1,3 +1,5 @@
+use std::{fs::File, io::BufWriter};
+
 use crate::check::{Assignment, clever::learned::rtree::RTree};
 
 mod bdd;
@@ -46,8 +48,12 @@ impl Learned {
         //self.print();
     }
 
-    pub fn print(&self) {
+    pub fn write(&self) {
         //self.bdd.print();
-        self.rtree.print_dot();
+
+        let learned_file = File::create("learned.dot").expect("Learned file should be created");
+        self.rtree
+            .write_dot(&mut BufWriter::new(learned_file))
+            .expect("Learned file should be written");
     }
 }

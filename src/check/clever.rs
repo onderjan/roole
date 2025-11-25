@@ -161,7 +161,7 @@ impl super::Checker {
             space.learned.number(),
         );
 
-        space.learned.print();
+        space.learned.write();
 
         /*for learned in space.learned_assignments {
             println!("{:?}", learned);
