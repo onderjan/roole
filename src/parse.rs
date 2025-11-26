@@ -279,11 +279,14 @@ impl Evaluator {
         }
 
         let Some(assertion) = result_assertion else {
-            println!("Checking satisfiability with no assertions is a no-op");
+            eprintln!("Checking satisfiability with no assertions is a no-op");
             return;
         };
 
-        check::Checker::check(self.variables.clone(), self.operations.clone(), assertion);
+        let checker =
+            check::Checker::new(self.variables.clone(), self.operations.clone(), assertion);
+
+        checker.check();
     }
 
     fn create_uni_op(&mut self, op: UniOperator, arguments: Vec<FormulaId>) -> Operation {

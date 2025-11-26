@@ -4,7 +4,7 @@ use std::{fs::File, io::BufWriter, ops::ControlFlow};
 
 use crate::{
     check::{
-        Assignment, PRECISION_CONST,
+        Assignment, Checker, PRECISION_CONST,
         clever::{
             learned::Learned,
             partition::{Partition, ValueType},
@@ -19,7 +19,8 @@ mod partition;
 
 pub use learned::*;
 
-struct SearchSpace<L: Learned> {
+pub struct SearchSpace<'a, L: Learned> {
+    checker: &'a Checker,
     partition: Partition,
 
     learning_assignment: Assignment,
@@ -33,15 +34,23 @@ struct SearchSpace<L: Learned> {
     num_learned: usize,
 }
 
-impl super::Checker {
-    pub fn dpll<L: Learned>(&self) -> Option<Assignment> {
-        let total_width: u64 = self.variable_widths.iter().map(|width| *width as u64).sum();
+impl<'a, L: Learned> SearchSpace<'a, L> {
+    pub fn new(checker: &'a Checker) -> Self {
+        let total_width: u64 = checker
+            .variable_widths
+            .iter()
+            .map(|width| *width as u64)
+            .sum();
 
         let num_leaves = BigUint::one() << total_width;
         let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
 
-        let mut space = SearchSpace::<L> {
-            partition: Partition::new(&self.variable_widths),
+        let partition = Partition::new(&checker.variable_widths);
+
+        Self {
+            checker,
+
+            partition,
 
             learned: Learned::new(),
             learning_assignment: Assignment { values: Vec::new() },
@@ -52,144 +61,149 @@ impl super::Checker {
             opened_nodes: BigUint::zero(),
             closed_leaves: BigUint::zero(),
             num_learned: 0,
-        };
+        }
+    }
 
+    pub fn dpll(&mut self) -> Option<Assignment> {
         let satisfiable = loop {
-            match self.dpll_eval(&mut space) {
+            match self.dpll_eval() {
                 ControlFlow::Continue(()) => {}
                 ControlFlow::Break(satisfiable) => break satisfiable,
             }
         };
 
         let result = if satisfiable {
-            Some(space.partition.assignment().clone())
+            Some(self.partition.assignment().clone())
         } else {
-            self.progress_bar.set_position(PRECISION_CONST);
-            self.progress_bar.set_message("100.00%");
-            self.progress_bar.finish();
+            self.checker.progress_bar.set_position(PRECISION_CONST);
+            self.checker.progress_bar.set_message("100.00%");
+            self.checker.progress_bar.finish();
             None
         };
 
-        let percent_opened_nodes = percent(&space.opened_nodes, &space.num_nodes);
-        let percent_closed_leaves = percent(&space.closed_leaves, &space.num_leaves);
+        let percent_opened_nodes = percent(&self.opened_nodes, &self.num_nodes);
+        let percent_closed_leaves = percent(&self.closed_leaves, &self.num_leaves);
 
         eprintln!(
             "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%), learned: {}",
-            space.num_nodes,
-            space.opened_nodes,
+            self.num_nodes,
+            self.opened_nodes,
             percent_opened_nodes,
-            space.num_leaves,
-            space.closed_leaves,
+            self.num_leaves,
+            self.closed_leaves,
             percent_closed_leaves,
-            space.num_learned,
+            self.num_learned,
         );
 
         let learned_file = File::create("learned.dot").expect("Learned file should be created");
-        space
-            .learned
+        self.learned
             .write_dot(&mut BufWriter::new(learned_file))
             .expect("Learned file should be written");
 
-        space.partition.write();
+        self.partition.write();
 
         result
     }
 
-    fn dpll_eval<L: Learned>(&self, space: &mut SearchSpace<L>) -> ControlFlow<bool> {
-        space.opened_nodes += 1u32;
+    fn dpll_eval(&mut self) -> ControlFlow<bool> {
+        self.opened_nodes += 1u32;
 
-        let decision_level = space.partition.decision_level();
+        let decision_level = self.partition.decision_level();
 
         if decision_level < 12 {
             // update progress bar
-            let progress =
-                (space.closed_leaves.clone() * PRECISION_CONST) / space.num_leaves.clone();
+            let progress = (self.closed_leaves.clone() * PRECISION_CONST) / self.num_leaves.clone();
 
             let progress_ratio = progress.to_f32().unwrap_or(f32::NAN) / PRECISION_CONST as f32;
             let progress_percent = progress_ratio * 100.;
 
-            self.progress_bar
+            self.checker
+                .progress_bar
                 .set_position(progress.to_u64().unwrap_or(0));
-            self.progress_bar
+            self.checker
+                .progress_bar
                 .set_message(format!("{:.2}%", progress_percent));
         }
 
         // see if we have already learned this
 
-        if let Some(current_value) = space.partition.current_value() {
+        if let Some(current_value) = self.partition.current_value() {
             assert!(!current_value);
-        } else if space.learned.contains(space.partition.assignment()) {
+        } else if self.learned.contains(self.partition.assignment()) {
             // already learned that this is false
-            space.partition.set_current_value(false, ValueType::Learned);
+            self.partition.set_current_value(false, ValueType::Learned);
 
-            if self.backtrack(space) {
+            if self.backtrack() {
                 return ControlFlow::Continue(());
             }
         } else {
-            let result = self.eval_formula(space.partition.assignment(), self.assertion);
+            let result = self
+                .checker
+                .eval_formula(self.partition.assignment(), self.checker.assertion);
 
             let Some(concrete_result) = result.concrete_value() else {
                 // unknown result, choose false decision
-                space.partition.choose_decision(false);
+                self.partition.choose_decision(false);
                 return ControlFlow::Continue(());
             };
             if concrete_result.is_nonzero() {
                 // satisfiable with these decisions, break immediately
-                space.partition.set_current_value(true, ValueType::Normal);
+                self.partition.set_current_value(true, ValueType::Normal);
                 return ControlFlow::Break(true);
             }
 
             // unsatisfiable with these decisions
-            space.partition.set_current_value(false, ValueType::Normal);
+            self.partition.set_current_value(false, ValueType::Normal);
 
             // learn
-            self.learn(space);
+            self.learn();
         };
 
         // increment decision and continue
 
-        space.closed_leaves += BigUint::one() << (space.total_width - decision_level);
-        if !space.partition.inc_decision() {
+        self.closed_leaves += BigUint::one() << (self.total_width - decision_level);
+        if !self.partition.inc_decision() {
             // whole unsatisfiable
             return ControlFlow::Break(false);
         }
         ControlFlow::Continue(())
     }
 
-    fn learn<L: Learned>(&self, space: &mut SearchSpace<L>) {
-        space
-            .learning_assignment
-            .clone_from(space.partition.assignment());
+    fn learn(&mut self) {
+        self.learning_assignment
+            .clone_from(self.partition.assignment());
 
-        for (decision, _phase, _uses_backtracking) in space.partition.rev_decision_iter() {
+        for (decision, _phase, _uses_backtracking) in self.partition.rev_decision_iter() {
             // make decision bit unknown
-            let original = space.learning_assignment.values[decision.variable_index];
-            space.learning_assignment.values[decision.variable_index]
+            let original = self.learning_assignment.values[decision.variable_index];
+            self.learning_assignment.values[decision.variable_index]
                 .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
 
             // evaluate
-            let result = self.eval_formula(&space.learning_assignment, self.assertion);
+            let result = self
+                .checker
+                .eval_formula(&self.learning_assignment, self.checker.assertion);
 
             if let Some(concrete_value) = result.concrete_value() {
                 assert!(concrete_value.is_zero());
             } else {
                 // go back
-                space.learning_assignment.values[decision.variable_index] = original;
+                self.learning_assignment.values[decision.variable_index] = original;
             }
         }
 
-        space.learned.add(&space.learning_assignment);
-        space.num_learned += 1;
+        self.learned.add(&self.learning_assignment);
+        self.num_learned += 1;
     }
 
-    fn backtrack<L: Learned>(&self, space: &mut SearchSpace<L>) -> bool {
+    fn backtrack(&mut self) -> bool {
         // for backtracking, we will try to successively make unknown every decision except last
 
-        let decision_level = space.partition.decision_level();
+        let decision_level = self.partition.decision_level();
 
-        let mut backtrack_assignment = space.partition.assignment().clone();
+        let mut backtrack_assignment = self.partition.assignment().clone();
 
-        let mut rev_decision_iter = space.partition.rev_decision_iter();
+        let mut rev_decision_iter = self.partition.rev_decision_iter();
 
         let Some((_last_decision, last_phase, _uses_backtracking)) = rev_decision_iter.next()
         else {
@@ -205,10 +219,12 @@ impl super::Checker {
             backtrack_assignment.values[decision.variable_index]
                 .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
 
-            if !space.learned.contains(&backtrack_assignment) {
+            if !self.learned.contains(&backtrack_assignment) {
                 // we still may be able to salvage this by evaluating the formula
 
-                let result = self.eval_formula(&backtrack_assignment, self.assertion);
+                let result = self
+                    .checker
+                    .eval_formula(&backtrack_assignment, self.checker.assertion);
 
                 let Some(concrete_result) = result.concrete_value() else {
                     // unknown result, cannot backtrack anymore
@@ -231,16 +247,15 @@ impl super::Checker {
         }
 
         // pop last decision
-        space.partition.pop_decision();
+        self.partition.pop_decision();
 
         // yoink decisions that do not contribute
         for _ in 0..num_yoinked_levels {
-            space.partition.pop_decision();
+            self.partition.pop_decision();
         }
 
         // force next decision
-        space
-            .partition
+        self.partition
             .force_next_decision(decision_level, last_phase, false);
 
         true

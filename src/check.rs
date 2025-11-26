@@ -4,7 +4,10 @@ use std::fmt::Debug;
 use indicatif::ProgressStyle;
 use num::{BigUint, ToPrimitive};
 
-use crate::formula::{FormulaId, Operation};
+use crate::{
+    check::clever::SearchSpace,
+    formula::{FormulaId, Operation},
+};
 
 mod assignment;
 mod brute;
@@ -22,7 +25,11 @@ pub struct Checker {
 }
 
 impl Checker {
-    pub fn check(variable_widths: Vec<u32>, operations: Vec<Operation>, assertion: FormulaId) {
+    pub fn new(
+        variable_widths: Vec<u32>,
+        operations: Vec<Operation>,
+        assertion: FormulaId,
+    ) -> Self {
         eprintln!("Checking satisfiability");
 
         let progress_bar = indicatif::ProgressBar::new(PRECISION_CONST);
@@ -30,15 +37,19 @@ impl Checker {
             ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}").unwrap(),
         );
 
-        let checker = Self {
+        Self {
             variable_widths,
             operations,
             assertion,
             progress_bar,
-        };
+        }
+    }
+
+    pub fn check(&self) {
+        let mut space: SearchSpace<'_, clever::LinearLearned> = SearchSpace::new(self);
 
         //let result = checker.brute_force();
-        let result = checker.dpll::<clever::LinearLearned>();
+        let result = space.dpll();
 
         match result {
             Some(assignment) => eprintln!("Satisfiable: {:?}", assignment.values),
