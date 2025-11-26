@@ -92,15 +92,10 @@ impl super::Checker {
 
         space.partition.write();
 
-        /*for learned in space.learned_assignments {
-            println!("{:?}", learned);
-        }*/
-
         result
     }
 
     fn dpll_eval<L: Learned>(&self, space: &mut SearchSpace<L>) -> ControlFlow<bool> {
-        //eprintln!("Eval assignment: {:?}", space.partition.assignment());
         space.opened_nodes += 1u32;
 
         let decision_level = space.partition.decision_level();
@@ -162,8 +157,6 @@ impl super::Checker {
     }
 
     fn learn<L: Learned>(&self, space: &mut SearchSpace<L>) {
-        //eprintln!("Unsatisfiable part: {:?}", space.assignments);
-
         space
             .learning_assignment
             .clone_from(space.partition.assignment());
@@ -185,14 +178,6 @@ impl super::Checker {
             }
         }
 
-        //assert!(!self.is_learned(space, &space.learning_assignment));
-
-        //println!("Learned assignment {:?}", space.learning_assignment);
-
-        /*eprintln!(
-            "Unnecesary decisions\nfrom {:?}\ninto {:?}",
-            space.assignment, space.learning_assignment
-        );*/
         space.learned.add(&space.learning_assignment);
         space.num_learned += 1;
     }
@@ -253,18 +238,10 @@ impl super::Checker {
             space.partition.pop_decision();
         }
 
-        /*eprintln!(
-            "Yoinking {} levels: {:?}",
-            num_yoinked_levels,
-            space.partition.assignment()
-        );*/
-
         // force next decision
         space
             .partition
             .force_next_decision(decision_level, last_phase, false);
-
-        //eprintln!("After forcing: {:?}", space.partition.assignment());
 
         true
     }

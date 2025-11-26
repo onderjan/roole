@@ -50,8 +50,6 @@ impl super::Checker {
                 panic!("Concrete values should produce concrete result");
             };
 
-            //eprintln!("Assignments: {:?}, result: {:?}", assignments, result);
-
             if concrete_result.is_nonzero() {
                 return Some(assignment);
             }

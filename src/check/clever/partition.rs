@@ -186,19 +186,6 @@ impl Partition {
         }
     }
 
-    /*pub fn last_decision(&self) -> Option<Decision> {
-        let current_node_index = self.current_node.expect("Current node should be present");
-        let current_node = &self.nodes[current_node_index];
-        let Some(parent_node) = current_node.parent else {
-            return None;
-        };
-
-        let NodeType::NonLeaf(parent_nonleaf) = &self.nodes[parent_node].ty else {
-            panic!("Parent should be non-leaf")
-        };
-        Some(parent_nonleaf.decision)
-    }*/
-
     pub fn pop_decision(&mut self) {
         let current_node = self.current_node.expect("Current node should be present");
         let current_node = &self.nodes[current_node];
@@ -219,27 +206,17 @@ impl Partition {
     }
 
     pub fn force_next_decision(&mut self, force_level: u64, known_phase: bool, known_value: bool) {
-        //eprintln!("Before forcing decision: {:?}", self);
-
         let next_decision_index = self.decision_level;
         let force_decision_index = force_level - 1;
 
-        /*eprintln!(
-            "Forcing decision index {} to {}",
-            next_decision_index, force_decision_index
-        );*/
-        //eprintln!("Old decision order: {:?}", self.decision_order);
         assert_ne!(next_decision_index, force_decision_index);
         self.decision_order
             .swap(next_decision_index as usize, force_decision_index as usize);
-        //eprintln!("New decision order: {:?}", self.decision_order);
 
         // we need to make the current node absent
         let current_node_index = self.current_node.expect("Current node should be present");
         let current_node = &mut self.nodes[current_node_index];
         current_node.ty = NodeType::Absent;
-
-        //eprintln!("After forcing decision: {:?}", self);
 
         // choose the decision, add backtracked
 

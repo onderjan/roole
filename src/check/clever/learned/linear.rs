@@ -28,8 +28,6 @@ impl Learned for LinearLearned {
     }
 
     fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
-        //println!("{:#?}", self);
-
         writeln!(f, "digraph {{")?;
         writeln!(f, "rankdir=\"LR\"")?;
         for (index, assignment) in self.assignments.iter().enumerate() {
