@@ -6,14 +6,15 @@ use aws_smt_ir::{CommandStream, smt2parser::concrete};
 use indexmap::IndexMap;
 use itertools::Itertools;
 
-use crate::check;
 use crate::formula::{
     BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, OperationId, UniOp, UniOperator,
     VariableId,
 };
+use crate::problem::Problem;
+use crate::solver::{self};
 
 #[derive(Debug)]
-struct Evaluator {
+struct Parser {
     scopes: Vec<Scope>,
     variables: Vec<u32>,
     operations: Vec<Operation>,
@@ -33,13 +34,13 @@ impl Scope {
     }
 }
 
-pub fn evaluate(reader: impl std::io::BufRead, path: Option<String>) {
+pub fn parse(reader: impl std::io::BufRead, path: Option<String>) {
     let stream = CommandStream::new(reader, concrete::SyntaxBuilder, path);
     let commands = stream
         .collect::<Result<Vec<_>, _>>()
         .expect("File should be SMT-LIB-2 parseable");
 
-    let mut evaluator = Evaluator {
+    let mut parser = Parser {
         scopes: vec![Scope::new()],
         variables: Vec::new(),
         operations: Vec::new(),
@@ -47,15 +48,14 @@ pub fn evaluate(reader: impl std::io::BufRead, path: Option<String>) {
     };
 
     for command in commands {
-        if evaluator.evaluate(command).is_break() {
+        if parser.parse_command(command).is_break() {
             break;
         }
     }
 }
 
-impl Evaluator {
-    pub fn evaluate(&mut self, command: concrete::Command) -> ControlFlow<(), ()> {
-        //println!("{:#?}", command);
+impl Parser {
+    pub fn parse_command(&mut self, command: concrete::Command) -> ControlFlow<(), ()> {
         match command {
             concrete::Command::Assert { term } => {
                 let formula_id = self.create_formula(term);
@@ -92,6 +92,33 @@ impl Evaluator {
         }
 
         ControlFlow::Continue(())
+    }
+
+    fn check_sat(&mut self) {
+        let mut result_assertion = None;
+        for assertion in &self.assertions {
+            result_assertion = match result_assertion {
+                Some(result_assertion) => {
+                    self.operations.push(Operation::BiOp(BiOp {
+                        op: BiOperator::BitAnd,
+                        input_width: 1,
+                        left: result_assertion,
+                        right: *assertion,
+                    }));
+
+                    Some(FormulaId::Operation(OperationId(self.operations.len() - 1)))
+                }
+                None => Some(*assertion),
+            }
+        }
+
+        let Some(assertion) = result_assertion else {
+            eprintln!("Checking satisfiability with no assertions is a no-op");
+            return;
+        };
+
+        let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
+        solver::solve(&problem);
     }
 
     fn declare_fun(
@@ -258,35 +285,6 @@ impl Evaluator {
             concrete::Term::Match { .. } => panic!("Match not supported"),
             concrete::Term::Attributes { .. } => panic!("Attributes not supported"),
         }
-    }
-
-    fn check_sat(&mut self) {
-        let mut result_assertion = None;
-        for assertion in &self.assertions {
-            result_assertion = match result_assertion {
-                Some(result_assertion) => {
-                    self.operations.push(Operation::BiOp(BiOp {
-                        op: BiOperator::BitAnd,
-                        input_width: 1,
-                        left: result_assertion,
-                        right: *assertion,
-                    }));
-
-                    Some(FormulaId::Operation(OperationId(self.operations.len() - 1)))
-                }
-                None => Some(*assertion),
-            }
-        }
-
-        let Some(assertion) = result_assertion else {
-            eprintln!("Checking satisfiability with no assertions is a no-op");
-            return;
-        };
-
-        let checker =
-            check::Checker::new(self.variables.clone(), self.operations.clone(), assertion);
-
-        checker.check();
     }
 
     fn create_uni_op(&mut self, op: UniOperator, arguments: Vec<FormulaId>) -> Operation {

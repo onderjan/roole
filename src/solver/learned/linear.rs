@@ -1,6 +1,4 @@
-#![allow(dead_code)]
-
-use crate::check::{Assignment, clever::learned::Learned};
+use crate::{assignment::Assignment, solver::Learned};
 
 #[derive(Clone, Debug)]
 pub struct LinearLearned {
@@ -31,7 +29,8 @@ impl Learned for LinearLearned {
         writeln!(f, "digraph {{")?;
         writeln!(f, "rankdir=\"LR\"")?;
         for (index, assignment) in self.assignments.iter().enumerate() {
-            writeln!(f, "{} [label=\"{:?}\"]", index, assignment)?;
+            let label = format!("{:?}", assignment).replace("\"", "\\\"");
+            writeln!(f, "{} [label=\"{}\"]", index, label)?;
         }
         writeln!(f, "}}")
     }

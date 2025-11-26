@@ -1,6 +1,6 @@
 use num::{BigUint, One, ToPrimitive, Zero};
 
-use crate::check::Checker;
+use crate::problem::Problem;
 
 pub struct Stats {
     progress_bar: indicatif::ProgressBar,
@@ -14,9 +14,11 @@ pub struct Stats {
 const PRECISION_CONST: u64 = 1_000_000;
 
 impl Stats {
-    pub fn new(checker: &Checker) -> Self {
-        let total_width: u64 = checker
-            .variable_widths
+    pub fn new(problem: &Problem) -> Self {
+        eprintln!("Solving SAT problem");
+
+        let total_width: u64 = problem
+            .variable_widths()
             .iter()
             .map(|width| *width as u64)
             .sum();

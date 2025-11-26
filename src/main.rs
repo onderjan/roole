@@ -1,9 +1,11 @@
 use std::io::BufReader;
 
-mod check;
+mod assignment;
 mod domain;
 mod formula;
-mod parse;
+mod parser;
+mod problem;
+mod solver;
 
 fn main() {
     let mut args = std::env::args();
@@ -32,7 +34,7 @@ fn main() {
 
     eprintln!("Evaluating file {}", path);
 
-    parse::evaluate(reader, Some(path));
+    parser::parse(reader, Some(path));
 
     eprintln!("Finished evaluation");
 }

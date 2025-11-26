@@ -1,5 +1,5 @@
 use crate::{
-    check::Assignment,
+    assignment::Assignment,
     domain::{
         bitvector::{
             BitvectorBound, RBound,
@@ -13,12 +13,8 @@ use crate::{
     formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator},
 };
 
-impl super::Checker {
-    pub(super) fn eval(&self, assignment: &Assignment) -> AbstractBitvector<RBound> {
-        self.eval_formula(assignment, self.assertion)
-    }
-
-    fn eval_formula(
+impl super::Problem {
+    pub(super) fn eval_formula(
         &self,
         assignment: &Assignment,
         formula_id: FormulaId,

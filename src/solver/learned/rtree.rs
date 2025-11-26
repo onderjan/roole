@@ -1,8 +1,6 @@
-#![allow(dead_code)]
-
 use std::fmt::Debug;
 
-use crate::check::{Assignment, clever::learned::Learned};
+use crate::{assignment::Assignment, solver::Learned};
 
 #[derive(Clone)]
 pub struct RTreeLearned {

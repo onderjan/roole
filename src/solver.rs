@@ -1,14 +1,13 @@
 use std::{fs::File, io::BufWriter, ops::ControlFlow};
 
 use crate::{
-    check::{
-        Assignment, Checker,
-        clever::{
-            learned::Learned,
-            partition::{Partition, ValueType},
-        },
-    },
+    assignment::Assignment,
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
+    problem::Problem,
+    solver::{
+        linear::LinearLearned,
+        partition::{Partition, ValueType},
+    },
 };
 use stats::Stats;
 
@@ -18,8 +17,13 @@ mod stats;
 
 pub use learned::*;
 
-pub struct SearchSpace<'a, L: Learned> {
-    checker: &'a Checker,
+pub fn solve(problem: &Problem) {
+    let mut solver: Solver<'_, LinearLearned> = Solver::new(problem);
+    solver.dpll();
+}
+
+pub struct Solver<'a, L: Learned> {
+    problem: &'a Problem,
     partition: Partition,
 
     learning_assignment: Assignment,
@@ -28,13 +32,13 @@ pub struct SearchSpace<'a, L: Learned> {
     stats: Stats,
 }
 
-impl<'a, L: Learned> SearchSpace<'a, L> {
-    pub fn new(checker: &'a Checker) -> Self {
-        let stats = Stats::new(checker);
-        let partition = Partition::new(&checker.variable_widths);
+impl<'a, L: Learned> Solver<'a, L> {
+    pub fn new(problem: &'a Problem) -> Self {
+        let stats = Stats::new(problem);
+        let partition = Partition::new(problem.variable_widths());
 
         Self {
-            checker,
+            problem,
             partition,
             learned: Learned::new(),
             learning_assignment: Assignment { values: Vec::new() },
@@ -87,7 +91,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
                 return ControlFlow::Continue(());
             }
         } else {
-            let result = self.checker.eval(self.partition.assignment());
+            let result = self.problem.eval(self.partition.assignment());
 
             let Some(concrete_result) = result.concrete_value() else {
                 // unknown result, choose false decision
@@ -129,7 +133,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
                 .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
 
             // evaluate
-            let result = self.checker.eval(&self.learning_assignment);
+            let result = self.problem.eval(&self.learning_assignment);
 
             if let Some(concrete_value) = result.concrete_value() {
                 assert!(concrete_value.is_zero());
@@ -169,7 +173,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
             if !self.learned.contains(&backtrack_assignment) {
                 // we still may be able to salvage this by evaluating the formula
 
-                let result = self.checker.eval(&backtrack_assignment);
+                let result = self.problem.eval(&backtrack_assignment);
 
                 let Some(concrete_result) = result.concrete_value() else {
                     // unknown result, cannot backtrack anymore

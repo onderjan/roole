@@ -1,7 +1,7 @@
 use std::{fmt::Debug, fs::File, io::BufWriter};
 
 use crate::{
-    check::Assignment,
+    assignment::Assignment,
     domain::{
         bitvector::{RBound, abstr::AbstractBitvector},
         value::ThreeValued,

@@ -1,12 +1,11 @@
-#![allow(dead_code)]
-
 use std::collections::HashMap;
 
 use num::{BigUint, Zero};
 
 use crate::{
-    check::{Assignment, clever::learned::Learned},
+    assignment::Assignment,
     domain::bitvector::{BitvectorBound, abstr::BitvectorDomain},
+    solver::Learned,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
