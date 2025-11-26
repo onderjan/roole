@@ -4,12 +4,11 @@ use std::{fs::File, io::BufWriter, ops::ControlFlow};
 
 use crate::{
     check::{
-        Assignment, Checker, PRECISION_CONST,
+        Assignment, Checker,
         clever::{
             learned::Learned,
             partition::{Partition, ValueType},
         },
-        percent,
     },
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
 };
@@ -26,6 +25,11 @@ pub struct SearchSpace<'a, L: Learned> {
     learning_assignment: Assignment,
     learned: L,
 
+    stats: Stats,
+}
+
+struct Stats {
+    progress_bar: indicatif::ProgressBar,
     total_width: u64,
     num_leaves: BigUint,
     num_nodes: BigUint,
@@ -36,31 +40,15 @@ pub struct SearchSpace<'a, L: Learned> {
 
 impl<'a, L: Learned> SearchSpace<'a, L> {
     pub fn new(checker: &'a Checker) -> Self {
-        let total_width: u64 = checker
-            .variable_widths
-            .iter()
-            .map(|width| *width as u64)
-            .sum();
-
-        let num_leaves = BigUint::one() << total_width;
-        let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
-
+        let stats = Stats::new(checker);
         let partition = Partition::new(&checker.variable_widths);
 
         Self {
             checker,
-
             partition,
-
             learned: Learned::new(),
             learning_assignment: Assignment { values: Vec::new() },
-
-            total_width,
-            num_leaves,
-            num_nodes,
-            opened_nodes: BigUint::zero(),
-            closed_leaves: BigUint::zero(),
-            num_learned: 0,
+            stats,
         }
     }
 
@@ -72,28 +60,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
             }
         };
 
-        let result = if satisfiable {
-            Some(self.partition.assignment().clone())
-        } else {
-            self.checker.progress_bar.set_position(PRECISION_CONST);
-            self.checker.progress_bar.set_message("100.00%");
-            self.checker.progress_bar.finish();
-            None
-        };
-
-        let percent_opened_nodes = percent(&self.opened_nodes, &self.num_nodes);
-        let percent_closed_leaves = percent(&self.closed_leaves, &self.num_leaves);
-
-        eprintln!(
-            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%), learned: {}",
-            self.num_nodes,
-            self.opened_nodes,
-            percent_opened_nodes,
-            self.num_leaves,
-            self.closed_leaves,
-            percent_closed_leaves,
-            self.num_learned,
-        );
+        self.stats.finish();
 
         let learned_file = File::create("learned.dot").expect("Learned file should be created");
         self.learned
@@ -102,27 +69,20 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
 
         self.partition.write();
 
-        result
+        if satisfiable {
+            Some(self.partition.assignment().clone())
+        } else {
+            None
+        }
     }
 
     fn dpll_eval(&mut self) -> ControlFlow<bool> {
-        self.opened_nodes += 1u32;
+        self.stats.opened_nodes += 1u32;
 
         let decision_level = self.partition.decision_level();
 
         if decision_level < 12 {
-            // update progress bar
-            let progress = (self.closed_leaves.clone() * PRECISION_CONST) / self.num_leaves.clone();
-
-            let progress_ratio = progress.to_f32().unwrap_or(f32::NAN) / PRECISION_CONST as f32;
-            let progress_percent = progress_ratio * 100.;
-
-            self.checker
-                .progress_bar
-                .set_position(progress.to_u64().unwrap_or(0));
-            self.checker
-                .progress_bar
-                .set_message(format!("{:.2}%", progress_percent));
+            self.stats.update_progress_bar();
         }
 
         // see if we have already learned this
@@ -161,7 +121,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
 
         // increment decision and continue
 
-        self.closed_leaves += BigUint::one() << (self.total_width - decision_level);
+        self.stats.closed_leaves += BigUint::one() << (self.stats.total_width - decision_level);
         if !self.partition.inc_decision() {
             // whole unsatisfiable
             return ControlFlow::Break(false);
@@ -193,7 +153,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
         }
 
         self.learned.add(&self.learning_assignment);
-        self.num_learned += 1;
+        self.stats.num_learned += 1;
     }
 
     fn backtrack(&mut self) -> bool {
@@ -260,4 +220,74 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
 
         true
     }
+}
+
+impl Stats {
+    fn new(checker: &Checker) -> Self {
+        let total_width: u64 = checker
+            .variable_widths
+            .iter()
+            .map(|width| *width as u64)
+            .sum();
+
+        let num_leaves = BigUint::one() << total_width;
+        let num_nodes = (num_leaves.clone() * 2u32) - 1u32;
+
+        let progress_bar = indicatif::ProgressBar::new(PRECISION_CONST);
+        progress_bar.set_style(
+            indicatif::ProgressStyle::with_template("[{elapsed_precise}] {bar:40.cyan/blue} {msg}")
+                .unwrap(),
+        );
+
+        Self {
+            progress_bar,
+
+            total_width,
+            num_leaves,
+            num_nodes,
+            opened_nodes: BigUint::zero(),
+            closed_leaves: BigUint::zero(),
+            num_learned: 0,
+        }
+    }
+
+    fn update_progress_bar(&self) {
+        let progress = (self.closed_leaves.clone() * PRECISION_CONST) / self.num_leaves.clone();
+
+        let progress_ratio = progress.to_f32().unwrap_or(f32::NAN) / PRECISION_CONST as f32;
+        let progress_percent = progress_ratio * 100.;
+
+        self.progress_bar
+            .set_position(progress.to_u64().unwrap_or(0));
+        self.progress_bar
+            .set_message(format!("{:.2}%", progress_percent));
+    }
+
+    fn finish(&self) {
+        self.progress_bar.finish();
+
+        let percent_opened_nodes = percent(&self.opened_nodes, &self.num_nodes);
+        let percent_closed_leaves = percent(&self.closed_leaves, &self.num_leaves);
+
+        eprintln!(
+            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%), learned: {}",
+            self.num_nodes,
+            self.opened_nodes,
+            percent_opened_nodes,
+            self.num_leaves,
+            self.closed_leaves,
+            percent_closed_leaves,
+            self.num_learned,
+        );
+    }
+}
+
+const PRECISION_CONST: u64 = 1_000_000;
+
+fn percent(dividend: &BigUint, divisor: &BigUint) -> f32 {
+    (dividend.clone() * PRECISION_CONST / divisor.clone())
+        .to_f32()
+        .unwrap_or(f32::NAN)
+        / (PRECISION_CONST as f32)
+        * 100.
 }
