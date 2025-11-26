@@ -2,6 +2,7 @@
 
 pub mod bdd;
 pub mod linear;
+pub mod roole;
 pub mod rtree;
 
 pub trait Learned {

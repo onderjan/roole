@@ -5,8 +5,8 @@ use crate::{
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
     problem::Problem,
     solver::{
-        linear::LinearLearned,
         partition::{Partition, ValueType},
+        roole::RooleLearned,
     },
 };
 use stats::Stats;
@@ -18,11 +18,23 @@ mod stats;
 pub use learned::*;
 
 pub fn solve(problem: &Problem) {
-    let mut solver: Solver<'_, LinearLearned> = Solver::new(problem);
-    solver.dpll();
+    let mut solver: Solver<'_, RooleLearned> = Solver::new(problem);
+    let result = solver.dpll();
+
+    if let Some(result) = result {
+        eprintln!("Satisfiable: {:?}", result);
+    } else {
+        eprintln!("Unsatisfiable");
+    }
 }
 
-pub struct Solver<'a, L: Learned> {
+#[derive(Clone, Copy)]
+struct Decision {
+    pub variable_index: usize,
+    pub bit_index: u32,
+}
+
+struct Solver<'a, L: Learned> {
     problem: &'a Problem,
     partition: Partition,
 

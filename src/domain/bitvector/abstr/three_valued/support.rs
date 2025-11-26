@@ -182,6 +182,20 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
             }
         }
     }
+
+    pub fn three_valued_from_bit(&self, bit_index: u32) -> ThreeValued {
+        let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
+
+        let masked_zeros = self.zeros.bit_and(bit_mask);
+        let masked_ones = self.ones.bit_and(bit_mask);
+
+        match (masked_zeros.is_nonzero(), masked_ones.is_nonzero()) {
+            (true, true) => ThreeValued::Unknown,
+            (true, false) => ThreeValued::False,
+            (false, true) => ThreeValued::True,
+            (false, false) => panic!("Bit should have a three-valued representation"),
+        }
+    }
 }
 
 impl<B: BitvectorBound<SingleBit = B>> ThreeValuedBitvector<B> {

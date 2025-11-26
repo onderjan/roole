@@ -6,6 +6,7 @@ use crate::{
         bitvector::{RBound, abstr::AbstractBitvector},
         value::ThreeValued,
     },
+    solver::Decision,
 };
 
 #[derive(Debug)]
@@ -16,12 +17,6 @@ pub struct Partition {
     current_node: Option<usize>,
     assignment: Assignment,
     decision_level: u64,
-}
-
-#[derive(Clone, Copy)]
-pub struct Decision {
-    pub variable_index: usize,
-    pub bit_index: u32,
 }
 
 #[derive(Debug)]
