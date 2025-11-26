@@ -87,9 +87,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
                 return ControlFlow::Continue(());
             }
         } else {
-            let result = self
-                .checker
-                .eval_formula(self.partition.assignment(), self.checker.assertion);
+            let result = self.checker.eval(self.partition.assignment());
 
             let Some(concrete_result) = result.concrete_value() else {
                 // unknown result, choose false decision
@@ -131,9 +129,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
                 .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
 
             // evaluate
-            let result = self
-                .checker
-                .eval_formula(&self.learning_assignment, self.checker.assertion);
+            let result = self.checker.eval(&self.learning_assignment);
 
             if let Some(concrete_value) = result.concrete_value() {
                 assert!(concrete_value.is_zero());
@@ -173,9 +169,7 @@ impl<'a, L: Learned> SearchSpace<'a, L> {
             if !self.learned.contains(&backtrack_assignment) {
                 // we still may be able to salvage this by evaluating the formula
 
-                let result = self
-                    .checker
-                    .eval_formula(&backtrack_assignment, self.checker.assertion);
+                let result = self.checker.eval(&backtrack_assignment);
 
                 let Some(concrete_result) = result.concrete_value() else {
                     // unknown result, cannot backtrack anymore
