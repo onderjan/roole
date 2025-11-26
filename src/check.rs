@@ -10,7 +10,6 @@ use crate::{
 };
 
 mod assignment;
-mod brute;
 mod clever;
 mod eval;
 
