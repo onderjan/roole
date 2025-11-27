@@ -82,55 +82,65 @@ impl<'a, L: Learned> Solver<'a, L> {
     }
 
     fn dpll_eval(&mut self) -> ControlFlow<bool> {
+        // update progress stats
+
         self.stats.inc_opened_nodes();
 
         let decision_level = self.partition.decision_level();
-
         if decision_level < 12 {
             self.stats.update_progress_bar();
         }
 
-        // see if we have already learned this
-
+        // consider the current value in the partition graph
         if let Some(current_value) = self.partition.current_value() {
+            // the current value is already known, no need to look into learned/evaluate
+            // should be false as true would break immediately
             assert!(!current_value);
         } else if self.learned.contains(self.partition.assignment()) {
-            // already learned that this is false
+            // the current assignment is contained by an assignment known to be false
+            // so we know this one is false as well
             self.partition.set_current_value(false, ValueType::Learned);
-
-            if self.backtrack() {
-                self.stats.inc_backtracked();
-                return ControlFlow::Continue(());
-            }
         } else {
+            // we have to evaluate the assignment
             let result = self.problem.eval(self.partition.assignment());
 
             let Some(concrete_result) = result.concrete_value() else {
-                // unknown result, choose false decision
+                // unknown result, we need to choose another decision
+                // choose the decision with false phase
                 self.partition.choose_decision(false);
                 return ControlFlow::Continue(());
             };
             if concrete_result.is_nonzero() {
-                // satisfiable with these decisions, break immediately
+                // true result, i.e. satisfiable by the current assignment
+                // break immediately
                 self.partition.set_current_value(true, ValueType::Normal);
                 return ControlFlow::Break(true);
             }
 
-            // unsatisfiable with these decisions
+            // false result, i.e. not satisfiable by the current assignment
             self.partition.set_current_value(false, ValueType::Normal);
 
-            // learn
+            // learn this false result
             self.learn();
         };
 
-        // increment decision and continue
+        // try non-chronological backtracking
+        if self.backtrack() {
+            self.stats.inc_backtracked();
+            return ControlFlow::Continue(());
+        }
 
+        // not possible to backtrack
+        // increment decision
         self.stats
             .add_closed_leaves(self.stats.total_width() - decision_level);
         if !self.partition.inc_decision() {
-            // whole unsatisfiable
+            // we have explored the whole partition graph without satisfaction success
+            // this means the formula is unsatisfiable
             return ControlFlow::Break(false);
         }
+
+        // continue with the next decision
         ControlFlow::Continue(())
     }
 
