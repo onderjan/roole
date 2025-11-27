@@ -10,6 +10,7 @@ pub struct Stats {
     opened_nodes: BigUint,
     closed_leaves: BigUint,
     num_learned: usize,
+    num_backtracked: usize,
 }
 const PRECISION_CONST: u64 = 1_000_000;
 
@@ -40,6 +41,7 @@ impl Stats {
             opened_nodes: BigUint::zero(),
             closed_leaves: BigUint::zero(),
             num_learned: 0,
+            num_backtracked: 0,
         }
     }
 
@@ -49,6 +51,10 @@ impl Stats {
 
     pub fn inc_learned(&mut self) {
         self.num_learned += 1;
+    }
+
+    pub fn inc_backtracked(&mut self) {
+        self.num_backtracked += 1;
     }
 
     pub fn add_closed_leaves(&mut self, leaf_width: u64) {
@@ -75,7 +81,7 @@ impl Stats {
         let percent_closed_leaves = percent(&self.closed_leaves, &self.num_leaves);
 
         eprintln!(
-            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%), learned: {}",
+            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%), learned: {}, backtracked: {}",
             self.num_nodes,
             self.opened_nodes,
             percent_opened_nodes,
@@ -83,6 +89,7 @@ impl Stats {
             self.closed_leaves,
             percent_closed_leaves,
             self.num_learned,
+            self.num_backtracked
         );
     }
 

@@ -100,6 +100,7 @@ impl<'a, L: Learned> Solver<'a, L> {
             self.partition.set_current_value(false, ValueType::Learned);
 
             if self.backtrack() {
+                self.stats.inc_backtracked();
                 return ControlFlow::Continue(());
             }
         } else {
