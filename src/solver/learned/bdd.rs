@@ -30,7 +30,7 @@ impl Learned for BddLearned {
         }
     }
 
-    fn add(&mut self, assignment: &Assignment) {
+    fn add(&mut self, assignment: Assignment) {
         let assignment_bdd_index = self.bdd_state(assignment);
 
         if let Some(bdd_index) = self.bdd_index {
@@ -85,7 +85,7 @@ impl Learned for BddLearned {
 }
 
 impl BddLearned {
-    fn bdd_state(&mut self, assignment: &Assignment) -> isize {
+    fn bdd_state(&mut self, assignment: Assignment) -> isize {
         let (zeros, ones, total_width) = assignment_nums(assignment);
 
         let mut bdd_index = NODE_ONE_INDEX;
@@ -194,7 +194,7 @@ impl BddLearned {
 const NODE_ZERO_INDEX: isize = -2isize;
 const NODE_ONE_INDEX: isize = -1isize;
 
-fn assignment_nums(assignment: &Assignment) -> (BigUint, BigUint, u64) {
+fn assignment_nums(assignment: Assignment) -> (BigUint, BigUint, u64) {
     let mut zeros = BigUint::zero();
     let mut ones = BigUint::zero();
 

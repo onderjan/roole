@@ -36,9 +36,8 @@ struct Decision {
 
 struct Solver<'a, L: Learned> {
     problem: &'a Problem,
-    partition: Partition,
 
-    learning_assignment: Assignment,
+    partition: Partition,
     learned: L,
 
     stats: Stats,
@@ -48,12 +47,12 @@ impl<'a, L: Learned> Solver<'a, L> {
     pub fn new(problem: &'a Problem) -> Self {
         let stats = Stats::new(problem);
         let partition = Partition::new(problem.variable_widths());
+        let learned = Learned::new();
 
         Self {
             problem,
             partition,
-            learned: Learned::new(),
-            learning_assignment: Assignment { values: Vec::new() },
+            learned,
             stats,
         }
     }
@@ -136,27 +135,26 @@ impl<'a, L: Learned> Solver<'a, L> {
     }
 
     fn learn(&mut self) {
-        self.learning_assignment
-            .clone_from(self.partition.assignment());
+        let mut learning_assignment = self.partition.assignment().clone();
 
         for (decision, _phase, _uses_backtracking) in self.partition.rev_decision_iter() {
             // make decision bit unknown
-            let original = self.learning_assignment.values[decision.variable_index];
-            self.learning_assignment.values[decision.variable_index]
+            let original = learning_assignment.values[decision.variable_index];
+            learning_assignment.values[decision.variable_index]
                 .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
 
             // evaluate
-            let result = self.problem.eval(&self.learning_assignment);
+            let result = self.problem.eval(&learning_assignment);
 
             if let Some(concrete_value) = result.concrete_value() {
                 assert!(concrete_value.is_zero());
             } else {
                 // go back
-                self.learning_assignment.values[decision.variable_index] = original;
+                learning_assignment.values[decision.variable_index] = original;
             }
         }
 
-        self.learned.add(&self.learning_assignment);
+        self.learned.add(learning_assignment);
         self.stats.inc_learned();
     }
 

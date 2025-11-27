@@ -23,9 +23,9 @@ impl Learned for RTreeLearned {
         self.root.contains(assignment)
     }
 
-    fn add(&mut self, assignment: &Assignment) {
+    fn add(&mut self, assignment: Assignment) {
         //eprintln!("Inserting {:?}", assignment);
-        match self.root.insert(assignment.clone()) {
+        match self.root.insert(assignment) {
             NodeUpward::Inserted(_assignment) => {
                 // do nothing
             }

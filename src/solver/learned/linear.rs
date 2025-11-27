@@ -21,8 +21,8 @@ impl Learned for LinearLearned {
         false
     }
 
-    fn add(&mut self, assignment: &Assignment) {
-        self.assignments.push(assignment.clone());
+    fn add(&mut self, assignment: Assignment) {
+        self.assignments.push(assignment);
     }
 
     fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {

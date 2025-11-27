@@ -36,10 +36,8 @@ impl Learned for RooleLearned {
         self.contains_recursive(assignment, 0)
     }
 
-    fn add(&mut self, assignment: &Assignment) {
-        //eprintln!("Adding {:?} to {:?}", assignment, self);
-        self.add_recursive(assignment.clone(), 0);
-        //eprintln!("After adding: {:?}", self);
+    fn add(&mut self, assignment: Assignment) {
+        self.add_recursive(assignment, 0);
     }
     fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
         writeln!(f, "digraph {{")?;
