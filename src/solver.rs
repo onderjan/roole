@@ -96,10 +96,12 @@ impl<'a, L: Learned> Solver<'a, L> {
             // the current value is already known, no need to look into learned/evaluate
             // should be false as true would break immediately
             assert!(!current_value);
+            self.stats.inc_already_resolved();
         } else if self.learned.contains(self.partition.assignment()) {
             // the current assignment is contained by an assignment known to be false
             // so we know this one is false as well
             self.partition.set_current_value(false, ValueType::Learned);
+            self.stats.inc_already_learned();
         } else {
             // we have to evaluate the assignment
             let result = self.problem.eval(self.partition.assignment());
@@ -126,7 +128,6 @@ impl<'a, L: Learned> Solver<'a, L> {
 
         // try non-chronological backtracking
         if self.backtrack() {
-            self.stats.inc_backtracked();
             return ControlFlow::Continue(());
         }
 
@@ -227,6 +228,8 @@ impl<'a, L: Learned> Solver<'a, L> {
         // force next decision
         self.partition
             .force_next_decision(decision_level, last_phase, false);
+
+        self.stats.inc_backtrackings();
 
         true
     }

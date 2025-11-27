@@ -5,12 +5,18 @@ use crate::problem::Problem;
 pub struct Stats {
     progress_bar: indicatif::ProgressBar,
     total_width: u64,
+
     num_leaves: BigUint,
+    num_closed_leaves: BigUint,
+
     num_nodes: BigUint,
-    opened_nodes: BigUint,
-    closed_leaves: BigUint,
+    num_opened_nodes: BigUint,
+
     num_learned: usize,
-    num_backtracked: usize,
+    num_already_learned: BigUint,
+    num_already_resolved: BigUint,
+
+    num_backtrackings: usize,
 }
 const PRECISION_CONST: u64 = 1_000_000;
 
@@ -36,33 +42,47 @@ impl Stats {
         Self {
             progress_bar,
             total_width,
+
             num_leaves,
+            num_closed_leaves: BigUint::zero(),
+
             num_nodes,
-            opened_nodes: BigUint::zero(),
-            closed_leaves: BigUint::zero(),
+            num_opened_nodes: BigUint::zero(),
+
             num_learned: 0,
-            num_backtracked: 0,
+            num_already_learned: BigUint::zero(),
+            num_already_resolved: BigUint::zero(),
+
+            num_backtrackings: 0,
         }
     }
 
     pub fn inc_opened_nodes(&mut self) {
-        self.opened_nodes += BigUint::one();
+        self.num_opened_nodes += BigUint::one();
     }
 
     pub fn inc_learned(&mut self) {
         self.num_learned += 1;
     }
 
-    pub fn inc_backtracked(&mut self) {
-        self.num_backtracked += 1;
+    pub fn inc_already_learned(&mut self) {
+        self.num_already_learned += BigUint::one();
+    }
+
+    pub fn inc_already_resolved(&mut self) {
+        self.num_already_resolved += BigUint::one();
+    }
+
+    pub fn inc_backtrackings(&mut self) {
+        self.num_backtrackings += 1;
     }
 
     pub fn add_closed_leaves(&mut self, leaf_width: u64) {
-        self.closed_leaves += BigUint::one() << leaf_width;
+        self.num_closed_leaves += BigUint::one() << leaf_width;
     }
 
     pub fn update_progress_bar(&self) {
-        let progress = (self.closed_leaves.clone() * PRECISION_CONST) / self.num_leaves.clone();
+        let progress = (self.num_closed_leaves.clone() * PRECISION_CONST) / self.num_leaves.clone();
 
         let progress_ratio = progress.to_f32().unwrap_or(f32::NAN) / PRECISION_CONST as f32;
         let progress_percent = progress_ratio * 100.;
@@ -77,19 +97,26 @@ impl Stats {
         self.update_progress_bar();
         self.progress_bar.finish();
 
-        let percent_opened_nodes = percent(&self.opened_nodes, &self.num_nodes);
-        let percent_closed_leaves = percent(&self.closed_leaves, &self.num_leaves);
+        let percent_opened_nodes = percent(&self.num_opened_nodes, &self.num_nodes);
+        let percent_closed_leaves = percent(&self.num_closed_leaves, &self.num_leaves);
 
+        let num_inconclusive = self.num_opened_nodes.clone()
+            - (self.num_learned
+                + self.num_already_learned.clone()
+                + self.num_already_resolved.clone());
         eprintln!(
-            "Info: {} nodes, {} opened ({:.3}%); {} leaves, {} closed ({:.3}%), learned: {}, backtracked: {}",
+            "Info: {} nodes, {} opened ({:.3}%); {} inconclusive, {} pre-learned, {} pre-resolved, {} learned; {} leaves, {} closed ({:.3}%); {} backtrackings",
             self.num_nodes,
-            self.opened_nodes,
+            self.num_opened_nodes,
             percent_opened_nodes,
-            self.num_leaves,
-            self.closed_leaves,
-            percent_closed_leaves,
+            num_inconclusive,
+            self.num_already_learned,
+            self.num_already_resolved,
             self.num_learned,
-            self.num_backtracked
+            self.num_leaves,
+            self.num_closed_leaves,
+            percent_closed_leaves,
+            self.num_backtrackings
         );
     }
 
