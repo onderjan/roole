@@ -13,10 +13,19 @@ mod eval;
 pub use assignment::Assignment;
 pub use decision::Decision;
 
+/// A satisfiability problem.
 #[derive(Debug)]
 pub struct Problem {
+    /// Widths of universally-quantified bitvector variables.
     variable_widths: Vec<u32>,
+    /// Operations on the variables and results of other operations.
     operations: Vec<Operation>,
+    /// Formula id of the variable/operation which serves as the assertion.
+    ///
+    /// Must have a single-bit result.
+    ///
+    /// The problem is satisfiable exactly if it evaluates to 1 with
+    /// at least one variable assignment.
     assertion: FormulaId,
 }
 
@@ -37,10 +46,14 @@ impl Problem {
         &self.variable_widths
     }
 
+    /// Evaluates this problem assertion on the given variable assignment.
+    ///
+    /// The assignment structure must correspond to the problem variables.
     pub fn eval(&self, assignment: &Assignment) -> AbstractBitvector<RBound> {
         self.eval_formula(assignment, self.assertion)
     }
 
+    /// An assignment of variables where all variables are unknown.
     pub fn unknown_assignment(&self) -> Assignment {
         let mut assignment = Assignment { values: Vec::new() };
         for width in &self.variable_widths {

@@ -11,6 +11,7 @@ use crate::{
     problem::decision::Decision,
 };
 
+/// Assignment of problem variables to abstract bitvector values.
 #[derive(Clone)]
 pub struct Assignment {
     pub(super) values: Vec<AbstractBitvector<RBound>>,

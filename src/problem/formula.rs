@@ -1,17 +1,25 @@
 use std::fmt::Debug;
 
+/// Formula id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum FormulaId {
     Variable(VariableId),
     Operation(OperationId),
 }
 
+/// Variable id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VariableId(pub usize);
 
+/// Operation id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OperationId(pub usize);
 
+/// Operation on bitvector(s).
+///
+/// The operations store ids of their inputs,
+/// so they can be stored in vectors instead of
+/// being represented in memory as a tree / directed graph.
 #[derive(Clone)]
 pub enum Operation {
     Constant(u64, u32),

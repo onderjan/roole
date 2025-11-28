@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+/// A decision on an assignment variable and its bit.
 #[derive(Clone, Copy)]
 pub struct Decision {
     variable_index: usize,

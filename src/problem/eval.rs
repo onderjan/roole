@@ -14,6 +14,7 @@ use crate::{
 };
 
 impl super::Problem {
+    /// Evaluates a formula of this problem with the given assignment.
     pub(super) fn eval_formula(
         &self,
         assignment: &Assignment,
@@ -28,6 +29,7 @@ impl super::Problem {
         }
     }
 
+    /// Evaluates an operation of this problem with the given assignment.
     fn eval_operation(
         &self,
         assignment: &Assignment,

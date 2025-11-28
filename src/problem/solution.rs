@@ -10,23 +10,41 @@ use crate::{
 
 use super::Problem;
 
+/// A solution of the satisfiability problem.
+///
+/// It either says the problem is satisfiable, producing
+/// an assignment that satisfies the problem (a model),
+/// or says that the problem is unsatisfiable, producing
+/// an unsatisfiability proof.
 #[derive(Debug)]
 pub enum Solution {
     Satisfiable(Assignment),
     Unsatisfiable(Proof),
 }
 
+/// Proof on the satisfiability problem.
 #[derive(Debug)]
 pub struct Proof {
     nodes: Vec<ProofNode>,
 }
 
+/// Proof node.
 #[derive(Debug)]
 pub enum ProofNode {
+    /// Non-leaf decision.
     Decision(ProofDecisionNode),
+    /// Leaf claimed evaluation value.
     Value(ThreeValued),
 }
 
+/// Proof decision node.
+///
+/// The decision splits a given variable bit
+/// to the zero (false) case and one (true) case.
+///
+/// The two children are also proof nodes. Each one
+/// must have its index greater than the index of
+/// its parent, so the proof is guaranteed non-circular.
 #[derive(Debug)]
 pub struct ProofDecisionNode {
     pub decision: Decision,
@@ -35,6 +53,7 @@ pub struct ProofDecisionNode {
 }
 
 impl Solution {
+    /// Validates (proof-checks) that the solution to a problem is correct.
     pub fn validate(&self, problem: &Problem) {
         match self {
             Solution::Satisfiable(claimed_sat_assignment) => {
@@ -47,6 +66,7 @@ impl Solution {
                 );
             }
             Solution::Unsatisfiable(unsat_proof) => {
+                // validate the proof
                 UnsatValidator::new(problem, unsat_proof).validate();
             }
         }
@@ -78,13 +98,24 @@ impl<'a> UnsatValidator<'a> {
         }
     }
 
+    // Validate the proof by a depth-first-search on the nodes.
+    //
+    // Panics if the proof is invalid.
     fn validate(mut self) {
+        // It suffices to validate that the claimed value of evaluation
+        // of leaf nodes reachable from the root is zero and it matches
+        // the actual evaluation value.
+        //
+        // To ensure finite validation time, reject any proofs that may be
+        // circular by ensuring that the children nodes have a greater index
+        // than their parent.
+
         while let Some((node_index, assignment)) = self.stack.pop() {
             let node = &self.proof.nodes[node_index];
             match node {
                 ProofNode::Decision(decision_node) => {
                     // ensure the children are located after the current node
-                    // so the proof completes in finite time
+                    // so the validation is guaranteed to end in finite time
                     assert!(decision_node.child_zero > node_index);
                     assert!(decision_node.child_one > node_index);
 
