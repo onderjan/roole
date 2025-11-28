@@ -297,50 +297,45 @@ impl Iterator for RevDecisionIter<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            match self.1 {
-                Some(current_node_index) => {
-                    let current_node = &self.0[current_node_index];
-                    self.1 = current_node.parent;
+            // remember node and update it to parent
+            let current_node_index = self.1?;
+            let current_node = &self.0[current_node_index];
+            self.1 = current_node.parent;
 
-                    let result = if let NodeType::NonLeaf(current_node) = &current_node.ty {
-                        let phase_true = self.2.expect("Non-leaf decision phase should be present");
+            // remember and update phase based on whether this is zero child or one child
+            let current_phase = self.2;
+            self.2 = if let Some(parent) = current_node.parent {
+                let NodeType::NonLeaf(parent) = &self.0[parent].ty else {
+                    panic!("Parent should be non-leaf")
+                };
 
-                        let backtracked_fn = |nodes: &Vec<Node>, child: usize| {
-                            matches!(
-                                nodes[child].ty,
-                                NodeType::Value(Value {
-                                    ty: ValueType::Backtracked,
-                                    ..
-                                })
-                            )
-                        };
+                Some(current_node_index == parent.child_one)
+            } else {
+                None
+            };
 
-                        let uses_backtracking = backtracked_fn(self.0, current_node.child_zero)
-                            || backtracked_fn(self.0, current_node.child_one);
+            //
+            let NodeType::NonLeaf(current_node) = &current_node.ty else {
+                // not a non-leaf node, try parent next
+                continue;
+            };
 
-                        Some((current_node.decision, phase_true, uses_backtracking))
-                    } else {
-                        None
-                    };
+            let phase_true = current_phase.expect("Non-leaf decision phase should be present");
 
-                    let next_phase_true = if let Some(parent) = current_node.parent {
-                        let NodeType::NonLeaf(parent) = &self.0[parent].ty else {
-                            panic!("Parent should be non-leaf")
-                        };
+            let backtracked_fn = |nodes: &Vec<Node>, child: usize| {
+                matches!(
+                    nodes[child].ty,
+                    NodeType::Value(Value {
+                        ty: ValueType::Backtracked,
+                        ..
+                    })
+                )
+            };
 
-                        Some(current_node_index == parent.child_one)
-                    } else {
-                        None
-                    };
+            let uses_backtracking = backtracked_fn(self.0, current_node.child_zero)
+                || backtracked_fn(self.0, current_node.child_one);
 
-                    self.2 = next_phase_true;
-
-                    if let Some(result) = result {
-                        return Some(result);
-                    }
-                }
-                None => return None,
-            }
+            return Some((current_node.decision, phase_true, uses_backtracking));
         }
     }
 }
