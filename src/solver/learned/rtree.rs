@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use itertools::Itertools;
+
 use crate::{problem::Assignment, solver::Learned};
 
 #[derive(Clone)]
@@ -162,7 +164,7 @@ impl NonLeaf {
         let mut chosen = None;
 
         for (entry_index, (entry_bound, _entry_node)) in self.entries.iter().enumerate() {
-            let entry_volume = entry_bound.volume();
+            let entry_volume = volume(entry_bound);
 
             // compute enlargement of leafs
             let enlargement = self.compute_enlargement(&assignment);
@@ -285,7 +287,7 @@ impl Leaf {
     fn compute_enlargement(&self, assignment: &Assignment) -> i64 {
         let mut least_differences = u64::MAX;
         for entry in &self.entries {
-            let differences = entry.num_differences(assignment);
+            let differences = num_differences(entry, assignment);
             least_differences = least_differences.min(differences);
         }
 
@@ -331,7 +333,7 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
         for (second_index, second) in first_iter.clone() {
             let second_bound = bound_fn(second);
             // calculate inefficiency
-            let inefficiency = first_bound.num_differences(second_bound);
+            let inefficiency = num_differences(first_bound, second_bound);
 
             // choose the most inefficient pair
             let replace_chosen = if let Some((chosen_inefficiency, _, _)) = chosen {
@@ -385,8 +387,8 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
         for (index, entry) in our_entries.iter().enumerate() {
             let bound = (bound_fn)(entry);
 
-            let first_enlargement = bound.num_differences(&first_bound);
-            let second_enlargement = bound.num_differences(&second_bound);
+            let first_enlargement = num_differences(bound, &first_bound);
+            let second_enlargement = num_differences(bound, &second_bound);
 
             let (enlargement, insert_to_first) = if first_enlargement <= second_enlargement {
                 (first_enlargement, true)
@@ -432,4 +434,34 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
     *our_entries = first_group;
 
     second_group
+}
+
+pub fn volume(assignment: &Assignment) -> u64 {
+    let mut count = 0;
+
+    for our_value in assignment.values().iter() {
+        count += our_value.get_unknown_bits().to_u64().count_ones() as u64;
+    }
+
+    count
+}
+
+pub fn num_differences(lhs: &Assignment, rhs: &Assignment) -> u64 {
+    let mut count = 0;
+
+    for (our_value, rhs_value) in lhs.values().iter().zip_eq(rhs.values().iter()) {
+        let our_zeros = our_value.get_possibly_zero_flags().to_u64();
+        let our_ones = our_value.get_possibly_one_flags().to_u64();
+
+        let rhs_zeros = rhs_value.get_possibly_zero_flags().to_u64();
+        let rhs_ones = rhs_value.get_possibly_one_flags().to_u64();
+
+        let zero_diff = our_zeros ^ rhs_zeros;
+        let one_diff = our_ones ^ rhs_ones;
+        let some_diff = zero_diff | one_diff;
+
+        count += some_diff.count_ones() as u64;
+    }
+
+    count
 }

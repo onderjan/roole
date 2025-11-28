@@ -34,36 +34,6 @@ impl Assignment {
         self
     }
 
-    pub fn volume(&self) -> u64 {
-        let mut count = 0;
-
-        for our_value in self.values.iter() {
-            count += our_value.get_unknown_bits().to_u64().count_ones() as u64;
-        }
-
-        count
-    }
-
-    pub fn num_differences(&self, rhs: &Self) -> u64 {
-        let mut count = 0;
-
-        for (our_value, rhs_value) in self.values.iter().zip_eq(rhs.values.iter()) {
-            let our_zeros = our_value.get_possibly_zero_flags().to_u64();
-            let our_ones = our_value.get_possibly_one_flags().to_u64();
-
-            let rhs_zeros = rhs_value.get_possibly_zero_flags().to_u64();
-            let rhs_ones = rhs_value.get_possibly_one_flags().to_u64();
-
-            let zero_diff = our_zeros ^ rhs_zeros;
-            let one_diff = our_ones ^ rhs_ones;
-            let some_diff = zero_diff | one_diff;
-
-            count += some_diff.count_ones() as u64;
-        }
-
-        count
-    }
-
     pub fn set_decision_value(&mut self, decision: Decision, value: ThreeValued) {
         self.values[decision.variable_index()].set_bit_to_three_valued(decision.bit_index(), value);
     }
