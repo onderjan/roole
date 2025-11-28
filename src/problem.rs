@@ -3,10 +3,11 @@ use std::fmt::Debug;
 use crate::{
     assignment::Assignment,
     domain::bitvector::{RBound, abstr::AbstractBitvector},
-    formula::{FormulaId, Operation},
 };
+use formula::{FormulaId, Operation};
 
 mod eval;
+pub mod formula;
 
 #[derive(Debug)]
 pub struct Problem {

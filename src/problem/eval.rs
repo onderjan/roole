@@ -1,3 +1,4 @@
+use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
     assignment::Assignment,
     domain::{
@@ -10,7 +11,6 @@ use crate::{
             forward::{BExt, Bitwise, HwArith, HwShift, TypedEq},
         },
     },
-    formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator},
 };
 
 impl super::Problem {

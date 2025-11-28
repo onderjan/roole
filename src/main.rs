@@ -2,7 +2,6 @@ use std::io::BufReader;
 
 mod assignment;
 mod domain;
-mod formula;
 mod parser;
 mod problem;
 mod solver;

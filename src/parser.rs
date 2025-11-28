@@ -6,12 +6,16 @@ use aws_smt_ir::{CommandStream, smt2parser::concrete};
 use indexmap::IndexMap;
 use itertools::Itertools;
 
-use crate::formula::{
-    BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, OperationId, UniOp, UniOperator,
-    VariableId,
+use crate::{
+    problem::{
+        Problem,
+        formula::{
+            BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, OperationId, UniOp, UniOperator,
+            VariableId,
+        },
+    },
+    solver::{self},
 };
-use crate::problem::Problem;
-use crate::solver::{self};
 
 #[derive(Debug)]
 struct Parser {
