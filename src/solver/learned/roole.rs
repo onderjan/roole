@@ -1,9 +1,9 @@
 use crate::{
-    assignment::Assignment,
     domain::{
         bitvector::{BitvectorBound, abstr::BitvectorDomain},
         value::ThreeValued,
     },
+    problem::assignment::Assignment,
     solver::{Decision, Learned},
 };
 

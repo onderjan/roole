@@ -1,6 +1,5 @@
 use std::io::BufReader;
 
-mod assignment;
 mod domain;
 mod parser;
 mod problem;

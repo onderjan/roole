@@ -1,11 +1,10 @@
 use std::fmt::Debug;
 
-use crate::{
-    assignment::Assignment,
-    domain::bitvector::{RBound, abstr::AbstractBitvector},
-};
+use crate::domain::bitvector::{RBound, abstr::AbstractBitvector};
+use assignment::Assignment;
 use formula::{FormulaId, Operation};
 
+pub mod assignment;
 mod eval;
 pub mod formula;
 

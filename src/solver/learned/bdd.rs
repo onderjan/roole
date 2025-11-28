@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use num::{BigUint, Zero};
 
 use crate::{
-    assignment::Assignment,
     domain::bitvector::{BitvectorBound, abstr::BitvectorDomain},
+    problem::assignment::Assignment,
     solver::Learned,
 };
 

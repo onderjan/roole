@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use crate::problem::assignment::Assignment;
+
 pub mod bdd;
 pub mod linear;
 pub mod roole;
@@ -12,5 +14,3 @@ pub trait Learned {
 
     fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()>;
 }
-
-use crate::assignment::Assignment;

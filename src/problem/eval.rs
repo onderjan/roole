@@ -1,6 +1,5 @@
 use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
-    assignment::Assignment,
     domain::{
         bitvector::{
             BitvectorBound, RBound,
@@ -11,6 +10,7 @@ use crate::{
             forward::{BExt, Bitwise, HwArith, HwShift, TypedEq},
         },
     },
+    problem::assignment::Assignment,
 };
 
 impl super::Problem {

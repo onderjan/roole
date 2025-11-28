@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{assignment::Assignment, solver::Learned};
+use crate::{problem::assignment::Assignment, solver::Learned};
 
 #[derive(Clone)]
 pub struct RTreeLearned {

@@ -1,11 +1,11 @@
 use std::{fmt::Debug, fs::File, io::BufWriter};
 
 use crate::{
-    assignment::Assignment,
     domain::{
         bitvector::{RBound, abstr::AbstractBitvector},
         value::ThreeValued,
     },
+    problem::assignment::Assignment,
     solver::Decision,
 };
 

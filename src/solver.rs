@@ -1,9 +1,8 @@
 use std::{fs::File, io::BufWriter, ops::ControlFlow};
 
 use crate::{
-    assignment::Assignment,
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
-    problem::Problem,
+    problem::{Problem, assignment::Assignment},
     solver::{
         partition::{Partition, ValueType},
         roole::RooleLearned,
