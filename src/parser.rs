@@ -1,8 +1,13 @@
 use std::ops::ControlFlow;
 
-use aws_smt_ir::smt2parser::concrete::QualIdentifier;
-use aws_smt_ir::smt2parser::visitors::Index;
-use aws_smt_ir::{CommandStream, smt2parser::concrete};
+use aws_smt_ir::{
+    Symbol, SyntaxBuilder,
+    smt2parser::{
+        CommandStream,
+        concrete::{Command, Identifier, QualIdentifier, Sort, Term},
+        visitors::Index,
+    },
+};
 use indexmap::IndexMap;
 use itertools::Itertools;
 
@@ -39,7 +44,7 @@ impl Scope {
 }
 
 pub fn parse(reader: impl std::io::BufRead, path: Option<String>) {
-    let stream = CommandStream::new(reader, concrete::SyntaxBuilder, path);
+    let stream = CommandStream::new(reader, SyntaxBuilder, path);
     let commands = stream
         .collect::<Result<Vec<_>, _>>()
         .expect("File should be SMT-LIB-2 parseable");
@@ -59,33 +64,33 @@ pub fn parse(reader: impl std::io::BufRead, path: Option<String>) {
 }
 
 impl Parser {
-    pub fn parse_command(&mut self, command: concrete::Command) -> ControlFlow<(), ()> {
+    pub fn parse_command(&mut self, command: Command) -> ControlFlow<(), ()> {
         match command {
-            concrete::Command::Assert { term } => {
+            Command::Assert { term } => {
                 let formula_id = self.create_formula(term);
 
                 self.assertions.push(formula_id);
             }
-            concrete::Command::CheckSat => {
+            Command::CheckSat => {
                 self.check_sat();
             }
-            concrete::Command::DeclareConst { symbol, sort } => {
+            Command::DeclareConst { symbol, sort } => {
                 self.declare_fun(symbol, Vec::new(), sort);
             }
-            concrete::Command::DeclareFun {
+            Command::DeclareFun {
                 symbol,
                 parameters,
                 sort,
             } => {
                 self.declare_fun(symbol, parameters, sort);
             }
-            concrete::Command::Exit => {
+            Command::Exit => {
                 return ControlFlow::Break(());
             }
-            concrete::Command::SetInfo { .. } => {
+            Command::SetInfo { .. } => {
                 // ignore
             }
-            concrete::Command::SetLogic { symbol } => {
+            Command::SetLogic { symbol } => {
                 if symbol.0 != "QF_BV" {
                     panic!("Logic '{:?}' not supported, only QF_BV supported", symbol.0);
                 }
@@ -125,89 +130,15 @@ impl Parser {
         solver::solve(&problem);
     }
 
-    fn declare_fun(
-        &mut self,
-        fn_symbol: concrete::Symbol,
-        parameters: Vec<concrete::Sort>,
-        sort: concrete::Sort,
-    ) {
-        if !parameters.is_empty() {
-            panic!("Function with params not supported");
-        }
-
-        let concrete::Sort::Simple {
-            identifier:
-                concrete::Identifier::Indexed {
-                    symbol: bitvec_symbol,
-                    indices,
-                },
-        } = sort
-        else {
-            panic!("Only bitvector sort supported");
-        };
-
-        if bitvec_symbol.0 != "BitVec" {
-            panic!("Only bitvector sort supported");
-        }
-
-        if indices.len() != 1 {
-            panic!("Only bitvector sort supported");
-        }
-
-        let Index::Numeral(length) = &indices[0] else {
-            panic!("Only bitvector sort supported");
-        };
-
-        let Ok(width) = std::convert::TryInto::<u32>::try_into(length) else {
-            panic!("Bitvector width must fit into u32");
-        };
-
-        let variable_id = VariableId(self.variables.len());
-        self.variables.push(width);
-
-        if self
-            .current_scope_mut()
-            .names
-            .insert(fn_symbol.0.clone(), FormulaId::Variable(variable_id))
-            .is_some()
-        {
-            panic!("Multiple variables with same name '{}'", fn_symbol.0);
-        }
-    }
-
-    fn create_formula(&mut self, term: concrete::Term) -> FormulaId {
+    fn create_formula(&mut self, term: Term) -> FormulaId {
         match term {
-            concrete::Term::Constant(constant) => {
+            Term::Constant(constant) => {
                 todo!("Create formula for constant {:?}", constant);
             }
-            concrete::Term::QualIdentifier(qual_ident) => match qual_ident {
-                QualIdentifier::Simple { identifier } => match identifier {
-                    concrete::Identifier::Simple { symbol } => self.find_name(&symbol.0),
-                    concrete::Identifier::Indexed { symbol, indices } => {
-                        if let Some(bitvector_width) = symbol.0.strip_prefix("bv")
-                            && let Ok(value) = bitvector_width.parse()
-                        {
-                            assert_eq!(indices.len(), 1);
-
-                            let Some(Index::Numeral(width)) = indices.into_iter().next() else {
-                                panic!("Unexpected non-numeral index in bit-vector constant")
-                            };
-
-                            let Ok(width) = width.try_into() else {
-                                panic!("Bitvector width too big");
-                            };
-
-                            let formula = Operation::Constant(value, width);
-                            self.operations.push(formula);
-                            FormulaId::Operation(OperationId(self.operations.len() - 1))
-                        } else {
-                            panic!(
-                                "Qualified identifier {:?} with indices {:?} not supported",
-                                symbol, indices
-                            )
-                        }
-                    }
-                },
+            Term::QualIdentifier(qual_ident) => match qual_ident {
+                QualIdentifier::Simple { identifier } => {
+                    self.create_formula_from_identifier(identifier)
+                }
                 QualIdentifier::Sorted { identifier, sort } => {
                     panic!(
                         "Qualified identifier {:?} with sort {:?} not supported",
@@ -215,67 +146,23 @@ impl Parser {
                     );
                 }
             },
-            concrete::Term::Application {
-                qual_identifier: qual_ident,
-                arguments: term_arguments,
-            } => {
-                let mut arguments = Vec::new();
-                for argument in term_arguments {
-                    arguments.push(self.create_formula(argument));
-                }
-
-                let operation = match qual_ident {
-                    concrete::QualIdentifier::Simple { identifier } => match identifier {
-                        concrete::Identifier::Simple { symbol } => match symbol.0.as_str() {
-                            "not" | "bvnot" => self.create_uni_op(UniOperator::Not, arguments),
-                            "=" => self.create_bi_op(BiOperator::Eq, arguments),
-                            "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
-                            "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
-                            "and" | "bvand" => self.create_bi_op(BiOperator::BitAnd, arguments),
-                            "or" | "bvor" => self.create_bi_op(BiOperator::BitOr, arguments),
-                            "xor" | "bvxor" => self.create_bi_op(BiOperator::BitXor, arguments),
-                            "bvshl" => self.create_bi_op(BiOperator::Shl, arguments),
-                            "bvlshr" => self.create_bi_op(BiOperator::Lshr, arguments),
-                            "bvashr" => self.create_bi_op(BiOperator::Ashr, arguments),
-                            "ite" => self.create_ite_op(arguments),
-                            _ => {
-                                panic!("Unsupported application '{}'", symbol.0);
-                            }
-                        },
-                        concrete::Identifier::Indexed { symbol, indices } => {
-                            match symbol.0.as_str() {
-                                "zero_extend" => self.create_ext_op(false, indices, arguments),
-                                _ => {
-                                    panic!(
-                                        "Unsupported qualified identifier {:?} with indices {:?}",
-                                        symbol, indices
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    concrete::QualIdentifier::Sorted { identifier, sort } => {
-                        panic!(
-                            "Qualified identifier {:?} with sort {:?} not supported within application",
-                            identifier, sort
-                        );
-                    }
-                };
-
-                self.operations.push(operation);
-                FormulaId::Operation(OperationId(self.operations.len() - 1))
-            }
-            concrete::Term::Let { var_bindings, term } => {
-                // push a new scope with bindings
+            Term::Application {
+                qual_identifier,
+                arguments,
+            } => self.create_formula_from_application(qual_identifier, arguments),
+            Term::Let { var_bindings, term } => {
+                // push a new scope
                 self.scopes.push(Scope::new());
 
+                // add variable bindings
                 for (symbol, term) in var_bindings {
                     let name = symbol.0;
                     let formula_id = self.create_formula(term);
 
                     self.current_scope_mut().names.insert(name, formula_id);
                 }
-                // TODO add variable bindings
+
+                // evaluate subterm
                 let result = self.create_formula(*term);
 
                 // pop the scope
@@ -283,12 +170,98 @@ impl Parser {
 
                 result
             }
-            concrete::Term::Forall { .. } | concrete::Term::Exists { .. } => {
+            Term::Forall { .. } | Term::Exists { .. } => {
                 panic!("Quantifiers not supported")
             }
-            concrete::Term::Match { .. } => panic!("Match not supported"),
-            concrete::Term::Attributes { .. } => panic!("Attributes not supported"),
+            Term::Match { .. } => panic!("Match not supported"),
+            Term::Attributes { .. } => panic!("Attributes not supported"),
         }
+    }
+
+    fn create_formula_from_identifier(&mut self, identifier: Identifier) -> FormulaId {
+        match identifier {
+            Identifier::Simple { symbol } => self.find_name(&symbol.0),
+            Identifier::Indexed { symbol, indices } => {
+                let Some(bitvector_width) = symbol.0.strip_prefix("bv") else {
+                    panic!(
+                        "Qualified identifier {:?} with indices {:?} not supported",
+                        symbol, indices
+                    )
+                };
+                let Ok(value) = bitvector_width.parse() else {
+                    panic!(
+                        "Bitvector width of qualified identifier {:?} could not be parsed",
+                        symbol.0
+                    );
+                };
+
+                assert_eq!(indices.len(), 1);
+
+                let Some(Index::Numeral(width)) = indices.into_iter().next() else {
+                    panic!("Unexpected non-numeral index in bit-vector constant")
+                };
+
+                let Ok(width) = width.try_into() else {
+                    panic!("Bitvector width too big");
+                };
+
+                let formula = Operation::Constant(value, width);
+                self.operations.push(formula);
+                FormulaId::Operation(OperationId(self.operations.len() - 1))
+            }
+        }
+    }
+
+    fn create_formula_from_application(
+        &mut self,
+        qual_identifier: QualIdentifier,
+        term_arguments: Vec<Term>,
+    ) -> FormulaId {
+        let mut arguments = Vec::new();
+        for argument in term_arguments {
+            arguments.push(self.create_formula(argument));
+        }
+
+        let operation = match qual_identifier {
+            QualIdentifier::Simple {
+                identifier: Identifier::Simple { symbol },
+            } => match symbol.0.as_str() {
+                "not" | "bvnot" => self.create_uni_op(UniOperator::Not, arguments),
+                "=" => self.create_bi_op(BiOperator::Eq, arguments),
+                "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
+                "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
+                "and" | "bvand" => self.create_bi_op(BiOperator::BitAnd, arguments),
+                "or" | "bvor" => self.create_bi_op(BiOperator::BitOr, arguments),
+                "xor" | "bvxor" => self.create_bi_op(BiOperator::BitXor, arguments),
+                "bvshl" => self.create_bi_op(BiOperator::Shl, arguments),
+                "bvlshr" => self.create_bi_op(BiOperator::Lshr, arguments),
+                "bvashr" => self.create_bi_op(BiOperator::Ashr, arguments),
+                "ite" => self.create_ite_op(arguments),
+                _ => {
+                    panic!("Unsupported application '{}'", symbol.0);
+                }
+            },
+            QualIdentifier::Simple {
+                identifier: Identifier::Indexed { symbol, indices },
+            } => match symbol.0.as_str() {
+                "zero_extend" => self.create_ext_op(false, indices, arguments),
+                _ => {
+                    panic!(
+                        "Unsupported qualified identifier {:?} with indices {:?}",
+                        symbol, indices
+                    )
+                }
+            },
+            QualIdentifier::Sorted { identifier, sort } => {
+                panic!(
+                    "Qualified identifier {:?} with sort {:?} not supported within application",
+                    identifier, sort
+                );
+            }
+        };
+
+        self.operations.push(operation);
+        FormulaId::Operation(OperationId(self.operations.len() - 1))
     }
 
     fn create_uni_op(&mut self, op: UniOperator, arguments: Vec<FormulaId>) -> Operation {
@@ -373,6 +346,51 @@ impl Parser {
             formula_then: left,
             formula_else: right,
         })
+    }
+
+    fn declare_fun(&mut self, fn_symbol: Symbol, parameters: Vec<Sort>, sort: Sort) {
+        if !parameters.is_empty() {
+            panic!("Function with params not supported");
+        }
+
+        let Sort::Simple {
+            identifier:
+                Identifier::Indexed {
+                    symbol: bitvec_symbol,
+                    indices,
+                },
+        } = sort
+        else {
+            panic!("Only bitvector sort supported");
+        };
+
+        if bitvec_symbol.0 != "BitVec" {
+            panic!("Only bitvector sort supported");
+        }
+
+        if indices.len() != 1 {
+            panic!("Only bitvector sort supported");
+        }
+
+        let Index::Numeral(length) = &indices[0] else {
+            panic!("Only bitvector sort supported");
+        };
+
+        let Ok(width) = std::convert::TryInto::<u32>::try_into(length) else {
+            panic!("Bitvector width must fit into u32");
+        };
+
+        let variable_id = VariableId(self.variables.len());
+        self.variables.push(width);
+
+        if self
+            .current_scope_mut()
+            .names
+            .insert(fn_symbol.0.clone(), FormulaId::Variable(variable_id))
+            .is_some()
+        {
+            panic!("Multiple variables with same name '{}'", fn_symbol.0);
+        }
     }
 
     fn current_scope_mut(&mut self) -> &mut Scope {
