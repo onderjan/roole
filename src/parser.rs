@@ -20,14 +20,50 @@ use crate::{
 
 mod operation;
 
+/// Parses a SMT-LIB-2 file.
+///
+/// Typically, the file will consist of constant and function declarations
+/// and assertions followed by the check-sat command. The SAT solver will be
+/// called then.
+pub fn parse(reader: impl std::io::BufRead, path: Option<String>) {
+    // construct the parser
+    let mut parser = Parser::new();
+
+    let stream = CommandStream::new(reader, SyntaxBuilder, path);
+    for command_result in stream {
+        match command_result {
+            Ok(command) => {
+                // parse the command normally
+                if parser.parse_command(command).is_break() {
+                    break;
+                }
+            }
+            Err(err) => {
+                panic!("Cannot parse SMT-LIB2 command: {:?}", err);
+            }
+        }
+    }
+}
+
+/// Parser structure.
+///
+/// Currently, only simple parsing without pushing/popping
+/// of assertion scopes is implemented.
 #[derive(Debug)]
 struct Parser {
+    /// Stack of binding scopes.
     scopes: Vec<Scope>,
+    /// Widths of defined bitvector variables.
     variables: Vec<u32>,
+    /// Operations on variables and other operation results.
     operations: Vec<Operation>,
+    /// List of assertions.
     assertions: Vec<FormulaId>,
 }
 
+// Binding scope.
+//
+// This binds variable names to formula ids.
 #[derive(Debug)]
 struct Scope {
     names: IndexMap<String, FormulaId>,
@@ -41,33 +77,23 @@ impl Scope {
     }
 }
 
-pub fn parse(reader: impl std::io::BufRead, path: Option<String>) {
-    let stream = CommandStream::new(reader, SyntaxBuilder, path);
-    let commands = stream
-        .collect::<Result<Vec<_>, _>>()
-        .expect("File should be SMT-LIB-2 parseable");
-
-    let mut parser = Parser {
-        scopes: vec![Scope::new()],
-        variables: Vec::new(),
-        operations: Vec::new(),
-        assertions: Vec::new(),
-    };
-
-    for command in commands {
-        if parser.parse_command(command).is_break() {
-            break;
+impl Parser {
+    fn new() -> Self {
+        Self {
+            scopes: vec![Scope::new()],
+            variables: Vec::new(),
+            operations: Vec::new(),
+            assertions: Vec::new(),
         }
     }
-}
 
-impl Parser {
     pub fn parse_command(&mut self, command: Command) -> ControlFlow<(), ()> {
         match command {
             Command::CheckSat => {
                 self.check_sat();
             }
             Command::Assert { term } => {
+                // parse the assertion formula and add it to assertions
                 let formula_id = self.create_formula(term);
                 self.assertions.push(formula_id);
             }
@@ -101,6 +127,8 @@ impl Parser {
     }
 
     fn check_sat(&mut self) {
+        // construct one result assertion by doing bit-ands
+        // of all assertions
         let mut result_assertion = None;
         for assertion in &self.assertions {
             result_assertion = match result_assertion {
@@ -123,6 +151,7 @@ impl Parser {
             return;
         };
 
+        // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
         solver::solve(&problem);
     }
@@ -177,17 +206,23 @@ impl Parser {
 
     fn create_formula_from_identifier(&mut self, identifier: Identifier) -> FormulaId {
         match identifier {
-            Identifier::Simple { symbol } => self.find_name(&symbol.0),
+            Identifier::Simple { symbol } => {
+                // this is just a symbol name that should be defined within the scope
+                // find the formula id for it
+                self.find_by_name(&symbol.0)
+            }
             Identifier::Indexed { symbol, indices } => {
+                // indexed identifiers are currently only supported
+                // for defining bit-vector constants
                 let Some(bitvector_width) = symbol.0.strip_prefix("bv") else {
                     panic!(
-                        "Qualified identifier {:?} with indices {:?} not supported",
+                        "Identifier {:?} with indices {:?} not supported",
                         symbol, indices
                     )
                 };
                 let Ok(value) = bitvector_width.parse() else {
                     panic!(
-                        "Bitvector width of qualified identifier {:?} could not be parsed",
+                        "Bitvector width of identifier {:?} could not be parsed",
                         symbol.0
                     );
                 };
@@ -202,6 +237,7 @@ impl Parser {
                     panic!("Bitvector width too big");
                 };
 
+                // save the constant as an operation
                 let formula = Operation::Constant(value, width);
                 self.operations.push(formula);
                 FormulaId::Operation(OperationId(self.operations.len() - 1))
@@ -210,6 +246,8 @@ impl Parser {
     }
 
     fn declare_fun(&mut self, fn_symbol: Symbol, parameters: Vec<Sort>, sort: Sort) {
+        // only bitvector variable declarations are currently supported here
+
         if !parameters.is_empty() {
             panic!("Function with params not supported");
         }
@@ -241,9 +279,13 @@ impl Parser {
             panic!("Bitvector width must fit into u32");
         };
 
+        // this declares a bitvector variable with a given width and name
+        // add the variable with given width into our variables
+
         let variable_id = VariableId(self.variables.len());
         self.variables.push(width);
 
+        // add the variable name mapping to the current scope
         if self
             .current_scope_mut()
             .names
@@ -260,14 +302,13 @@ impl Parser {
             .expect("A scope should be available")
     }
 
-    fn find_name(&self, name: &str) -> FormulaId {
+    fn find_by_name(&self, name: &str) -> FormulaId {
         // search the scopes in reverse order
-
         for scope in self.scopes.iter().rev() {
             if let Some(formula_id) = scope.names.get(name) {
                 return *formula_id;
             }
         }
-        panic!("Qualified identifier should be in variables");
+        panic!("Identifier {:?} should be in variables", name);
     }
 }
