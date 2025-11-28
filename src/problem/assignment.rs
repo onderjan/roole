@@ -13,7 +13,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Assignment {
-    pub values: Vec<AbstractBitvector<RBound>>,
+    pub(super) values: Vec<AbstractBitvector<RBound>>,
 }
 
 impl Assignment {
@@ -64,14 +64,21 @@ impl Assignment {
         count
     }
 
-    pub fn apply_decision_to_undecided(&mut self, decision: Decision, value: bool) {
-        assert_eq!(
-            self.values[decision.variable_index].three_valued_from_bit(decision.bit_index),
-            ThreeValued::Unknown
-        );
+    pub fn set_decision_value(&mut self, decision: Decision, value: ThreeValued) {
+        self.values[decision.variable_index()].set_bit_to_three_valued(decision.bit_index(), value);
+    }
 
-        self.values[decision.variable_index]
-            .set_bit_to_three_valued(decision.bit_index, ThreeValued::from_bool(value));
+    pub fn apply_bool_decision_to_undecided(&mut self, decision: Decision, value: bool) {
+        assert_eq!(self.get_decision_value(decision), ThreeValued::Unknown);
+        self.set_decision_value(decision, ThreeValued::from_bool(value));
+    }
+
+    pub fn get_decision_value(&self, decision: Decision) -> ThreeValued {
+        self.values[decision.variable_index()].three_valued_from_bit(decision.bit_index())
+    }
+
+    pub fn values(&self) -> &[AbstractBitvector<RBound>] {
+        &self.values
     }
 }
 

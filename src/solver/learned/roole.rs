@@ -77,8 +77,7 @@ impl RooleLearned {
         };
 
         for child in children {
-            let bit_value = assignment.values[child.decision.variable_index]
-                .three_valued_from_bit(child.decision.bit_index);
+            let bit_value = assignment.get_decision_value(child.decision);
 
             let covered_by_decision = match bit_value {
                 ThreeValued::False => !child.phase,
@@ -106,8 +105,7 @@ impl RooleLearned {
         };
 
         for child in children.iter_mut() {
-            let bit_value = assignment.values[child.decision.variable_index]
-                .three_valued_from_bit(child.decision.bit_index);
+            let bit_value = assignment.get_decision_value(child.decision);
 
             let covered_by_child = match bit_value {
                 ThreeValued::False => !child.phase,
@@ -116,8 +114,7 @@ impl RooleLearned {
             };
 
             if covered_by_child {
-                assignment.values[child.decision.variable_index]
-                    .set_bit_to_three_valued(child.decision.bit_index, ThreeValued::Unknown);
+                assignment.set_decision_value(child.decision, ThreeValued::Unknown);
                 let child_index = child.index;
                 self.add_recursive(assignment, child_index);
                 return;
@@ -127,9 +124,10 @@ impl RooleLearned {
         // no child covers this
         // create a new child with a chosen decision
 
-        for variable_index in 0..assignment.values.len() {
-            for bit_index in 0..assignment.values[variable_index].bound().width() {
-                let bit_value = assignment.values[variable_index].three_valued_from_bit(bit_index);
+        for variable_index in 0..assignment.values().len() {
+            for bit_index in 0..assignment.values()[variable_index].bound().width() {
+                let decision = Decision::new(variable_index, bit_index);
+                let bit_value = assignment.get_decision_value(decision);
 
                 let phase = match bit_value {
                     ThreeValued::False => false,
@@ -140,18 +138,14 @@ impl RooleLearned {
                 let child_index = num_nodes;
 
                 children.push(Child {
-                    decision: Decision {
-                        variable_index,
-                        bit_index,
-                    },
+                    decision: Decision::new(variable_index, bit_index),
                     phase,
                     index: child_index,
                 });
 
                 self.nodes.push(Node::Inner(Vec::new()));
 
-                assignment.values[variable_index]
-                    .set_bit_to_three_valued(bit_index, ThreeValued::Unknown);
+                assignment.set_decision_value(decision, ThreeValued::Unknown);
                 self.add_recursive(assignment, child_index);
 
                 return;

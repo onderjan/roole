@@ -2,8 +2,25 @@ use std::fmt::Debug;
 
 #[derive(Clone, Copy)]
 pub struct Decision {
-    pub variable_index: usize,
-    pub bit_index: u32,
+    variable_index: usize,
+    bit_index: u32,
+}
+
+impl Decision {
+    pub fn new(variable_index: usize, bit_index: u32) -> Self {
+        Self {
+            variable_index,
+            bit_index,
+        }
+    }
+
+    pub fn variable_index(&self) -> usize {
+        self.variable_index
+    }
+
+    pub fn bit_index(&self) -> u32 {
+        self.bit_index
+    }
 }
 
 impl Debug for Decision {

@@ -200,7 +200,7 @@ fn assignment_nums(assignment: Assignment) -> (BigUint, BigUint, u64) {
 
     let mut total_width = 0;
 
-    for value in assignment.values.iter().rev() {
+    for value in assignment.values().iter().rev() {
         let width = value.bound().width();
         total_width += width as u64;
 

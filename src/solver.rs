@@ -152,9 +152,8 @@ impl<'a, L: Learned> Solver<'a, L> {
 
         for (decision, _phase, _uses_backtracking) in self.partition.rev_decision_iter() {
             // make decision bit unknown
-            let original = learning_assignment.values[decision.variable_index];
-            learning_assignment.values[decision.variable_index]
-                .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
+            let original = learning_assignment.get_decision_value(decision);
+            learning_assignment.set_decision_value(decision, ThreeValued::Unknown);
 
             // evaluate
             let result = self.problem.eval(&learning_assignment);
@@ -163,7 +162,7 @@ impl<'a, L: Learned> Solver<'a, L> {
                 assert!(concrete_value.is_zero());
             } else {
                 // go back
-                learning_assignment.values[decision.variable_index] = original;
+                learning_assignment.set_decision_value(decision, original);
             }
         }
 
@@ -191,8 +190,7 @@ impl<'a, L: Learned> Solver<'a, L> {
 
         for (decision, _phase, uses_backtracking) in rev_decision_iter {
             // undo decision
-            backtrack_assignment.values[decision.variable_index]
-                .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
+            backtrack_assignment.set_decision_value(decision, ThreeValued::Unknown);
 
             if !self.learned.contains(&backtrack_assignment) {
                 // we still may be able to salvage this by evaluating the formula

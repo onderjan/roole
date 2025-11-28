@@ -91,10 +91,11 @@ impl<'a> UnsatValidator<'a> {
                     // apply both phases of the decision to the assignment, which must be yet-undecided there
                     let mut child_zero_assignment = assignment.clone();
                     child_zero_assignment
-                        .apply_decision_to_undecided(decision_node.decision, false);
+                        .apply_bool_decision_to_undecided(decision_node.decision, false);
 
                     let mut child_one_assignment = assignment;
-                    child_one_assignment.apply_decision_to_undecided(decision_node.decision, true);
+                    child_one_assignment
+                        .apply_bool_decision_to_undecided(decision_node.decision, true);
 
                     // ensure both children with the assignments are validated
                     self.stack

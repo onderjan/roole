@@ -58,10 +58,7 @@ impl Partition {
         let mut decision_order = Vec::new();
         for (variable_index, width) in problem.variable_widths().iter().cloned().enumerate() {
             for bit_index in 0..width {
-                decision_order.push(Decision {
-                    variable_index,
-                    bit_index,
-                });
+                decision_order.push(Decision::new(variable_index, bit_index));
             }
         }
 
@@ -131,7 +128,7 @@ impl Partition {
         let NodeType::NonLeaf(current_node) = &self.nodes[current_node].ty else {
             panic!("Node type should be non-leaf")
         };
-        let decision = &current_node.decision;
+        let decision = current_node.decision;
 
         let (child, value) = match phase {
             true => (current_node.child_one, ThreeValued::True),
@@ -139,8 +136,7 @@ impl Partition {
         };
 
         self.current_node = Some(child);
-        self.assignment.values[decision.variable_index]
-            .set_bit_to_three_valued(decision.bit_index, value);
+        self.assignment.set_decision_value(decision, value);
 
         self.decision_level += 1;
     }
@@ -187,12 +183,12 @@ impl Partition {
         let NodeType::NonLeaf(parent_nonleaf) = &self.nodes[parent_node].ty else {
             panic!("Parent should be non-leaf")
         };
-        let decision = &parent_nonleaf.decision;
+        let decision = parent_nonleaf.decision;
 
         // return to parent
         self.current_node = current_node.parent;
-        self.assignment.values[decision.variable_index]
-            .set_bit_to_three_valued(decision.bit_index, ThreeValued::Unknown);
+        self.assignment
+            .set_decision_value(decision, ThreeValued::Unknown);
         self.decision_level -= 1;
     }
 
@@ -267,10 +263,7 @@ impl Partition {
                     writeln!(f, "{} [label=\"-\"]", index)?;
                 }
                 NodeType::NonLeaf(non_leaf) => {
-                    let label = format!(
-                        "{}.{}",
-                        non_leaf.decision.variable_index, non_leaf.decision.bit_index
-                    );
+                    let label = format!("{:?}", non_leaf.decision);
                     writeln!(f, "{} [label=\"{}\"]", index, label)?;
                     writeln!(f, "{} -> {} [style=\"dashed\"]", index, non_leaf.child_zero)?;
                     writeln!(f, "{} -> {}", index, non_leaf.child_one)?;
