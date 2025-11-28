@@ -2,7 +2,7 @@ use std::{fs::File, io::BufWriter, ops::ControlFlow};
 
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
-    problem::{Problem, assignment::Assignment},
+    problem::{Problem, solution::Solution},
     solver::{
         partition::{Partition, ValueType},
         roole::RooleLearned,
@@ -18,19 +18,7 @@ pub use learned::*;
 
 pub fn solve(problem: &Problem) {
     let solver: Solver<'_, RooleLearned> = Solver::new(problem);
-    let result = solver.dpll();
-
-    if let Some(result) = result {
-        eprintln!("Satisfiable: {:?}", result);
-    } else {
-        eprintln!("Unsatisfiable");
-    }
-}
-
-#[derive(Clone, Copy)]
-struct Decision {
-    pub variable_index: usize,
-    pub bit_index: u32,
+    solver.solve();
 }
 
 struct Solver<'a, L: Learned> {
@@ -44,8 +32,10 @@ struct Solver<'a, L: Learned> {
 
 impl<'a, L: Learned> Solver<'a, L> {
     pub fn new(problem: &'a Problem) -> Self {
+        eprintln!("Solving SAT problem");
+
         let stats = Stats::new(problem);
-        let partition = Partition::new(problem.variable_widths());
+        let partition = Partition::new(problem);
         let learned = Learned::new();
 
         Self {
@@ -56,7 +46,7 @@ impl<'a, L: Learned> Solver<'a, L> {
         }
     }
 
-    pub fn dpll(mut self) -> Option<Assignment> {
+    pub fn solve(mut self) -> Solution {
         let satisfiable = loop {
             match self.dpll_eval() {
                 ControlFlow::Continue(()) => {}
@@ -73,11 +63,24 @@ impl<'a, L: Learned> Solver<'a, L> {
 
         self.partition.write();
 
-        if satisfiable {
-            Some(self.partition.assignment().clone())
+        let solution = if satisfiable {
+            Solution::Satisfiable(self.partition.assignment().clone())
         } else {
-            None
+            Solution::Unsatisfiable(self.partition.into_proof())
+        };
+
+        eprint!("Result: ");
+
+        match &solution {
+            Solution::Satisfiable(assignment) => eprintln!("Satisfiable: {:?}", assignment),
+            Solution::Unsatisfiable(_) => eprintln!("Unsatisfiable"),
         }
+
+        eprintln!("Validating");
+        solution.validate(self.problem);
+        eprintln!("Validated");
+
+        solution
     }
 
     fn dpll_eval(&mut self) -> ControlFlow<bool> {

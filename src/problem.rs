@@ -1,12 +1,17 @@
 use std::fmt::Debug;
 
 use crate::domain::bitvector::{RBound, abstr::AbstractBitvector};
-use assignment::Assignment;
 use formula::{FormulaId, Operation};
 
-pub mod assignment;
-mod eval;
 pub mod formula;
+pub mod solution;
+
+mod assignment;
+mod decision;
+mod eval;
+
+pub use assignment::Assignment;
+pub use decision::Decision;
 
 #[derive(Debug)]
 pub struct Problem {
@@ -34,5 +39,16 @@ impl Problem {
 
     pub fn eval(&self, assignment: &Assignment) -> AbstractBitvector<RBound> {
         self.eval_formula(assignment, self.assertion)
+    }
+
+    pub fn unknown_assignment(&self) -> Assignment {
+        let mut assignment = Assignment { values: Vec::new() };
+        for width in &self.variable_widths {
+            assignment
+                .values
+                .push(AbstractBitvector::new_unknown(RBound::new(*width)));
+        }
+
+        assignment
     }
 }

@@ -4,7 +4,7 @@ use num::{BigUint, Zero};
 
 use crate::{
     domain::bitvector::{BitvectorBound, abstr::BitvectorDomain},
-    problem::assignment::Assignment,
+    problem::Assignment,
     solver::Learned,
 };
 

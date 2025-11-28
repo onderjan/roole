@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::problem::assignment::Assignment;
+use crate::problem::Assignment;
 
 pub mod bdd;
 pub mod linear;

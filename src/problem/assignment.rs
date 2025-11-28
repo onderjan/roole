@@ -2,9 +2,13 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 
-use crate::domain::{
-    bitvector::{RBound, abstr::AbstractBitvector},
-    traits::Join,
+use crate::{
+    domain::{
+        bitvector::{RBound, abstr::AbstractBitvector},
+        traits::Join,
+        value::ThreeValued,
+    },
+    problem::decision::Decision,
 };
 
 #[derive(Clone)]
@@ -58,6 +62,16 @@ impl Assignment {
         }
 
         count
+    }
+
+    pub fn apply_decision_to_undecided(&mut self, decision: Decision, value: bool) {
+        assert_eq!(
+            self.values[decision.variable_index].three_valued_from_bit(decision.bit_index),
+            ThreeValued::Unknown
+        );
+
+        self.values[decision.variable_index]
+            .set_bit_to_three_valued(decision.bit_index, ThreeValued::from_bool(value));
     }
 }
 

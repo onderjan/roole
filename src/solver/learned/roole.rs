@@ -3,8 +3,8 @@ use crate::{
         bitvector::{BitvectorBound, abstr::BitvectorDomain},
         value::ThreeValued,
     },
-    problem::assignment::Assignment,
-    solver::{Decision, Learned},
+    problem::{Assignment, Decision},
+    solver::Learned,
 };
 
 #[derive(Debug)]

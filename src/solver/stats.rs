@@ -22,8 +22,6 @@ const PRECISION_CONST: u64 = 1_000_000;
 
 impl Stats {
     pub fn new(problem: &Problem) -> Self {
-        eprintln!("Solving SAT problem");
-
         let total_width: u64 = problem
             .variable_widths()
             .iter()

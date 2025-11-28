@@ -1,12 +1,11 @@
 use std::{fmt::Debug, fs::File, io::BufWriter};
 
 use crate::{
-    domain::{
-        bitvector::{RBound, abstr::AbstractBitvector},
-        value::ThreeValued,
+    domain::value::ThreeValued,
+    problem::{
+        Assignment, Decision, Problem,
+        solution::{Proof, ProofDecisionNode, ProofNode},
     },
-    problem::assignment::Assignment,
-    solver::Decision,
 };
 
 #[derive(Debug)]
@@ -53,14 +52,11 @@ pub enum ValueType {
 }
 
 impl Partition {
-    pub fn new(variable_widths: &[u32]) -> Self {
+    pub fn new(problem: &Problem) -> Self {
         // fully unknown assignment at the start
-        let mut assignment = Assignment { values: Vec::new() };
+        let assignment = problem.unknown_assignment();
         let mut decision_order = Vec::new();
-        for (variable_index, width) in variable_widths.iter().cloned().enumerate() {
-            assignment
-                .values
-                .push(AbstractBitvector::new_unknown(RBound::new(width)));
+        for (variable_index, width) in problem.variable_widths().iter().cloned().enumerate() {
             for bit_index in 0..width {
                 decision_order.push(Decision {
                     variable_index,
@@ -242,6 +238,26 @@ impl Partition {
         self.decision_level
     }
 
+    pub fn into_proof(self) -> Proof {
+        let mut proof_nodes = Vec::new();
+
+        for node in self.nodes {
+            let proof_node = match node.ty {
+                NodeType::Absent => ProofNode::Value(ThreeValued::Unknown),
+                NodeType::NonLeaf(non_leaf) => ProofNode::Decision(ProofDecisionNode {
+                    decision: non_leaf.decision,
+                    child_zero: non_leaf.child_zero,
+                    child_one: non_leaf.child_one,
+                }),
+                NodeType::Value(value) => ProofNode::Value(ThreeValued::from_bool(value.inner)),
+            };
+
+            proof_nodes.push(proof_node);
+        }
+
+        Proof::new(proof_nodes)
+    }
+
     fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
         writeln!(f, "digraph {{")?;
 
@@ -281,12 +297,6 @@ impl Partition {
 
     pub fn rev_decision_iter(&self) -> impl Iterator<Item = (Decision, bool, bool)> {
         RevDecisionIter(&self.nodes, self.current_node, None)
-    }
-}
-
-impl Debug for Decision {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}.{}", self.variable_index, self.bit_index)
     }
 }
 
