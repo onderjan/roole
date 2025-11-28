@@ -18,7 +18,7 @@ mod stats;
 pub use learned::*;
 
 pub fn solve(problem: &Problem) {
-    let mut solver: Solver<'_, RooleLearned> = Solver::new(problem);
+    let solver: Solver<'_, RooleLearned> = Solver::new(problem);
     let result = solver.dpll();
 
     if let Some(result) = result {
@@ -57,7 +57,7 @@ impl<'a, L: Learned> Solver<'a, L> {
         }
     }
 
-    pub fn dpll(&mut self) -> Option<Assignment> {
+    pub fn dpll(mut self) -> Option<Assignment> {
         let satisfiable = loop {
             match self.dpll_eval() {
                 ControlFlow::Continue(()) => {}
