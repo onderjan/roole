@@ -4,8 +4,9 @@ use crate::{
         value::ThreeValued,
     },
     problem::{Assignment, Decision},
-    solver::Learned,
 };
+
+use super::Learned;
 
 #[derive(Debug)]
 pub struct RooleLearned {

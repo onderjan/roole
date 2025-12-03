@@ -11,6 +11,7 @@ use aws_smt_ir::{
 use indexmap::IndexMap;
 
 use crate::{
+    SolverMode,
     problem::{
         Problem,
         formula::{BiOp, BiOperator, FormulaId, Operation, OperationId, VariableId},
@@ -25,9 +26,14 @@ mod operation;
 /// Typically, the file will consist of constant and function declarations
 /// and assertions followed by the check-sat command. The SAT solver will be
 /// called then.
-pub fn parse(reader: impl std::io::BufRead, path: PathBuf, output_dir: Option<PathBuf>) {
+pub fn parse(
+    reader: impl std::io::BufRead,
+    path: PathBuf,
+    output_dir: Option<PathBuf>,
+    solver_mode: SolverMode,
+) {
     // construct the parser
-    let mut parser = Parser::new(output_dir);
+    let mut parser = Parser::new(output_dir, solver_mode);
 
     let stream = CommandStream::new(
         reader,
@@ -66,6 +72,8 @@ struct Parser {
 
     /// Directory in which to place output artefacts.
     output_dir: Option<PathBuf>,
+    /// Which solver mode to use.
+    solver_mode: SolverMode,
 }
 
 // Binding scope.
@@ -85,7 +93,7 @@ impl Scope {
 }
 
 impl Parser {
-    fn new(output_dir: Option<PathBuf>) -> Self {
+    fn new(output_dir: Option<PathBuf>, solver_mode: SolverMode) -> Self {
         Self {
             scopes: vec![Scope::new()],
             variables: Vec::new(),
@@ -93,6 +101,7 @@ impl Parser {
             assertions: Vec::new(),
 
             output_dir,
+            solver_mode,
         }
     }
 
@@ -162,7 +171,7 @@ impl Parser {
 
         // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
-        solver::solve(&problem, self.output_dir.clone());
+        solver::solve(&problem, self.output_dir.clone(), self.solver_mode);
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {

@@ -2,7 +2,9 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 
-use crate::{problem::Assignment, solver::Learned};
+use crate::problem::Assignment;
+
+use super::Learned;
 
 #[derive(Clone)]
 pub struct RTreeLearned {

@@ -1,6 +1,6 @@
-use std::{io::BufReader, path::PathBuf};
+use std::{fmt::Display, io::BufReader, path::PathBuf};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 
 mod domain;
 mod parser;
@@ -15,6 +15,30 @@ struct Args {
     output_dir: Option<PathBuf>,
 
     input_file: PathBuf,
+
+    #[arg(short, long, default_value_t = SolverMode::Internal)]
+    solver: SolverMode,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum SolverMode {
+    /// Use the internal solver
+    Internal,
+    /// Use the CaDiCaL solver
+    Cadical,
+}
+
+impl Display for SolverMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SolverMode::Internal => "internal",
+                SolverMode::Cadical => "cadical",
+            }
+        )
+    }
 }
 
 /// The main entry point to Roole.
@@ -36,6 +60,6 @@ fn main() {
 
     // evaluate the file with the parser
     eprintln!("Evaluating file {:?}", args.input_file);
-    parser::parse(reader, args.input_file, args.output_dir);
+    parser::parse(reader, args.input_file, args.output_dir, args.solver);
     eprintln!("Finished evaluation");
 }

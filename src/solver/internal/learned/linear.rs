@@ -1,4 +1,6 @@
-use crate::{problem::Assignment, solver::Learned};
+use crate::problem::Assignment;
+
+use super::Learned;
 
 #[derive(Clone, Debug)]
 pub struct LinearLearned {

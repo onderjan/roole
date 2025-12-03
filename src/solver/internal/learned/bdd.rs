@@ -5,8 +5,9 @@ use num::{BigUint, Zero};
 use crate::{
     domain::bitvector::{BitvectorBound, abstr::BitvectorDomain},
     problem::Assignment,
-    solver::Learned,
 };
+
+use super::Learned;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct LearnedNode {
