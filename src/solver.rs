@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufWriter, ops::ControlFlow};
+use std::{fs::File, io::BufWriter, ops::ControlFlow, path::PathBuf};
 
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
@@ -16,8 +16,8 @@ mod stats;
 
 pub use learned::*;
 
-pub fn solve(problem: &Problem) {
-    let solver: Solver<'_, RooleLearned> = Solver::new(problem);
+pub fn solve(problem: &Problem, output_dir: Option<PathBuf>) {
+    let solver: Solver<'_, RooleLearned> = Solver::new(problem, output_dir);
     solver.solve();
 }
 
@@ -28,10 +28,12 @@ struct Solver<'a, L: Learned> {
     learned: L,
 
     stats: Stats,
+
+    output_dir: Option<PathBuf>,
 }
 
 impl<'a, L: Learned> Solver<'a, L> {
-    pub fn new(problem: &'a Problem) -> Self {
+    pub fn new(problem: &'a Problem, output_dir: Option<PathBuf>) -> Self {
         eprintln!("Solving SAT problem");
 
         let stats = Stats::new(problem);
@@ -43,6 +45,7 @@ impl<'a, L: Learned> Solver<'a, L> {
             partition,
             learned,
             stats,
+            output_dir,
         }
     }
 
@@ -56,12 +59,17 @@ impl<'a, L: Learned> Solver<'a, L> {
 
         self.stats.finish();
 
-        let learned_file = File::create("learned.dot").expect("Learned file should be created");
-        self.learned
-            .write_dot(&mut BufWriter::new(learned_file))
-            .expect("Learned file should be written");
+        if let Some(output_dir) = self.output_dir {
+            std::fs::create_dir_all(&output_dir).expect("Output directory should be created");
 
-        self.partition.write();
+            let learned_file = File::create(output_dir.join("learned.dot"))
+                .expect("Learned file should be created");
+            self.learned
+                .write_dot(&mut BufWriter::new(learned_file))
+                .expect("Learned file should be written");
+
+            self.partition.write(&output_dir.join("partition.dot"));
+        }
 
         let solution = if satisfiable {
             Solution::Satisfiable(self.partition.assignment().clone())

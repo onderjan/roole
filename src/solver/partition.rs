@@ -1,4 +1,4 @@
-use std::{fmt::Debug, fs::File, io::BufWriter};
+use std::{fmt::Debug, fs::File, io::BufWriter, path::Path};
 
 use crate::{
     domain::value::ThreeValued,
@@ -282,8 +282,9 @@ impl Partition {
         Ok(())
     }
 
-    pub fn write(&self) {
-        let file = File::create("partition.dot").expect("Partition file should be created");
+    pub fn write(&self, path: &Path) {
+        let file = File::create(path).expect("Partition file should be created");
+
         self.write_dot(&mut BufWriter::new(file))
             .expect("Partition file should be written");
     }

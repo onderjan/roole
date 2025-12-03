@@ -1,33 +1,31 @@
-use std::io::BufReader;
+use std::{io::BufReader, path::PathBuf};
+
+use clap::Parser;
 
 mod domain;
 mod parser;
 mod problem;
 mod solver;
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Directory in which to place output artefacts.
+    #[arg(short, long)]
+    output_dir: Option<PathBuf>,
+
+    input_file: PathBuf,
+}
+
 /// The main entry point to Roole.
 ///
 /// Takes one argument, a path to an SMT-LIB2 file.
 /// Only the QF_BV logic is (partially) supported.
 fn main() {
-    let mut args = std::env::args();
-
-    // skip over the zeroth argument which gives the called executable
-    args.next();
-
-    // get the first argument
-    let Some(path) = args.next() else {
-        eprintln!("Expected exactly one argument");
-        return;
-    };
-    // ensure there are no other arguments
-    if args.next().is_some() {
-        eprintln!("Expected exactly one argument");
-        return;
-    }
+    let args = Args::parse();
 
     // open the file to be read
-    let file = match std::fs::File::open(&path) {
+    let file = match std::fs::File::open(&args.input_file) {
         Ok(ok) => ok,
         Err(err) => {
             eprintln!("File should be readable: {:?}", err);
@@ -37,7 +35,7 @@ fn main() {
     let reader = BufReader::new(file);
 
     // evaluate the file with the parser
-    eprintln!("Evaluating file {}", path);
-    parser::parse(reader, Some(path));
+    eprintln!("Evaluating file {:?}", args.input_file);
+    parser::parse(reader, args.input_file, args.output_dir);
     eprintln!("Finished evaluation");
 }

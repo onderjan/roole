@@ -1,4 +1,4 @@
-use std::ops::ControlFlow;
+use std::{ops::ControlFlow, path::PathBuf};
 
 use aws_smt_ir::{
     Symbol, SyntaxBuilder,
@@ -25,11 +25,15 @@ mod operation;
 /// Typically, the file will consist of constant and function declarations
 /// and assertions followed by the check-sat command. The SAT solver will be
 /// called then.
-pub fn parse(reader: impl std::io::BufRead, path: Option<String>) {
+pub fn parse(reader: impl std::io::BufRead, path: PathBuf, output_dir: Option<PathBuf>) {
     // construct the parser
-    let mut parser = Parser::new();
+    let mut parser = Parser::new(output_dir);
 
-    let stream = CommandStream::new(reader, SyntaxBuilder, path);
+    let stream = CommandStream::new(
+        reader,
+        SyntaxBuilder,
+        Some(path.to_string_lossy().to_string()),
+    );
     for command_result in stream {
         match command_result {
             Ok(command) => {
@@ -59,6 +63,9 @@ struct Parser {
     operations: Vec<Operation>,
     /// List of assertions.
     assertions: Vec<FormulaId>,
+
+    /// Directory in which to place output artefacts.
+    output_dir: Option<PathBuf>,
 }
 
 // Binding scope.
@@ -78,12 +85,14 @@ impl Scope {
 }
 
 impl Parser {
-    fn new() -> Self {
+    fn new(output_dir: Option<PathBuf>) -> Self {
         Self {
             scopes: vec![Scope::new()],
             variables: Vec::new(),
             operations: Vec::new(),
             assertions: Vec::new(),
+
+            output_dir,
         }
     }
 
@@ -153,7 +162,7 @@ impl Parser {
 
         // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
-        solver::solve(&problem);
+        solver::solve(&problem, self.output_dir.clone());
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {
