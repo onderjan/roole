@@ -93,6 +93,7 @@ pub enum BiOperator {
     BitXor,
 
     Eq,
+    Implies,
 
     Ult,
     Ule,

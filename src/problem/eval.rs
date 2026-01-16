@@ -10,12 +10,25 @@ use crate::{
             forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
         },
     },
-    problem::assignment::Assignment,
+    problem::{Problem, assignment::Assignment},
 };
 
-impl super::Problem {
+/// Evaluates this problem assertion on the given variable assignment.
+///
+/// The assignment structure must correspond to the problem variables.
+pub fn evaluate(problem: &Problem, assignment: &Assignment) -> AbstractBitvector<RBound> {
+    let evaluator = Evaluator { problem };
+
+    evaluator.eval_formula(assignment, problem.assertion)
+}
+
+struct Evaluator<'a> {
+    problem: &'a Problem,
+}
+
+impl Evaluator<'_> {
     /// Evaluates a formula of this problem with the given assignment.
-    pub(super) fn eval_formula(
+    fn eval_formula(
         &self,
         assignment: &Assignment,
         formula_id: FormulaId,
@@ -24,7 +37,7 @@ impl super::Problem {
             FormulaId::Variable(variable_id) => assignment.values[variable_id.0],
 
             FormulaId::Operation(operation_id) => {
-                self.eval_operation(assignment, &self.operations[operation_id.0])
+                self.eval_operation(assignment, &self.problem.operations[operation_id.0])
             }
         }
     }
@@ -68,6 +81,7 @@ impl super::Problem {
                     BiOperator::BitXor => left.bit_xor(right),
 
                     BiOperator::Eq => TypedEq::eq(left, right),
+                    BiOperator::Implies => (left.bit_not()).bit_or(right),
 
                     BiOperator::Ult => TypedCmp::ult(left, right),
                     BiOperator::Ule => TypedCmp::ule(left, right),

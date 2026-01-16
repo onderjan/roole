@@ -27,7 +27,8 @@ impl super::Parser {
             } => match symbol.0.as_str() {
                 "not" | "bvnot" => self.create_uni_op(UniOperator::Not, arguments),
 
-                "=" => self.create_bi_op(BiOperator::Eq, arguments),
+                "=" | "bvcomp" => self.create_bi_op(BiOperator::Eq, arguments),
+                "=>" => self.create_bi_op(BiOperator::Implies, arguments),
 
                 "bvult" => self.create_bi_op(BiOperator::Ult, arguments),
                 "bvule" => self.create_bi_op(BiOperator::Ule, arguments),

@@ -2,7 +2,7 @@ use std::{fs::File, io::BufWriter, ops::ControlFlow, path::PathBuf};
 
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
-    problem::{Problem, solution::Solution},
+    problem::{Problem, evaluate, solution::Solution},
     solver::internal::partition::{Partition, ValueType},
 };
 use stats::Stats;
@@ -106,7 +106,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
             self.stats.inc_already_learned();
         } else {
             // we have to evaluate the assignment
-            let result = self.problem.eval(self.partition.assignment());
+            let result = evaluate(self.problem, self.partition.assignment());
 
             let Some(concrete_result) = result.concrete_value() else {
                 // unknown result, we need to choose another decision
@@ -156,7 +156,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
             learning_assignment.set_decision_value(decision, ThreeValued::Unknown);
 
             // evaluate
-            let result = self.problem.eval(&learning_assignment);
+            let result = evaluate(self.problem, &learning_assignment);
 
             if let Some(concrete_value) = result.concrete_value() {
                 assert!(concrete_value.is_zero());
@@ -195,7 +195,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
             if !self.learned.contains(&backtrack_assignment) {
                 // we still may be able to salvage this by evaluating the formula
 
-                let result = self.problem.eval(&backtrack_assignment);
+                let result = evaluate(self.problem, &backtrack_assignment);
 
                 let Some(concrete_result) = result.concrete_value() else {
                     // unknown result, cannot backtrack anymore

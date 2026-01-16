@@ -12,7 +12,7 @@ use crate::{
         value::ThreeValued,
     },
     problem::{
-        Assignment, Decision, Problem,
+        Assignment, Decision, Problem, evaluate,
         solution::{Proof, Solution},
     },
 };
@@ -108,7 +108,7 @@ impl<'a> CadicalSolver<'a> {
             }
         }
 
-        let eval_result = self.problem.eval(&self.assignment);
+        let eval_result = evaluate(self.problem, &self.assignment);
         assert_eq!(eval_result.bound().width(), 1);
         match eval_result.three_valued_from_bit(0) {
             ThreeValued::False => {
@@ -132,7 +132,7 @@ impl<'a> CadicalSolver<'a> {
                 self.assignment
                     .set_decision_value(decision, ThreeValued::Unknown);
 
-                let eval_result = self.problem.eval(&self.assignment);
+                let eval_result = evaluate(self.problem, &self.assignment);
                 assert_eq!(eval_result.bound().width(), 1);
                 match eval_result.three_valued_from_bit(0) {
                     ThreeValued::False => {

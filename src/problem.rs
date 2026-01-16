@@ -12,6 +12,7 @@ mod eval;
 
 pub use assignment::Assignment;
 pub use decision::Decision;
+pub use eval::evaluate;
 
 /// A satisfiability problem.
 #[derive(Debug)]
@@ -44,13 +45,6 @@ impl Problem {
 
     pub fn variable_widths(&self) -> &[u32] {
         &self.variable_widths
-    }
-
-    /// Evaluates this problem assertion on the given variable assignment.
-    ///
-    /// The assignment structure must correspond to the problem variables.
-    pub fn eval(&self, assignment: &Assignment) -> AbstractBitvector<RBound> {
-        self.eval_formula(assignment, self.assertion)
     }
 
     /// An assignment of variables where all variables are unknown.
