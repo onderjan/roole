@@ -5,7 +5,7 @@ use aws_smt_ir::smt2parser::{
 use itertools::Itertools;
 
 use crate::problem::formula::{
-    BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, OperationId, UniOp, UniOperator,
+    BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator,
 };
 
 impl super::Parser {
@@ -35,6 +35,7 @@ impl super::Parser {
                 "bvlshr" => self.create_bi_op(BiOperator::Lshr, arguments),
                 "bvashr" => self.create_bi_op(BiOperator::Ashr, arguments),
                 "ite" => self.create_ite_op(arguments),
+                "concat" => self.create_concat_op(arguments),
                 _ => {
                     panic!("Unsupported application '{}'", symbol.0);
                 }
@@ -58,8 +59,7 @@ impl super::Parser {
             }
         };
 
-        self.operations.push(operation);
-        FormulaId::Operation(OperationId(self.operations.len() - 1))
+        self.add_operation(operation)
     }
 
     fn create_uni_op(&mut self, op: UniOperator, arguments: Vec<FormulaId>) -> Operation {
@@ -76,7 +76,7 @@ impl super::Parser {
         })
     }
 
-    fn create_bi_op(&mut self, op: BiOperator, arguments: Vec<FormulaId>) -> Operation {
+    fn create_bi_op(&self, op: BiOperator, arguments: Vec<FormulaId>) -> Operation {
         let Some((left, right)) = arguments.into_iter().collect_tuple() else {
             panic!("Binary operation should have exactly two arguments");
         };
@@ -95,7 +95,7 @@ impl super::Parser {
     }
 
     fn create_ext_op(
-        &mut self,
+        &self,
         signed: bool,
         indices: Vec<Index>,
         arguments: Vec<FormulaId>,
@@ -114,6 +114,10 @@ impl super::Parser {
             panic!("Extension operation should have exactly one argument");
         };
 
+        self.create_ext_op_inner(signed, extend_by, inner)
+    }
+
+    fn create_ext_op_inner(&self, signed: bool, extend_by: u32, inner: FormulaId) -> Operation {
         let input_width = self.formula_result_width(inner);
         let output_width = input_width + extend_by;
 
@@ -143,6 +147,37 @@ impl super::Parser {
             width: left_result_width,
             formula_then: left,
             formula_else: right,
+        })
+    }
+
+    fn create_concat_op(&mut self, arguments: Vec<FormulaId>) -> Operation {
+        let Some((left, right)) = arguments.into_iter().collect_tuple() else {
+            panic!("Concat operation should have exactly two arguments");
+        };
+
+        // perform an unsigned extension of both by the other width
+
+        let left_width = self.formula_result_width(left);
+        let right_width = self.formula_result_width(right);
+        let result_width = left_width + right_width;
+
+        let left_uext = self.add_operation(self.create_ext_op_inner(false, right_width, left));
+        let right_uext = self.add_operation(self.create_ext_op_inner(false, left_width, right));
+
+        let right_width_formula =
+            self.add_operation(Operation::Constant(right_width.into(), result_width));
+
+        // shift the left operand to the left by right width
+        let left_shifted = self.add_operation(
+            self.create_bi_op(BiOperator::Shl, vec![left_uext, right_width_formula]),
+        );
+
+        // bit-or both
+        Operation::BiOp(BiOp {
+            op: BiOperator::BitOr,
+            input_width: result_width,
+            left: left_shifted,
+            right: right_uext,
         })
     }
 
