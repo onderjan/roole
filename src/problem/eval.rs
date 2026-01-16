@@ -142,6 +142,7 @@ impl<'a> Evaluator<'a> {
                     BiOperator::BitXor => left.bit_xor(right),
 
                     BiOperator::Eq => TypedEq::eq(left, right),
+                    BiOperator::Ne => TypedEq::ne(left, right),
                     BiOperator::Implies => (left.bit_not()).bit_or(right),
 
                     BiOperator::Ult => TypedCmp::ult(left, right),

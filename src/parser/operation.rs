@@ -28,6 +28,7 @@ impl super::Parser {
                 "not" | "bvnot" => self.create_uni_op(UniOperator::Not, arguments),
 
                 "=" | "bvcomp" => self.create_bi_op(BiOperator::Eq, arguments),
+                "distinct" => self.create_bi_op(BiOperator::Ne, arguments),
                 "=>" => self.create_bi_op(BiOperator::Implies, arguments),
 
                 "bvult" => self.create_bi_op(BiOperator::Ult, arguments),

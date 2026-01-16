@@ -93,6 +93,7 @@ pub enum BiOperator {
     BitXor,
 
     Eq,
+    Ne,
     Implies,
 
     Ult,
@@ -119,6 +120,7 @@ impl Operation {
             },
             Operation::BiOp(bi_op) => match bi_op.op {
                 BiOperator::Eq
+                | BiOperator::Ne
                 | BiOperator::Ult
                 | BiOperator::Ule
                 | BiOperator::Ugt
