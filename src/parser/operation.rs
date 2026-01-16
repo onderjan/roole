@@ -5,7 +5,7 @@ use aws_smt_ir::smt2parser::{
 use itertools::Itertools;
 
 use crate::problem::formula::{
-    BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator,
+    BiOp, BiOperator, ConcatOp, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator,
 };
 
 impl super::Parser {
@@ -175,25 +175,12 @@ impl super::Parser {
 
         let left_width = self.formula_result_width(left);
         let right_width = self.formula_result_width(right);
-        let result_width = left_width + right_width;
 
-        let left_uext = self.add_operation(self.create_ext_op_inner(false, right_width, left));
-        let right_uext = self.add_operation(self.create_ext_op_inner(false, left_width, right));
-
-        let right_width_formula =
-            self.add_operation(Operation::Constant(right_width.into(), result_width));
-
-        // shift the left operand to the left by right width
-        let left_shifted = self.add_operation(
-            self.create_bi_op(BiOperator::Shl, vec![left_uext, right_width_formula]),
-        );
-
-        // bit-or both
-        Operation::BiOp(BiOp {
-            op: BiOperator::BitOr,
-            input_width: result_width,
-            left: left_shifted,
-            right: right_uext,
+        Operation::ConcatOp(ConcatOp {
+            left_width,
+            left,
+            right_width,
+            right,
         })
     }
 

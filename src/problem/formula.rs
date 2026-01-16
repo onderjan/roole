@@ -27,6 +27,7 @@ pub enum Operation {
     BiOp(BiOp),
     ExtOp(ExtOp),
     IteOp(IteOp),
+    ConcatOp(ConcatOp),
 }
 
 #[derive(Clone)]
@@ -58,6 +59,14 @@ pub struct IteOp {
     pub width: u32,
     pub formula_then: FormulaId,
     pub formula_else: FormulaId,
+}
+
+#[derive(Clone)]
+pub struct ConcatOp {
+    pub left_width: u32,
+    pub left: FormulaId,
+    pub right_width: u32,
+    pub right: FormulaId,
 }
 
 #[derive(Clone, Debug)]
@@ -113,6 +122,7 @@ impl Operation {
             },
             Operation::ExtOp(ext_op) => ext_op.output_width,
             Operation::IteOp(ite_op) => ite_op.width,
+            Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
         }
     }
 }
@@ -186,6 +196,16 @@ impl Debug for Operation {
                     width, condition, formula_then, formula_else
                 )
             }
+            Operation::ConcatOp(ConcatOp {
+                left_width,
+                left,
+                right_width,
+                right,
+            }) => write!(
+                f,
+                "concat_{}_{}({:?},{:?})",
+                left_width, right_width, left, right
+            ),
         }
     }
 }

@@ -122,6 +122,28 @@ impl super::Problem {
                     value_then.join(&value_else)
                 }
             }
+            Operation::ConcatOp(concat_op) => {
+                let left = self.eval_formula(assignment, concat_op.left);
+                let right = self.eval_formula(assignment, concat_op.right);
+
+                assert_eq!(left.bound().width(), concat_op.left_width);
+                assert_eq!(right.bound().width(), concat_op.right_width);
+
+                let result_width = concat_op.left_width + concat_op.right_width;
+                let result_bound = RBound::new(result_width);
+
+                // zero-extend both to result width
+                let left = left.uext(result_bound);
+                let right = right.uext(result_bound);
+
+                // shift left by right width
+                let right_width_bitvector =
+                    AbstractBitvector::new(concat_op.right_width as u64, result_bound);
+                let left = left.logic_shl(right_width_bitvector);
+
+                // bit-or both
+                left.bit_or(right)
+            }
         }
     }
 }
