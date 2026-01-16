@@ -5,7 +5,7 @@ use crate::{
         bitvector::{abstr::BitvectorDomain, concr::ConcreteBitvector},
         value::ThreeValued,
     },
-    problem::{assignment::Assignment, decision::Decision, evaluate},
+    problem::{Evaluator, assignment::Assignment, decision::Decision},
 };
 
 use super::Problem;
@@ -59,7 +59,7 @@ impl Solution {
             Solution::Satisfiable(claimed_sat_assignment) => {
                 // it is claimed the assignment satisfies the problem formula
                 // just evaluate the assignment and validate it returns single-bit bitvector 1
-                let eval_result = evaluate(problem, claimed_sat_assignment);
+                let eval_result = Evaluator::new(problem).evaluate(claimed_sat_assignment);
                 assert_eq!(
                     eval_result.concrete_value(),
                     Some(ConcreteBitvector::from_bool(true))
@@ -102,6 +102,8 @@ impl<'a> UnsatValidator<'a> {
     //
     // Panics if the proof is invalid.
     fn validate(mut self) {
+        let mut evaluator = Evaluator::new(self.problem);
+
         // It suffices to validate that the claimed value of evaluation
         // of leaf nodes reachable from the root is zero and it matches
         // the actual evaluation value.
@@ -138,7 +140,7 @@ impl<'a> UnsatValidator<'a> {
                     // the value must be zero so this is unsat
                     assert_eq!(*value, ThreeValued::False);
                     // validate that the assignment truly evaluates to zero single-bit bitvector
-                    let eval_result = evaluate(self.problem, &assignment);
+                    let eval_result = evaluator.evaluate(&assignment);
                     assert_eq!(
                         eval_result.concrete_value(),
                         Some(ConcreteBitvector::from_bool(false))

@@ -12,7 +12,7 @@ mod eval;
 
 pub use assignment::Assignment;
 pub use decision::Decision;
-pub use eval::evaluate;
+pub use eval::Evaluator;
 
 /// A satisfiability problem.
 #[derive(Debug)]

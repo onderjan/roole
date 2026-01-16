@@ -12,16 +12,16 @@ use crate::{
         value::ThreeValued,
     },
     problem::{
-        Assignment, Decision, Problem, evaluate,
+        Assignment, Decision, Evaluator, Problem,
         solution::{Proof, Solution},
     },
 };
 
 pub struct CadicalSolver<'a> {
-    problem: &'a Problem,
+    evaluator: Evaluator<'a>,
+    cadical: CaDiCal,
 
     assignment: Assignment,
-    cadical: CaDiCal,
 
     num_clauses: u32,
 }
@@ -32,9 +32,11 @@ impl<'a> CadicalSolver<'a> {
         let _ = output_dir;
 
         Self {
-            problem,
-            assignment,
+            evaluator: Evaluator::new(problem),
             cadical: CaDiCal::new(),
+
+            assignment,
+
             num_clauses: 0,
         }
     }
@@ -108,7 +110,7 @@ impl<'a> CadicalSolver<'a> {
             }
         }
 
-        let eval_result = evaluate(self.problem, &self.assignment);
+        let eval_result = self.evaluator.evaluate(&self.assignment);
         assert_eq!(eval_result.bound().width(), 1);
         match eval_result.three_valued_from_bit(0) {
             ThreeValued::False => {
@@ -132,7 +134,7 @@ impl<'a> CadicalSolver<'a> {
                 self.assignment
                     .set_decision_value(decision, ThreeValued::Unknown);
 
-                let eval_result = evaluate(self.problem, &self.assignment);
+                let eval_result = self.evaluator.evaluate(&self.assignment);
                 assert_eq!(eval_result.bound().width(), 1);
                 match eval_result.three_valued_from_bit(0) {
                     ThreeValued::False => {

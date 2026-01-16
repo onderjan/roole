@@ -2,7 +2,7 @@ use std::{fs::File, io::BufWriter, ops::ControlFlow, path::PathBuf};
 
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
-    problem::{Problem, evaluate, solution::Solution},
+    problem::{Evaluator, Problem, solution::Solution},
     solver::internal::partition::{Partition, ValueType},
 };
 use stats::Stats;
@@ -14,7 +14,7 @@ mod stats;
 pub use learned::*;
 
 pub struct InternalSolver<'a, L: Learned> {
-    problem: &'a Problem,
+    evaluator: Evaluator<'a>,
 
     partition: Partition,
     learned: L,
@@ -28,12 +28,13 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
     pub fn new(problem: &'a Problem, output_dir: Option<PathBuf>) -> Self {
         eprintln!("Solving SAT problem");
 
+        let evaluator = Evaluator::new(problem);
         let stats = Stats::new(problem);
         let partition = Partition::new(problem);
         let learned = Learned::new();
 
         Self {
-            problem,
+            evaluator,
             partition,
             learned,
             stats,
@@ -77,7 +78,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
         }
 
         eprintln!("Validating");
-        solution.validate(self.problem);
+        solution.validate(self.evaluator.problem());
         eprintln!("Validated");
 
         solution
@@ -106,7 +107,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
             self.stats.inc_already_learned();
         } else {
             // we have to evaluate the assignment
-            let result = evaluate(self.problem, self.partition.assignment());
+            let result = self.evaluator.evaluate(self.partition.assignment());
 
             let Some(concrete_result) = result.concrete_value() else {
                 // unknown result, we need to choose another decision
@@ -156,7 +157,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
             learning_assignment.set_decision_value(decision, ThreeValued::Unknown);
 
             // evaluate
-            let result = evaluate(self.problem, &learning_assignment);
+            let result = self.evaluator.evaluate(&learning_assignment);
 
             if let Some(concrete_value) = result.concrete_value() {
                 assert!(concrete_value.is_zero());
@@ -195,7 +196,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
             if !self.learned.contains(&backtrack_assignment) {
                 // we still may be able to salvage this by evaluating the formula
 
-                let result = evaluate(self.problem, &backtrack_assignment);
+                let result = self.evaluator.evaluate(&backtrack_assignment);
 
                 let Some(concrete_result) = result.concrete_value() else {
                     // unknown result, cannot backtrack anymore

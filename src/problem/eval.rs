@@ -13,20 +13,26 @@ use crate::{
     problem::{Problem, assignment::Assignment},
 };
 
-/// Evaluates this problem assertion on the given variable assignment.
-///
-/// The assignment structure must correspond to the problem variables.
-pub fn evaluate(problem: &Problem, assignment: &Assignment) -> AbstractBitvector<RBound> {
-    let evaluator = Evaluator { problem };
-
-    evaluator.eval_formula(assignment, problem.assertion)
-}
-
-struct Evaluator<'a> {
+pub struct Evaluator<'a> {
     problem: &'a Problem,
 }
 
-impl Evaluator<'_> {
+impl<'a> Evaluator<'a> {
+    pub fn new(problem: &'a Problem) -> Self {
+        Self { problem }
+    }
+
+    pub fn problem(&self) -> &'a Problem {
+        self.problem
+    }
+
+    /// Evaluates this problem assertion on the given variable assignment.
+    ///
+    /// The assignment structure must correspond to the problem variables.
+    pub fn evaluate(&mut self, assignment: &Assignment) -> AbstractBitvector<RBound> {
+        self.eval_formula(assignment, self.problem.assertion)
+    }
+
     /// Evaluates a formula of this problem with the given assignment.
     fn eval_formula(
         &self,
