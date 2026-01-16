@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
     domain::{
@@ -15,11 +17,15 @@ use crate::{
 
 pub struct Evaluator<'a> {
     problem: &'a Problem,
+    results: HashMap<FormulaId, AbstractBitvector<RBound>>,
 }
 
 impl<'a> Evaluator<'a> {
     pub fn new(problem: &'a Problem) -> Self {
-        Self { problem }
+        Self {
+            problem,
+            results: HashMap::new(),
+        }
     }
 
     pub fn problem(&self) -> &'a Problem {
@@ -30,30 +36,79 @@ impl<'a> Evaluator<'a> {
     ///
     /// The assignment structure must correspond to the problem variables.
     pub fn evaluate(&mut self, assignment: &Assignment) -> AbstractBitvector<RBound> {
-        self.eval_formula(assignment, self.problem.assertion)
+        // must clear previous results to work with new assignment
+        // keep the allocated memory for reuse
+        self.results.clear();
+
+        let mut op_stack = vec![(self.problem.assertion, false)];
+
+        while let Some((formula_id, evaluated)) = op_stack.pop() {
+            let result = match formula_id {
+                FormulaId::Variable(variable_id) => Some(assignment.values[variable_id.0]),
+                FormulaId::Operation(operation_id) => {
+                    if evaluated {
+                        Some(self.evaluate_operation(&self.problem.operations[operation_id.0]))
+                    } else {
+                        let dependencies =
+                            self.dependencies(&self.problem.operations[operation_id.0]);
+
+                        op_stack.push((formula_id, true));
+                        for dependency in dependencies.into_iter().rev() {
+                            op_stack.push((dependency, false));
+                        }
+
+                        None
+                    }
+                }
+            };
+
+            if let Some(result) = result {
+                self.results.insert(formula_id, result);
+            }
+        }
+
+        self.results
+            .remove(&self.problem.assertion)
+            .expect("Problem assertion should have a result after evaluation")
     }
 
-    /// Evaluates a formula of this problem with the given assignment.
-    fn eval_formula(
-        &self,
-        assignment: &Assignment,
-        formula_id: FormulaId,
-    ) -> AbstractBitvector<RBound> {
-        match formula_id {
-            FormulaId::Variable(variable_id) => assignment.values[variable_id.0],
-
-            FormulaId::Operation(operation_id) => {
-                self.eval_operation(assignment, &self.problem.operations[operation_id.0])
+    fn dependencies(&self, operation: &Operation) -> Vec<FormulaId> {
+        match operation {
+            Operation::Constant(_, _) => {
+                vec![]
+            }
+            Operation::UniOp(uni_op) => {
+                vec![uni_op.inner]
+            }
+            Operation::BiOp(bi_op) => {
+                vec![bi_op.left, bi_op.right]
+            }
+            Operation::ExtOp(ext_op) => {
+                vec![ext_op.inner]
+            }
+            Operation::IteOp(ite_op) => {
+                vec![ite_op.condition, ite_op.formula_then, ite_op.formula_else]
+            }
+            Operation::ConcatOp(concat_op) => {
+                vec![concat_op.left, concat_op.right]
+            }
+            Operation::ExtractOp(extract_op) => {
+                vec![extract_op.inner]
             }
         }
     }
 
-    /// Evaluates an operation of this problem with the given assignment.
-    fn eval_operation(
-        &self,
-        assignment: &Assignment,
-        operation: &Operation,
-    ) -> AbstractBitvector<RBound> {
+    fn fetch_result(&self, formula_id: FormulaId) -> AbstractBitvector<RBound> {
+        let Some(result) = self.results.get(&formula_id) else {
+            panic!(
+                "Fetched result of formula {:?} should be already computed",
+                formula_id
+            );
+        };
+        *result
+    }
+
+    fn evaluate_operation(&self, operation: &Operation) -> AbstractBitvector<RBound> {
         match operation {
             Operation::Constant(value, width) => {
                 AbstractBitvector::new(*value, RBound::new(*width))
@@ -63,7 +118,7 @@ impl<'a> Evaluator<'a> {
                 input_width: _,
                 inner,
             }) => {
-                let inner = self.eval_formula(assignment, *inner);
+                let inner = self.fetch_result(*inner);
                 match op {
                     UniOperator::Not => inner.bit_not(),
                 }
@@ -74,8 +129,8 @@ impl<'a> Evaluator<'a> {
                 left,
                 right,
             }) => {
-                let left = self.eval_formula(assignment, *left);
-                let right = self.eval_formula(assignment, *right);
+                let left = self.fetch_result(*left);
+                let right = self.fetch_result(*right);
 
                 match op {
                     BiOperator::Add => left.add(right),
@@ -110,7 +165,7 @@ impl<'a> Evaluator<'a> {
                 output_width,
                 inner,
             }) => {
-                let inner = self.eval_formula(assignment, *inner);
+                let inner = self.fetch_result(*inner);
                 let output_bound = RBound::new(*output_width);
                 if *signed {
                     BExt::sext(inner, output_bound)
@@ -124,27 +179,27 @@ impl<'a> Evaluator<'a> {
                 formula_then,
                 formula_else,
             }) => {
-                let condition = self.eval_formula(assignment, *condition);
+                let condition = self.fetch_result(*condition);
                 assert_eq!(condition.bound().width(), 1);
 
                 if let Some(condition_value) = condition.concrete_value() {
                     if condition_value.is_nonzero() {
                         // only then taken
-                        self.eval_formula(assignment, *formula_then)
+                        self.fetch_result(*formula_then)
                     } else {
                         // only else taken
-                        self.eval_formula(assignment, *formula_else)
+                        self.fetch_result(*formula_else)
                     }
                 } else {
                     // both can be taken, join them
-                    let value_then = self.eval_formula(assignment, *formula_then);
-                    let value_else = self.eval_formula(assignment, *formula_else);
+                    let value_then = self.fetch_result(*formula_then);
+                    let value_else = self.fetch_result(*formula_else);
                     value_then.join(&value_else)
                 }
             }
             Operation::ConcatOp(concat_op) => {
-                let left = self.eval_formula(assignment, concat_op.left);
-                let right = self.eval_formula(assignment, concat_op.right);
+                let left = self.fetch_result(concat_op.left);
+                let right = self.fetch_result(concat_op.right);
 
                 assert_eq!(left.bound().width(), concat_op.left_width);
                 assert_eq!(right.bound().width(), concat_op.right_width);
@@ -165,7 +220,7 @@ impl<'a> Evaluator<'a> {
                 left.bit_or(right)
             }
             Operation::ExtractOp(extract_op) => {
-                let inner = self.eval_formula(assignment, extract_op.inner);
+                let inner = self.fetch_result(extract_op.inner);
 
                 assert!(inner.bound().width() >= extract_op.lsb + extract_op.width.get());
 
