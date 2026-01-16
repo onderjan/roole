@@ -1,7 +1,7 @@
 use std::{ops::ControlFlow, path::PathBuf};
 
 use aws_smt_ir::{
-    Symbol, SyntaxBuilder,
+    Constant, Symbol, SyntaxBuilder,
     smt2parser::{
         CommandStream,
         concrete::{Command, Identifier, QualIdentifier, Sort, Term},
@@ -176,9 +176,27 @@ impl Parser {
 
     fn create_formula(&mut self, term: Term) -> FormulaId {
         match term {
-            Term::Constant(constant) => {
-                todo!("Create formula for constant {:?}", constant);
-            }
+            Term::Constant(constant) => match constant {
+                Constant::Binary(items) => {
+                    let mut value = 0u64;
+                    for bit in items.iter().cloned().rev() {
+                        value = value.checked_mul(2).expect("Binary constant too big");
+                        value += bit as u64;
+                    }
+
+                    self.add_operation(Operation::Constant(
+                        value,
+                        items
+                            .len()
+                            .try_into()
+                            .expect("Binary constant width too big"),
+                    ))
+                }
+                Constant::Numeral(_) | Constant::Decimal(_) | Constant::Hexadecimal(_) => {
+                    todo!("Create formula for constant {:?}", constant)
+                }
+                Constant::String(_) => panic!("String literal {:?} not supported", constant),
+            },
             Term::QualIdentifier(qual_ident) => match qual_ident {
                 QualIdentifier::Simple { identifier } => {
                     self.create_formula_from_identifier(identifier)
@@ -277,31 +295,40 @@ impl Parser {
             panic!("Function with params not supported");
         }
 
-        let Sort::Simple {
-            identifier:
-                Identifier::Indexed {
-                    symbol: bitvec_symbol,
-                    indices,
-                },
-        } = sort
-        else {
-            panic!("Only bitvector sort supported");
-        };
+        let width = match sort {
+            Sort::Simple {
+                identifier:
+                    Identifier::Indexed {
+                        symbol: bitvec_symbol,
+                        indices,
+                    },
+            } => {
+                if bitvec_symbol.0 != "BitVec" {
+                    panic!("Only bitvector indexed sort supported");
+                }
 
-        if bitvec_symbol.0 != "BitVec" {
-            panic!("Only bitvector sort supported");
-        }
+                if indices.len() != 1 {
+                    panic!("Bitvector sort should have exactly one index");
+                }
 
-        if indices.len() != 1 {
-            panic!("Only bitvector sort supported");
-        }
+                let Index::Numeral(length) = &indices[0] else {
+                    panic!("Bitvector width should be numeric");
+                };
 
-        let Index::Numeral(length) = &indices[0] else {
-            panic!("Only bitvector sort supported");
-        };
-
-        let Ok(width) = std::convert::TryInto::<u32>::try_into(length) else {
-            panic!("Bitvector width must fit into u32");
+                let Ok(width) = std::convert::TryInto::<u32>::try_into(length) else {
+                    panic!("Bitvector width should fit into u32");
+                };
+                width
+            }
+            Sort::Simple {
+                identifier: Identifier::Simple { symbol },
+            } => {
+                if symbol.0 != "Bool" {
+                    panic!("Only bool non-indexed sort supported");
+                }
+                1
+            }
+            _ => panic!("Only bool and bitvector sort supported"),
         };
 
         // this declares a bitvector variable with a given width and name
