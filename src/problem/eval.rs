@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use rapidhash::RapidHashMap;
 
 use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
@@ -17,14 +17,14 @@ use crate::{
 
 pub struct Evaluator<'a> {
     problem: &'a Problem,
-    results: HashMap<FormulaId, AbstractBitvector<RBound>>,
+    results: RapidHashMap<FormulaId, AbstractBitvector<RBound>>,
 }
 
 impl<'a> Evaluator<'a> {
     pub fn new(problem: &'a Problem) -> Self {
         Self {
             problem,
-            results: HashMap::new(),
+            results: RapidHashMap::default(),
         }
     }
 
