@@ -227,7 +227,16 @@ impl Parser {
             Identifier::Simple { symbol } => {
                 // this is just a symbol name that should be defined within the scope
                 // find the formula id for it
-                self.find_by_name(&symbol.0)
+                let name = symbol.0;
+                if let Some(ident) = self.find_by_name(&name) {
+                    ident
+                } else {
+                    match name.as_str() {
+                        "false" => self.add_operation(Operation::Constant(0, 1)),
+                        "true" => self.add_operation(Operation::Constant(1, 1)),
+                        _ => panic!("Identifier {:?} should be in variables", name),
+                    }
+                }
             }
             Identifier::Indexed { symbol, indices } => {
                 // indexed identifiers are currently only supported
@@ -256,9 +265,7 @@ impl Parser {
                 };
 
                 // save the constant as an operation
-                let formula = Operation::Constant(value, width);
-                self.operations.push(formula);
-                FormulaId::Operation(OperationId(self.operations.len() - 1))
+                self.add_operation(Operation::Constant(value, width))
             }
         }
     }
@@ -320,13 +327,19 @@ impl Parser {
             .expect("A scope should be available")
     }
 
-    fn find_by_name(&self, name: &str) -> FormulaId {
+    fn find_by_name(&self, name: &str) -> Option<FormulaId> {
         // search the scopes in reverse order
         for scope in self.scopes.iter().rev() {
             if let Some(formula_id) = scope.names.get(name) {
-                return *formula_id;
+                return Some(*formula_id);
             }
         }
-        panic!("Identifier {:?} should be in variables", name);
+
+        None
+    }
+
+    fn add_operation(&mut self, operation: Operation) -> FormulaId {
+        self.operations.push(operation);
+        FormulaId::Operation(OperationId(self.operations.len() - 1))
     }
 }

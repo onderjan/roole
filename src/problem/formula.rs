@@ -69,6 +69,7 @@ pub enum UniOperator {
 pub enum BiOperator {
     Add,
     Sub,
+    Mul,
 
     BitAnd,
     BitOr,

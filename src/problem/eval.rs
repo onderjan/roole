@@ -61,6 +61,7 @@ impl super::Problem {
                 match op {
                     BiOperator::Add => left.add(right),
                     BiOperator::Sub => left.sub(right),
+                    BiOperator::Mul => left.mul(right),
                     BiOperator::BitAnd => left.bit_and(right),
                     BiOperator::BitOr => left.bit_or(right),
                     BiOperator::BitXor => left.bit_xor(right),

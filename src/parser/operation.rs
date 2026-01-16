@@ -27,6 +27,7 @@ impl super::Parser {
                 "=" => self.create_bi_op(BiOperator::Eq, arguments),
                 "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
                 "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
+                "bvmul" => self.create_bi_op(BiOperator::Mul, arguments),
                 "and" | "bvand" => self.create_bi_op(BiOperator::BitAnd, arguments),
                 "or" | "bvor" => self.create_bi_op(BiOperator::BitOr, arguments),
                 "xor" | "bvxor" => self.create_bi_op(BiOperator::BitXor, arguments),
