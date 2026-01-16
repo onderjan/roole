@@ -59,6 +59,7 @@ impl super::Parser {
                 identifier: Identifier::Indexed { symbol, indices },
             } => match symbol.0.as_str() {
                 "zero_extend" => self.create_ext_op(false, indices, arguments),
+                "sign_extend" => self.create_ext_op(true, indices, arguments),
                 _ => {
                     panic!(
                         "Unsupported qualified identifier {:?} with indices {:?}",
