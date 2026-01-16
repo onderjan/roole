@@ -1,3 +1,5 @@
+use std::num::NonZeroU32;
+
 use aws_smt_ir::smt2parser::{
     concrete::{Identifier, QualIdentifier, Term},
     visitors::Index,
@@ -5,7 +7,7 @@ use aws_smt_ir::smt2parser::{
 use itertools::Itertools;
 
 use crate::problem::formula::{
-    BiOp, BiOperator, ConcatOp, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator,
+    BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, FormulaId, IteOp, Operation, UniOp, UniOperator,
 };
 
 impl super::Parser {
@@ -60,6 +62,7 @@ impl super::Parser {
             } => match symbol.0.as_str() {
                 "zero_extend" => self.create_ext_op(false, indices, arguments),
                 "sign_extend" => self.create_ext_op(true, indices, arguments),
+                "extract" => self.create_extract_op(indices, arguments),
                 _ => {
                     panic!(
                         "Unsupported qualified identifier {:?} with indices {:?}",
@@ -182,6 +185,30 @@ impl super::Parser {
             right_width,
             right,
         })
+    }
+
+    fn create_extract_op(&self, indices: Vec<Index>, arguments: Vec<FormulaId>) -> Operation {
+        let Some((msb, lsb)) = indices.into_iter().collect_tuple() else {
+            panic!("Extract operation should have exactly two indices");
+        };
+        let (Index::Numeral(msb), Index::Numeral(lsb)) = (msb, lsb) else {
+            panic!("Only numeral extract msb&lsb supported");
+        };
+        let Ok(msb) = TryInto::<u32>::try_into(msb) else {
+            panic!("Extract msb should fit into u32");
+        };
+        let Ok(lsb) = TryInto::<u32>::try_into(lsb) else {
+            panic!("Extract lsb should fit into u32");
+        };
+
+        let Ok(inner) = arguments.into_iter().exactly_one() else {
+            panic!("Extract operation should have exactly one argument");
+        };
+
+        let width =
+            NonZeroU32::new(msb - lsb + 1).expect("Extract msb should be greater or equal to lsb");
+
+        Operation::ExtractOp(ExtractOp { inner, lsb, width })
     }
 
     fn formula_result_width(&self, id: FormulaId) -> u32 {

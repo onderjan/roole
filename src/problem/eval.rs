@@ -144,6 +144,19 @@ impl super::Problem {
                 // bit-or both
                 left.bit_or(right)
             }
+            Operation::ExtractOp(extract_op) => {
+                let inner = self.eval_formula(assignment, extract_op.inner);
+
+                assert!(inner.bound().width() >= extract_op.lsb + extract_op.width.get());
+
+                // shift right by lsb
+                // it should not matter which shift it is, perform it unsigned
+                let inner =
+                    inner.logic_shr(AbstractBitvector::new(extract_op.lsb.into(), inner.bound()));
+
+                // narrow to extraction width
+                inner.uext(RBound::new(extract_op.width.get()))
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, num::NonZeroU32};
 
 /// Formula id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -28,6 +28,7 @@ pub enum Operation {
     ExtOp(ExtOp),
     IteOp(IteOp),
     ConcatOp(ConcatOp),
+    ExtractOp(ExtractOp),
 }
 
 #[derive(Clone)]
@@ -67,6 +68,13 @@ pub struct ConcatOp {
     pub left: FormulaId,
     pub right_width: u32,
     pub right: FormulaId,
+}
+
+#[derive(Clone)]
+pub struct ExtractOp {
+    pub inner: FormulaId,
+    pub lsb: u32,
+    pub width: NonZeroU32,
 }
 
 #[derive(Clone, Debug)]
@@ -123,6 +131,7 @@ impl Operation {
             Operation::ExtOp(ext_op) => ext_op.output_width,
             Operation::IteOp(ite_op) => ite_op.width,
             Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
+            Operation::ExtractOp(extract_op) => extract_op.width.get(),
         }
     }
 }
@@ -206,6 +215,9 @@ impl Debug for Operation {
                 "concat_{}_{}({:?},{:?})",
                 left_width, right_width, left, right
             ),
+            Operation::ExtractOp(ExtractOp { inner, lsb, width }) => {
+                write!(f, "extract_{}_{}({:?})", lsb + width.get() - 1, lsb, inner)
+            }
         }
     }
 }
