@@ -77,6 +77,16 @@ pub enum BiOperator {
 
     Eq,
 
+    Ult,
+    Ule,
+    Ugt,
+    Uge,
+
+    Slt,
+    Sle,
+    Sgt,
+    Sge,
+
     Shl,
     Lshr,
     Ashr,
@@ -90,7 +100,15 @@ impl Operation {
                 UniOperator::Not => uni_op.input_width,
             },
             Operation::BiOp(bi_op) => match bi_op.op {
-                BiOperator::Eq => 1,
+                BiOperator::Eq
+                | BiOperator::Ult
+                | BiOperator::Ule
+                | BiOperator::Ugt
+                | BiOperator::Uge
+                | BiOperator::Slt
+                | BiOperator::Sle
+                | BiOperator::Sgt
+                | BiOperator::Sge => 1,
                 _ => bi_op.input_width,
             },
             Operation::ExtOp(ext_op) => ext_op.output_width,

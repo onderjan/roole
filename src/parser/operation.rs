@@ -24,16 +24,31 @@ impl super::Parser {
                 identifier: Identifier::Simple { symbol },
             } => match symbol.0.as_str() {
                 "not" | "bvnot" => self.create_uni_op(UniOperator::Not, arguments),
+
                 "=" => self.create_bi_op(BiOperator::Eq, arguments),
+
+                "bvult" => self.create_bi_op(BiOperator::Ult, arguments),
+                "bvule" => self.create_bi_op(BiOperator::Ule, arguments),
+                "bvugt" => self.create_bi_op(BiOperator::Ugt, arguments),
+                "bvuge" => self.create_bi_op(BiOperator::Uge, arguments),
+
+                "bvslt" => self.create_bi_op(BiOperator::Slt, arguments),
+                "bvsle" => self.create_bi_op(BiOperator::Sle, arguments),
+                "bvsgt" => self.create_bi_op(BiOperator::Sgt, arguments),
+                "bvsge" => self.create_bi_op(BiOperator::Sge, arguments),
+
                 "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
                 "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
                 "bvmul" => self.create_bi_op(BiOperator::Mul, arguments),
+
                 "and" | "bvand" => self.create_bi_op(BiOperator::BitAnd, arguments),
                 "or" | "bvor" => self.create_bi_op(BiOperator::BitOr, arguments),
                 "xor" | "bvxor" => self.create_bi_op(BiOperator::BitXor, arguments),
+
                 "bvshl" => self.create_bi_op(BiOperator::Shl, arguments),
                 "bvlshr" => self.create_bi_op(BiOperator::Lshr, arguments),
                 "bvashr" => self.create_bi_op(BiOperator::Ashr, arguments),
+
                 "ite" => self.create_ite_op(arguments),
                 "concat" => self.create_concat_op(arguments),
                 _ => {

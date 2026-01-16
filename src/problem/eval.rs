@@ -7,7 +7,7 @@ use crate::{
         },
         traits::{
             Join,
-            forward::{BExt, Bitwise, HwArith, HwShift, TypedEq},
+            forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
         },
     },
     problem::assignment::Assignment,
@@ -62,10 +62,23 @@ impl super::Problem {
                     BiOperator::Add => left.add(right),
                     BiOperator::Sub => left.sub(right),
                     BiOperator::Mul => left.mul(right),
+
                     BiOperator::BitAnd => left.bit_and(right),
                     BiOperator::BitOr => left.bit_or(right),
                     BiOperator::BitXor => left.bit_xor(right),
+
                     BiOperator::Eq => TypedEq::eq(left, right),
+
+                    BiOperator::Ult => TypedCmp::ult(left, right),
+                    BiOperator::Ule => TypedCmp::ule(left, right),
+                    BiOperator::Ugt => TypedCmp::ule(left, right).bit_not(),
+                    BiOperator::Uge => TypedCmp::ult(left, right).bit_not(),
+
+                    BiOperator::Slt => TypedCmp::slt(left, right),
+                    BiOperator::Sle => TypedCmp::sle(left, right),
+                    BiOperator::Sgt => TypedCmp::sle(left, right).bit_not(),
+                    BiOperator::Sge => TypedCmp::slt(left, right).bit_not(),
+
                     BiOperator::Shl => left.logic_shl(right),
                     BiOperator::Lshr => left.logic_shr(right),
                     BiOperator::Ashr => left.arith_shr(right),
