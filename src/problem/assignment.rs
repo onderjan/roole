@@ -8,7 +8,7 @@ use crate::{
         traits::Join,
         value::ThreeValued,
     },
-    problem::decision::Decision,
+    problem::{decision::Decision, formula::VariableId},
 };
 
 /// Assignment of problem variables to abstract bitvector values.
@@ -50,6 +50,10 @@ impl Assignment {
 
     pub fn values(&self) -> &[AbstractBitvector<RBound>] {
         &self.values
+    }
+
+    pub fn value(&self, id: VariableId) -> &AbstractBitvector<RBound> {
+        &self.values[id.0]
     }
 }
 
