@@ -8,7 +8,10 @@ use cadical_sys::{CaDiCal, Status};
 
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, abstr::BitvectorDomain},
+        bitvector::{
+            BitvectorBound,
+            abstr::{BitvectorDomain, RBitvector},
+        },
         value::ThreeValued,
     },
     problem::{
@@ -18,10 +21,10 @@ use crate::{
 };
 
 pub struct CadicalSolver<'a> {
-    evaluator: Evaluator<'a>,
+    evaluator: Evaluator<'a, RBitvector>,
     cadical: CaDiCal,
 
-    assignment: Assignment,
+    assignment: Assignment<RBitvector>,
 
     num_clauses: u32,
 }
@@ -41,7 +44,7 @@ impl<'a> CadicalSolver<'a> {
         }
     }
 
-    pub fn solve(mut self) -> Solution {
+    pub fn solve(mut self) -> Solution<RBitvector> {
         eprintln!("Solving");
         let progress_bar = indicatif::ProgressBar::new_spinner();
 
@@ -81,7 +84,7 @@ impl<'a> CadicalSolver<'a> {
         result
     }
 
-    pub fn iteration(&mut self) -> ControlFlow<Solution> {
+    pub fn iteration(&mut self) -> ControlFlow<Solution<RBitvector>> {
         // Solve the problem
         let status = self.cadical.solve();
         match status {

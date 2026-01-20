@@ -140,6 +140,16 @@ impl Join for ThreeValued {
             (ThreeValued::Unknown, _) | (_, ThreeValued::Unknown) => ThreeValued::Unknown,
         }
     }
+
+    fn apply_join(&mut self, other: &Self) {
+        // copyable, just overwrite self with join result
+        *self = self.join(other)
+    }
+
+    fn contains(&self, contained: &Self) -> bool {
+        // copyable, just
+        self.join(contained) == *self
+    }
 }
 
 impl Display for ThreeValued {

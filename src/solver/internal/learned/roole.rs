@@ -1,6 +1,9 @@
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, abstr::BitvectorDomain},
+        bitvector::{
+            BitvectorBound,
+            abstr::{BitvectorDomain, RBitvector},
+        },
         value::ThreeValued,
     },
     problem::{Assignment, Decision},
@@ -26,18 +29,18 @@ struct Child {
     index: usize,
 }
 
-impl Learned for RooleLearned {
+impl Learned<RBitvector> for RooleLearned {
     fn new() -> Self {
         Self {
             nodes: vec![Node::Inner(Vec::new())],
         }
     }
 
-    fn contains(&self, assignment: &Assignment) -> bool {
+    fn contains(&self, assignment: &Assignment<RBitvector>) -> bool {
         self.contains_recursive(assignment, 0)
     }
 
-    fn add(&mut self, assignment: Assignment) {
+    fn add(&mut self, assignment: Assignment<RBitvector>) {
         self.add_recursive(assignment, 0);
     }
     fn write_dot<W: std::io::Write>(&self, f: &mut W) -> std::io::Result<()> {
@@ -71,7 +74,7 @@ impl Learned for RooleLearned {
 }
 
 impl RooleLearned {
-    fn contains_recursive(&self, assignment: &Assignment, node_index: usize) -> bool {
+    fn contains_recursive(&self, assignment: &Assignment<RBitvector>, node_index: usize) -> bool {
         let children = match &self.nodes[node_index] {
             Node::Inner(children) => children,
             Node::Value => return true,
@@ -94,7 +97,7 @@ impl RooleLearned {
         false
     }
 
-    fn add_recursive(&mut self, mut assignment: Assignment, node_index: usize) {
+    fn add_recursive(&mut self, mut assignment: Assignment<RBitvector>, node_index: usize) {
         let num_nodes = self.nodes.len();
 
         let children = match &mut self.nodes[node_index] {

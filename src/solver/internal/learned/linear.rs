@@ -1,20 +1,31 @@
-use crate::problem::Assignment;
+use std::fmt::Debug;
+
+use crate::{
+    domain::bitvector::{RBound, abstr::BitvectorDomain},
+    problem::Assignment,
+};
 
 use super::Learned;
 
 #[derive(Clone, Debug)]
-pub struct LinearLearned {
-    assignments: Vec<Assignment>,
+pub struct LinearLearned<D: BitvectorDomain<Bound = RBound>>
+where
+    Assignment<D>: Debug,
+{
+    assignments: Vec<Assignment<D>>,
 }
 
-impl Learned for LinearLearned {
+impl<D: BitvectorDomain<Bound = RBound>> Learned<D> for LinearLearned<D>
+where
+    Assignment<D>: Debug,
+{
     fn new() -> Self {
         Self {
             assignments: Vec::new(),
         }
     }
 
-    fn contains(&self, assignment: &Assignment) -> bool {
+    fn contains(&self, assignment: &Assignment<D>) -> bool {
         for learned in &self.assignments {
             if learned.contains(assignment) {
                 return true;
@@ -23,7 +34,7 @@ impl Learned for LinearLearned {
         false
     }
 
-    fn add(&mut self, assignment: Assignment) {
+    fn add(&mut self, assignment: Assignment<D>) {
         self.assignments.push(assignment);
     }
 

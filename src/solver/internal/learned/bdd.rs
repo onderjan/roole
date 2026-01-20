@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use num::{BigUint, Zero};
 
 use crate::{
-    domain::bitvector::{BitvectorBound, abstr::BitvectorDomain},
+    domain::bitvector::{
+        BitvectorBound,
+        abstr::{BitvectorDomain, RBitvector},
+    },
     problem::Assignment,
 };
 
@@ -22,7 +25,7 @@ pub struct BddLearned {
     bdd_index: Option<isize>,
 }
 
-impl Learned for BddLearned {
+impl Learned<RBitvector> for BddLearned {
     fn new() -> Self {
         Self {
             bdd_list: vec![],
@@ -31,7 +34,7 @@ impl Learned for BddLearned {
         }
     }
 
-    fn add(&mut self, assignment: Assignment) {
+    fn add(&mut self, assignment: Assignment<RBitvector>) {
         let assignment_bdd_index = self.bdd_state(assignment);
 
         if let Some(bdd_index) = self.bdd_index {
@@ -41,7 +44,7 @@ impl Learned for BddLearned {
         }
     }
 
-    fn contains(&self, _assignment: &Assignment) -> bool {
+    fn contains(&self, _assignment: &Assignment<RBitvector>) -> bool {
         todo!("BDD contains")
     }
 
@@ -86,7 +89,7 @@ impl Learned for BddLearned {
 }
 
 impl BddLearned {
-    fn bdd_state(&mut self, assignment: Assignment) -> isize {
+    fn bdd_state(&mut self, assignment: Assignment<RBitvector>) -> isize {
         let (zeros, ones, total_width) = assignment_nums(assignment);
 
         let mut bdd_index = NODE_ONE_INDEX;
@@ -195,7 +198,7 @@ impl BddLearned {
 const NODE_ZERO_INDEX: isize = -2isize;
 const NODE_ONE_INDEX: isize = -1isize;
 
-fn assignment_nums(assignment: Assignment) -> (BigUint, BigUint, u64) {
+fn assignment_nums(assignment: Assignment<RBitvector>) -> (BigUint, BigUint, u64) {
     let mut zeros = BigUint::zero();
     let mut ones = BigUint::zero();
 

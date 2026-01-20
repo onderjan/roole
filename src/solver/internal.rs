@@ -1,7 +1,10 @@
 use std::{fs::File, io::BufWriter, ops::ControlFlow, path::PathBuf};
 
 use crate::{
-    domain::{bitvector::abstr::BitvectorDomain, value::ThreeValued},
+    domain::{
+        bitvector::abstr::{BitvectorDomain, RBitvector},
+        value::ThreeValued,
+    },
     problem::{Evaluator, Problem, solution::Solution},
     solver::internal::partition::{Partition, ValueType},
 };
@@ -13,8 +16,8 @@ mod stats;
 
 pub use learned::*;
 
-pub struct InternalSolver<'a, L: Learned> {
-    evaluator: Evaluator<'a>,
+pub struct InternalSolver<'a, L: Learned<RBitvector>> {
+    evaluator: Evaluator<'a, RBitvector>,
 
     partition: Partition,
     learned: L,
@@ -24,7 +27,7 @@ pub struct InternalSolver<'a, L: Learned> {
     output_dir: Option<PathBuf>,
 }
 
-impl<'a, L: Learned> InternalSolver<'a, L> {
+impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
     pub fn new(problem: &'a Problem, output_dir: Option<PathBuf>) -> Self {
         eprintln!("Solving SAT problem");
 
@@ -42,7 +45,7 @@ impl<'a, L: Learned> InternalSolver<'a, L> {
         }
     }
 
-    pub fn solve(mut self) -> Solution {
+    pub fn solve(mut self) -> Solution<RBitvector> {
         let satisfiable = loop {
             match self.dpll_eval() {
                 ControlFlow::Continue(()) => {}

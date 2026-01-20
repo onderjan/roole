@@ -4,8 +4,10 @@ use itertools::Itertools;
 
 use crate::{
     domain::{
-        bitvector::{RBound, abstr::AbstractBitvector},
-        traits::Join,
+        bitvector::{
+            RBound,
+            abstr::{BitvectorDomain, RBitvector},
+        },
         value::ThreeValued,
     },
     problem::{decision::Decision, formula::VariableId},
@@ -13,12 +15,28 @@ use crate::{
 
 /// Assignment of problem variables to abstract bitvector values.
 #[derive(Clone)]
-pub struct Assignment {
-    pub(super) values: Vec<AbstractBitvector<RBound>>,
+pub struct Assignment<D: BitvectorDomain<Bound = RBound>> {
+    pub(super) values: Vec<D>,
 }
 
-impl Assignment {
-    pub fn contains(&self, other: &Assignment) -> bool {
+impl<D: BitvectorDomain<Bound = RBound>> Assignment<D> {
+    pub fn values(&self) -> &[D] {
+        &self.values
+    }
+
+    pub fn value(&self, id: VariableId) -> &D {
+        &self.values[id.0]
+    }
+
+    pub fn join(mut self, other: &Self) -> Self {
+        for (our_value, other_value) in self.values.iter_mut().zip_eq(&other.values) {
+            our_value.apply_join(other_value);
+        }
+
+        self
+    }
+
+    pub fn contains(&self, other: &Self) -> bool {
         for (our_value, other_value) in self.values.iter().zip_eq(&other.values) {
             if !our_value.contains(other_value) {
                 return false;
@@ -26,15 +44,9 @@ impl Assignment {
         }
         true
     }
+}
 
-    pub fn join(mut self, other: &Assignment) -> Assignment {
-        for (our_value, other_value) in self.values.iter_mut().zip_eq(&other.values) {
-            *our_value = our_value.join(other_value);
-        }
-
-        self
-    }
-
+impl Assignment<RBitvector> {
     pub fn set_decision_value(&mut self, decision: Decision, value: ThreeValued) {
         self.values[decision.variable_index()].set_bit_to_three_valued(decision.bit_index(), value);
     }
@@ -47,17 +59,9 @@ impl Assignment {
     pub fn get_decision_value(&self, decision: Decision) -> ThreeValued {
         self.values[decision.variable_index()].three_valued_from_bit(decision.bit_index())
     }
-
-    pub fn values(&self) -> &[AbstractBitvector<RBound>] {
-        &self.values
-    }
-
-    pub fn value(&self, id: VariableId) -> &AbstractBitvector<RBound> {
-        &self.values[id.0]
-    }
 }
 
-impl Debug for Assignment {
+impl Debug for Assignment<RBitvector> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "\"")?;
         let mut first = true;

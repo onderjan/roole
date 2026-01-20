@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
-use crate::domain::bitvector::{RBound, abstr::AbstractBitvector};
+use crate::domain::bitvector::{
+    RBound,
+    abstr::{AbstractBitvector, RBitvector},
+};
 use formula::{FormulaId, Operation};
 
 pub mod formula;
@@ -48,7 +51,7 @@ impl Problem {
     }
 
     /// An assignment of variables where all variables are unknown.
-    pub fn unknown_assignment(&self) -> Assignment {
+    pub fn unknown_assignment(&self) -> Assignment<RBitvector> {
         let mut assignment = Assignment { values: Vec::new() };
         for width in &self.variable_widths {
             assignment

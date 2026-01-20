@@ -21,6 +21,22 @@ impl<B: BitvectorBound> Join for ThreeValuedBitvector<B> {
 
         Self::from_zeros_ones(zeros, ones)
     }
+
+    fn apply_join(&mut self, other: &Self) {
+        // copyable, just overwrite self with join result
+        *self = self.join(other)
+    }
+
+    fn contains(&self, contained: &Self) -> bool {
+        // rhs zeros must be within our zeros and rhs ones must be within our ones
+        // make faster by using the primitives directly
+        // and only asserting bound equality in debug mode
+        debug_assert_eq!(self.bound(), contained.bound());
+
+        let excessive_rhs_zeros = contained.zeros.to_u64() & (!self.zeros.to_u64());
+        let excessive_rhs_ones = contained.ones.to_u64() & (!self.ones.to_u64());
+        excessive_rhs_zeros == 0 && excessive_rhs_ones == 0
+    }
 }
 
 impl<B: BitvectorBound> ThreeValuedBitvector<B> {
@@ -115,18 +131,6 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     #[must_use]
     pub fn get_unknown_bits(&self) -> ConcreteBitvector<B> {
         Bitwise::bit_and(self.zeros, self.ones)
-    }
-
-    #[must_use]
-    pub fn contains(&self, rhs: &Self) -> bool {
-        // rhs zeros must be within our zeros and rhs ones must be within our ones
-        // make faster by using the primitives directly
-        // and only asserting bound equality in debug mode
-        debug_assert_eq!(self.bound(), rhs.bound());
-
-        let excessive_rhs_zeros = rhs.zeros.to_u64() & (!self.zeros.to_u64());
-        let excessive_rhs_ones = rhs.ones.to_u64() & (!self.ones.to_u64());
-        excessive_rhs_zeros == 0 && excessive_rhs_ones == 0
     }
 
     #[allow(dead_code)]

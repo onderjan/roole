@@ -1,18 +1,20 @@
 use std::{fmt::Debug, num::NonZeroU32};
 
+use serde::{Deserialize, Serialize};
+
 /// Formula id.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum FormulaId {
     Variable(VariableId),
     Operation(OperationId),
 }
 
 /// Variable id.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct VariableId(pub usize);
 
 /// Operation id.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperationId(pub usize);
 
 /// Operation on bitvector(s).

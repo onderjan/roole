@@ -1,7 +1,10 @@
 use std::{fmt::Debug, fs::File, io::BufWriter, path::Path};
 
 use crate::{
-    domain::value::ThreeValued,
+    domain::{
+        bitvector::{RBound, abstr::three_valued::ThreeValuedBitvector},
+        value::ThreeValued,
+    },
     problem::{
         Assignment, Decision, Problem,
         solution::{Proof, ProofDecisionNode, ProofNode},
@@ -14,7 +17,7 @@ pub struct Partition {
     decision_order: Vec<Decision>,
 
     current_node: Option<usize>,
-    assignment: Assignment,
+    assignment: Assignment<ThreeValuedBitvector<RBound>>,
     decision_level: u64,
 }
 
@@ -226,7 +229,7 @@ impl Partition {
         self.push_decision(!known_phase);
     }
 
-    pub fn assignment(&self) -> &Assignment {
+    pub fn assignment(&self) -> &Assignment<ThreeValuedBitvector<RBound>> {
         &self.assignment
     }
 

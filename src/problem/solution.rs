@@ -2,10 +2,13 @@ use std::fmt::Debug;
 
 use crate::{
     domain::{
-        bitvector::{abstr::BitvectorDomain, concr::ConcreteBitvector},
+        bitvector::{
+            abstr::{BitvectorDomain, RBitvector},
+            concr::ConcreteBitvector,
+        },
         value::ThreeValued,
     },
-    problem::{Evaluator, assignment::Assignment, decision::Decision},
+    problem::{Evaluator, assignment::Assignment, decision::Decision, eval::EvaluableDomain},
 };
 
 use super::Problem;
@@ -16,9 +19,8 @@ use super::Problem;
 /// an assignment that satisfies the problem (a model),
 /// or says that the problem is unsatisfiable, producing
 /// an unsatisfiability proof.
-#[derive(Debug)]
-pub enum Solution {
-    Satisfiable(Assignment),
+pub enum Solution<D: EvaluableDomain> {
+    Satisfiable(Assignment<D>),
     Unsatisfiable(Proof),
 }
 
@@ -52,7 +54,7 @@ pub struct ProofDecisionNode {
     pub child_one: usize,
 }
 
-impl Solution {
+impl Solution<RBitvector> {
     /// Validates (proof-checks) that the solution to a problem is correct.
     pub fn validate(&self, problem: &Problem) {
         match self {
@@ -82,7 +84,7 @@ impl Proof {
 struct UnsatValidator<'a> {
     problem: &'a Problem,
     proof: &'a Proof,
-    stack: Vec<(usize, Assignment)>,
+    stack: Vec<(usize, Assignment<RBitvector>)>,
 }
 
 impl<'a> UnsatValidator<'a> {
@@ -147,6 +149,18 @@ impl<'a> UnsatValidator<'a> {
                     );
                 }
             }
+        }
+    }
+}
+
+impl<D: EvaluableDomain> Debug for Solution<D>
+where
+    Assignment<D>: Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Satisfiable(arg0) => f.debug_tuple("Satisfiable").field(arg0).finish(),
+            Self::Unsatisfiable(arg0) => f.debug_tuple("Unsatisfiable").field(arg0).finish(),
         }
     }
 }

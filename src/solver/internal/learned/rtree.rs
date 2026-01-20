@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use itertools::Itertools;
 
-use crate::problem::Assignment;
+use crate::{domain::bitvector::abstr::RBitvector, problem::Assignment};
 
 use super::Learned;
 
@@ -14,7 +14,7 @@ pub struct RTreeLearned {
 const MAXIMUM_ENTRIES: usize = 4;
 const MINIMUM_ENTRIES: usize = MAXIMUM_ENTRIES / 2;
 
-impl Learned for RTreeLearned {
+impl Learned<RBitvector> for RTreeLearned {
     fn new() -> Self {
         Self {
             root: Node::Leaf(Leaf {
@@ -23,11 +23,11 @@ impl Learned for RTreeLearned {
         }
     }
 
-    fn contains(&self, assignment: &Assignment) -> bool {
+    fn contains(&self, assignment: &Assignment<RBitvector>) -> bool {
         self.root.contains(assignment)
     }
 
-    fn add(&mut self, assignment: Assignment) {
+    fn add(&mut self, assignment: Assignment<RBitvector>) {
         //eprintln!("Inserting {:?}", assignment);
         match self.root.insert(assignment) {
             NodeUpward::Inserted(_assignment) => {
@@ -68,28 +68,28 @@ enum Node {
 }
 
 impl Node {
-    fn contains(&self, assignment: &Assignment) -> bool {
+    fn contains(&self, assignment: &Assignment<RBitvector>) -> bool {
         match self {
             Node::NonLeaf(non_leaf) => non_leaf.contains(assignment),
             Node::Leaf(leaf) => leaf.contains(assignment),
         }
     }
 
-    fn insert(&mut self, assignment: Assignment) -> NodeUpward {
+    fn insert(&mut self, assignment: Assignment<RBitvector>) -> NodeUpward {
         match self {
             Node::NonLeaf(non_leaf) => non_leaf.insert(assignment),
             Node::Leaf(leaf) => leaf.insert(assignment),
         }
     }
 
-    fn compute_bound(&self) -> Assignment {
+    fn compute_bound(&self) -> Assignment<RBitvector> {
         match self {
             Node::NonLeaf(non_leaf) => non_leaf.compute_bound(),
             Node::Leaf(leaf) => leaf.compute_bound(),
         }
     }
 
-    fn compute_enlargement(&self, assignment: &Assignment) -> i64 {
+    fn compute_enlargement(&self, assignment: &Assignment<RBitvector>) -> i64 {
         match self {
             Node::NonLeaf(non_leaf) => non_leaf.compute_enlargement(assignment),
             Node::Leaf(leaf) => leaf.compute_enlargement(assignment),
@@ -132,11 +132,11 @@ impl Debug for Node {
 
 #[derive(Clone)]
 struct NonLeaf {
-    entries: Vec<(Assignment, Node)>,
+    entries: Vec<(Assignment<RBitvector>, Node)>,
 }
 
 impl NonLeaf {
-    fn contains(&self, assignment: &Assignment) -> bool {
+    fn contains(&self, assignment: &Assignment<RBitvector>) -> bool {
         for (bound, node) in &self.entries {
             // the point: filter out by bounds
 
@@ -151,7 +151,7 @@ impl NonLeaf {
         false
     }
 
-    fn compute_enlargement(&self, assignment: &Assignment) -> i64 {
+    fn compute_enlargement(&self, assignment: &Assignment<RBitvector>) -> i64 {
         let mut min_enlargement = i64::MAX;
 
         for (_, entry_node) in self.entries.iter() {
@@ -161,7 +161,7 @@ impl NonLeaf {
         min_enlargement
     }
 
-    fn insert(&mut self, assignment: Assignment) -> NodeUpward {
+    fn insert(&mut self, assignment: Assignment<RBitvector>) -> NodeUpward {
         // non-leaf node
         let mut chosen = None;
 
@@ -227,7 +227,7 @@ impl NonLeaf {
         }
     }
 
-    fn compute_bound(&self) -> Assignment {
+    fn compute_bound(&self) -> Assignment<RBitvector> {
         compute_assignments_bound(self.entries.iter().map(|(assignment, _)| assignment))
     }
 }
@@ -246,16 +246,16 @@ impl Debug for NonLeaf {
 
 #[derive(Clone)]
 struct Leaf {
-    entries: Vec<Assignment>,
+    entries: Vec<Assignment<RBitvector>>,
 }
 
 enum NodeUpward {
-    Inserted(Assignment),
+    Inserted(Assignment<RBitvector>),
     Split(Node),
 }
 
 impl Leaf {
-    fn contains(&self, assignment: &Assignment) -> bool {
+    fn contains(&self, assignment: &Assignment<RBitvector>) -> bool {
         // note the reversed logic from non-leaves
         // entries in leaves are an underapproximation
         // while bounds in non-leaves are an overapproximation
@@ -267,7 +267,7 @@ impl Leaf {
         false
     }
 
-    fn insert(&mut self, assignment: Assignment) -> NodeUpward {
+    fn insert(&mut self, assignment: Assignment<RBitvector>) -> NodeUpward {
         if self.entries.len() < MAXIMUM_ENTRIES {
             // insert child
             self.entries.push(assignment.clone());
@@ -282,11 +282,11 @@ impl Leaf {
         }
     }
 
-    fn compute_bound(&self) -> Assignment {
+    fn compute_bound(&self) -> Assignment<RBitvector> {
         compute_assignments_bound(&self.entries)
     }
 
-    fn compute_enlargement(&self, assignment: &Assignment) -> i64 {
+    fn compute_enlargement(&self, assignment: &Assignment<RBitvector>) -> i64 {
         let mut least_differences = u64::MAX;
         for entry in &self.entries {
             let differences = num_differences(entry, assignment);
@@ -304,11 +304,11 @@ impl Debug for Leaf {
 }
 
 fn compute_assignments_bound<'a>(
-    into_iter: impl IntoIterator<Item = &'a Assignment>,
-) -> Assignment {
+    into_iter: impl IntoIterator<Item = &'a Assignment<RBitvector>>,
+) -> Assignment<RBitvector> {
     into_iter
         .into_iter()
-        .fold(None, |acc: Option<Assignment>, elem| {
+        .fold(None, |acc: Option<Assignment<RBitvector>>, elem| {
             if let Some(acc) = acc {
                 Some(acc.join(elem))
             } else {
@@ -318,7 +318,7 @@ fn compute_assignments_bound<'a>(
         .expect("Assignments should have at least one element")
 }
 
-fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
+fn split_entries<T: Debug, F: Fn(&T) -> &Assignment<RBitvector>>(
     our_entries: &mut Vec<T>,
     new_entry: T,
     bound_fn: F,
@@ -438,7 +438,7 @@ fn split_entries<T: Debug, F: Fn(&T) -> &Assignment>(
     second_group
 }
 
-pub fn volume(assignment: &Assignment) -> u64 {
+pub fn volume(assignment: &Assignment<RBitvector>) -> u64 {
     let mut count = 0;
 
     for our_value in assignment.values().iter() {
@@ -448,7 +448,7 @@ pub fn volume(assignment: &Assignment) -> u64 {
     count
 }
 
-pub fn num_differences(lhs: &Assignment, rhs: &Assignment) -> u64 {
+pub fn num_differences(lhs: &Assignment<RBitvector>, rhs: &Assignment<RBitvector>) -> u64 {
     let mut count = 0;
 
     for (our_value, rhs_value) in lhs.values().iter().zip_eq(rhs.values().iter()) {

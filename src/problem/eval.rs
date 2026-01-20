@@ -1,35 +1,48 @@
 use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
     domain::{
-        bitvector::{
-            BitvectorBound, RBound,
-            abstr::{AbstractBitvector, BitvectorDomain},
-        },
-        traits::{
-            Join,
-            forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
-        },
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+        traits::forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     },
     problem::{Problem, assignment::Assignment},
 };
 
-#[derive(Debug)]
-pub struct Evaluator<'a> {
-    problem: &'a Problem,
-    // the results are indexed by FormulaId
-    results: Vec<Option<AbstractBitvector<RBound>>>,
+pub trait EvaluableDomain:
+    BitvectorDomain<Bound = RBound>
+    + HwArith
+    + Bitwise
+    + TypedEq<Output = Self>
+    + TypedCmp<Output = Self>
+    + HwShift<Output = Self>
+    + BExt<RBound, Output = Self>
+{
 }
 
-impl<'a> Evaluator<'a> {
+impl<
+    T: BitvectorDomain<Bound = RBound>
+        + HwArith
+        + Bitwise
+        + TypedEq<Output = Self>
+        + TypedCmp<Output = Self>
+        + HwShift<Output = Self>
+        + BExt<RBound, Output = Self>,
+> EvaluableDomain for T
+{
+}
+
+#[derive(Debug)]
+pub struct Evaluator<'a, D: EvaluableDomain> {
+    problem: &'a Problem,
+    // the results are indexed by FormulaId
+    results: Vec<Option<D>>,
+}
+
+impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
     pub fn new(problem: &'a Problem) -> Self {
-        eprintln!("Problem: {:?}", problem);
-        let result = Self {
+        Self {
             problem,
             results: vec![None; problem.operations.len()],
-        };
-
-        eprintln!("Evaluator: {:?}", result);
-        result
+        }
     }
 
     pub fn problem(&self) -> &'a Problem {
@@ -39,7 +52,7 @@ impl<'a> Evaluator<'a> {
     /// Evaluates this problem assertion on the given variable assignment.
     ///
     /// The assignment structure must correspond to the problem variables.
-    pub fn evaluate(&mut self, assignment: &Assignment) -> AbstractBitvector<RBound> {
+    pub fn evaluate(&mut self, assignment: &Assignment<D>) -> D {
         // must set previous results to None work with new assignment
         // keep the allocated vector for reuse
         for result in &mut self.results {
@@ -97,26 +110,21 @@ impl<'a> Evaluator<'a> {
         }
     }
 
-    fn fetch_result(
-        &self,
-        assignment: &Assignment,
-        formula_id: FormulaId,
-    ) -> AbstractBitvector<RBound> {
+    fn fetch_result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> D {
         match formula_id {
-            FormulaId::Variable(variable_id) => *assignment.value(variable_id),
+            FormulaId::Variable(variable_id) => assignment.value(variable_id).clone(),
             FormulaId::Operation(operation_id) => self.results[operation_id.0]
-                .expect("Fetched result of formula {:?} should be already computed"),
+                .as_ref()
+                .expect("Fetched result of formula {:?} should be already computed")
+                .clone(),
         }
     }
 
-    fn evaluate_operation(
-        &self,
-        assignment: &Assignment,
-        operation: &Operation,
-    ) -> AbstractBitvector<RBound> {
+    fn evaluate_operation(&self, assignment: &Assignment<D>, operation: &Operation) -> D {
         match operation {
             Operation::Constant(value, width) => {
-                AbstractBitvector::new(*value, RBound::new(*width))
+                let concrete = ConcreteBitvector::new(*value, RBound::new(*width));
+                D::single_value(concrete)
             }
             Operation::UniOp(UniOp {
                 op,
@@ -219,8 +227,8 @@ impl<'a> Evaluator<'a> {
 
                 // shift left by right width
                 let right_width_bitvector =
-                    AbstractBitvector::new(concat_op.right_width as u64, result_bound);
-                let left = left.logic_shl(right_width_bitvector);
+                    ConcreteBitvector::new(concat_op.right_width as u64, result_bound);
+                let left = left.logic_shl(D::single_value(right_width_bitvector));
 
                 // bit-or both
                 left.bit_or(right)
@@ -232,8 +240,8 @@ impl<'a> Evaluator<'a> {
 
                 // shift right by lsb
                 // it should not matter which shift it is, perform it unsigned
-                let inner =
-                    inner.logic_shr(AbstractBitvector::new(extract_op.lsb.into(), inner.bound()));
+                let concrete_rhs = ConcreteBitvector::new(extract_op.lsb.into(), inner.bound());
+                let inner = inner.logic_shr(D::single_value(concrete_rhs));
 
                 // narrow to extraction width
                 inner.uext(RBound::new(extract_op.width.get()))
