@@ -6,7 +6,7 @@ edition = "2024"
 
 [features]
 cadical = ["cadical-sys"]
-default = ["cadical"]
+#default = ["cadical"]
 
 [dependencies]
 aws-smt-ir = "0.3.0"
