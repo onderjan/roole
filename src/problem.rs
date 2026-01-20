@@ -1,8 +1,11 @@
 use std::fmt::Debug;
 
-use crate::domain::bitvector::{
-    RBound,
-    abstr::{AbstractBitvector, RBitvector},
+use crate::{
+    domain::bitvector::{
+        RBound,
+        abstr::{BitvectorDomain, RBitvector, linear::LinearBitvector},
+    },
+    problem::formula::VariableId,
 };
 use formula::{FormulaId, Operation};
 
@@ -54,9 +57,20 @@ impl Problem {
     pub fn unknown_assignment(&self) -> Assignment<RBitvector> {
         let mut assignment = Assignment { values: Vec::new() };
         for width in &self.variable_widths {
-            assignment
-                .values
-                .push(AbstractBitvector::new_unknown(RBound::new(*width)));
+            assignment.values.push(RBitvector::top(RBound::new(*width)));
+        }
+
+        assignment
+    }
+
+    pub fn linear_assignment(&self) -> Assignment<LinearBitvector<RBound>> {
+        let mut assignment = Assignment { values: Vec::new() };
+        for (variable_id, width) in self.variable_widths.iter().enumerate() {
+            let bound = RBound::new(*width);
+            assignment.values.push(LinearBitvector::for_formula_id(
+                FormulaId::Variable(VariableId(variable_id)),
+                bound,
+            ));
         }
 
         assignment

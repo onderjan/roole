@@ -1,10 +1,16 @@
+use std::fmt::{Debug, Display};
+
 use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     },
-    problem::{Problem, assignment::Assignment},
+    problem::{
+        Problem,
+        assignment::Assignment,
+        formula::{OperationId, VariableId},
+    },
 };
 
 pub trait EvaluableDomain:
@@ -30,7 +36,6 @@ impl<
 {
 }
 
-#[derive(Debug)]
 pub struct Evaluator<'a, D: EvaluableDomain> {
     problem: &'a Problem,
     // the results are indexed by FormulaId
@@ -247,5 +252,41 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 inner.uext(RBound::new(extract_op.width.get()))
             }
         }
+    }
+}
+
+impl<D: EvaluableDomain + Debug> Debug for Evaluator<'_, D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut franz = f.debug_struct("Evaluator");
+
+        struct FieldStr<'a>(&'a str);
+
+        impl Debug for FieldStr<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                Display::fmt(&self.0, f)
+            }
+        }
+
+        for (variable_id, width) in self.problem.variable_widths.iter().enumerate() {
+            let variable_id = VariableId(variable_id);
+            franz.field(
+                format!("{:?}", variable_id).as_str(),
+                &FieldStr(&format!("Bitvec_{:?}", width)),
+            );
+        }
+
+        for (operation_id, operation) in self.problem.operations.iter().enumerate() {
+            let result = &self.results[operation_id];
+            let operation_id = OperationId(operation_id);
+            let name = format!("{:?} = {:?}", operation_id, operation);
+
+            if let Some(result) = result {
+                franz.field(&name, result);
+            } else {
+                franz.field(&name, &FieldStr("⊥"));
+            }
+        }
+
+        franz.finish()
     }
 }

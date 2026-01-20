@@ -1,12 +1,32 @@
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
-use crate::domain::{
-    bitvector::{
-        BitvectorBound,
-        abstr::linear::{LinearBitvector, LinearCombination},
+use crate::{
+    domain::{
+        bitvector::{
+            BitvectorBound,
+            abstr::linear::{LinearBitvector, LinearCombination},
+            concr::ConcreteBitvector,
+        },
+        traits::Join,
     },
-    traits::Join,
+    problem::formula::FormulaId,
 };
+
+impl<B: BitvectorBound> LinearBitvector<B> {
+    pub fn for_formula_id(formula_id: FormulaId, bound: B) -> Self {
+        let constant = ConcreteBitvector::zero(bound);
+        let mut coefficients = BTreeMap::new();
+        coefficients.insert(formula_id, ConcreteBitvector::one(bound));
+
+        LinearBitvector {
+            bound,
+            combination: Some(LinearCombination {
+                constant,
+                coefficients,
+            }),
+        }
+    }
+}
 
 impl<B: BitvectorBound> Join for LinearBitvector<B> {
     fn join(self, other: &Self) -> Self {
@@ -32,12 +52,12 @@ impl<B: BitvectorBound> Debug for LinearBitvector<B> {
     }
 }
 
-impl Debug for LinearCombination {
+impl<B: BitvectorBound> Debug for LinearCombination<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut is_first = true;
 
         // write the linear combinations of formulas with coefficients
-        for (formula_id, coefficient) in &self.variables {
+        for (formula_id, coefficient) in &self.coefficients {
             if is_first {
                 is_first = false;
             } else {
@@ -48,7 +68,7 @@ impl Debug for LinearCombination {
 
         if is_first {
             write!(f, "({})", self.constant)?;
-        } else if self.constant != 0 {
+        } else if self.constant.is_nonzero() {
             write!(f, " + ({})", self.constant)?;
         }
         Ok(())

@@ -18,6 +18,9 @@ struct Args {
 
     #[arg(short, long, default_value_t = SolverMode::Internal)]
     solver: SolverMode,
+
+    #[arg(short, long)]
+    preprocess: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -60,6 +63,12 @@ fn main() {
 
     // evaluate the file with the parser
     eprintln!("Evaluating file {:?}", args.input_file);
-    parser::parse(reader, args.input_file, args.output_dir, args.solver);
+    parser::parse(
+        reader,
+        args.input_file,
+        args.output_dir,
+        args.solver,
+        args.preprocess,
+    );
     eprintln!("Finished evaluation");
 }

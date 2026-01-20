@@ -31,9 +31,10 @@ pub fn parse(
     path: PathBuf,
     output_dir: Option<PathBuf>,
     solver_mode: SolverMode,
+    preprocess: bool,
 ) {
     // construct the parser
-    let mut parser = Parser::new(output_dir, solver_mode);
+    let mut parser = Parser::new(output_dir, solver_mode, preprocess);
 
     let stream = CommandStream::new(
         reader,
@@ -74,6 +75,8 @@ struct Parser {
     output_dir: Option<PathBuf>,
     /// Which solver mode to use.
     solver_mode: SolverMode,
+    /// Whether preprocessing should be used.
+    preprocess: bool,
 }
 
 // Binding scope.
@@ -93,7 +96,7 @@ impl Scope {
 }
 
 impl Parser {
-    fn new(output_dir: Option<PathBuf>, solver_mode: SolverMode) -> Self {
+    fn new(output_dir: Option<PathBuf>, solver_mode: SolverMode, preprocess: bool) -> Self {
         Self {
             scopes: vec![Scope::new()],
             variables: Vec::new(),
@@ -102,6 +105,7 @@ impl Parser {
 
             output_dir,
             solver_mode,
+            preprocess,
         }
     }
 
@@ -171,7 +175,12 @@ impl Parser {
 
         // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
-        solver::solve(&problem, self.output_dir.clone(), self.solver_mode);
+        solver::solve(
+            &problem,
+            self.output_dir.clone(),
+            self.solver_mode,
+            self.preprocess,
+        );
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {

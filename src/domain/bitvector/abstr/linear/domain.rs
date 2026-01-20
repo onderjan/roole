@@ -1,6 +1,11 @@
+use std::collections::BTreeMap;
+
 use crate::domain::bitvector::{
     BitvectorBound,
-    abstr::{BitvectorDisplay, BitvectorDomain, linear::LinearBitvector},
+    abstr::{
+        BitvectorDisplay, BitvectorDomain,
+        linear::{LinearBitvector, LinearCombination},
+    },
     concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
 };
 
@@ -14,7 +19,13 @@ impl<B: BitvectorBound> BitvectorDomain for LinearBitvector<B> {
     }
 
     fn single_value(value: ConcreteBitvector<Self::Bound>) -> Self {
-        todo!()
+        Self {
+            bound: value.bound(),
+            combination: Some(LinearCombination {
+                constant: value,
+                coefficients: BTreeMap::new(),
+            }),
+        }
     }
 
     fn top(bound: Self::Bound) -> Self {
