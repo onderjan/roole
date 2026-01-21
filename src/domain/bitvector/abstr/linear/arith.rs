@@ -75,12 +75,15 @@ fn linear_combine<B: BitvectorBound>(
         let coeff = if let Some(right_coeff) = rhs.coefficients.remove(&formula) {
             op(left_coeff, right_coeff)
         } else {
-            left_coeff
+            let zero = ConcreteBitvector::zero(left_coeff.bound());
+            op(left_coeff, zero)
         };
         coefficients.insert(formula, coeff);
     }
 
-    for (formula, coeff) in rhs.coefficients {
+    for (formula, right_coeff) in rhs.coefficients {
+        let zero = ConcreteBitvector::zero(right_coeff.bound());
+        let coeff = op(zero, right_coeff);
         coefficients.insert(formula, coeff);
     }
 
