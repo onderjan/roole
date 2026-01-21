@@ -25,6 +25,8 @@ impl<B: BitvectorBound> HwArith for LinearBitvector<B> {
             *coeff = (*coeff).arith_neg();
         }
 
+        combination.normalize();
+
         self
     }
     fn add(self, rhs: Self) -> Self {
@@ -87,11 +89,14 @@ fn linear_combine<B: BitvectorBound>(
         coefficients.insert(formula, coeff);
     }
 
+    let mut combination = LinearCombination {
+        constant,
+        coefficients,
+    };
+    combination.normalize();
+
     LinearBitvector {
         bound,
-        combination: Some(LinearCombination {
-            constant,
-            coefficients,
-        }),
+        combination: Some(combination),
     }
 }

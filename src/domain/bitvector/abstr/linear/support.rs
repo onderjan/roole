@@ -28,6 +28,13 @@ impl<B: BitvectorBound> LinearBitvector<B> {
     }
 }
 
+impl<B: BitvectorBound> LinearCombination<B> {
+    pub(super) fn normalize(&mut self) {
+        // eliminate zero coefficients
+        self.coefficients.retain(|_, coeff| !coeff.is_zero());
+    }
+}
+
 impl<B: BitvectorBound> Join for LinearBitvector<B> {
     fn join(self, other: &Self) -> Self {
         todo!()

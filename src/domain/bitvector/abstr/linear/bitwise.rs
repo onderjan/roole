@@ -22,6 +22,8 @@ impl<B: BitvectorBound> Bitwise for LinearBitvector<B> {
             .constant
             .sub(ConcreteBitvector::one(arith_neg.bound));
 
+        combination.normalize();
+
         arith_neg
     }
     fn bit_and(self, rhs: Self) -> Self {
