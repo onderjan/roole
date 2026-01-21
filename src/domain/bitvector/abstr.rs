@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::bitvector::BitvectorBound;
 use crate::domain::bitvector::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
+use crate::problem::formula::FormulaId;
 
 use super::super::traits::Join;
 use super::bound::{CBound, RBound};
@@ -39,6 +40,11 @@ pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {
         None
     }
     fn assign_tracker(&mut self, _tracker: Option<u32>) {}
+
+    fn formula(bound: Self::Bound, formula: FormulaId) -> Self {
+        let _ = formula;
+        Self::top(bound)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

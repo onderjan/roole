@@ -56,6 +56,8 @@ impl<B: BitvectorBound> Debug for LinearCombination<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut is_first = true;
 
+        write!(f, "(")?;
+
         // write the linear combinations of formulas with coefficients
         for (formula_id, coefficient) in &self.coefficients {
             if is_first {
@@ -63,14 +65,14 @@ impl<B: BitvectorBound> Debug for LinearCombination<B> {
             } else {
                 write!(f, " + ")?;
             }
-            write!(f, "({}*{:?})", coefficient, formula_id)?;
+            write!(f, "{}*{:?}", coefficient, formula_id)?;
         }
 
         if is_first {
-            write!(f, "({})", self.constant)?;
+            write!(f, "{}", self.constant)?;
         } else if self.constant.is_nonzero() {
-            write!(f, " + ({})", self.constant)?;
+            write!(f, " + {}", self.constant)?;
         }
-        Ok(())
+        write!(f, ") mod {}", 1u64 << self.constant.bound().width())
     }
 }

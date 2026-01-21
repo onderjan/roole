@@ -72,8 +72,16 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 FormulaId::Operation(operation_id) => {
                     let operation = &self.problem.operations[operation_id.0];
                     if evaluated {
-                        self.results[operation_id.0] =
-                            Some(self.evaluate_operation(assignment, operation))
+                        let evaluated = self.evaluate_operation(assignment, operation);
+                        let bound = evaluated.bound();
+                        // replace top with formula
+                        let evaluated = if evaluated == D::top(bound) {
+                            D::formula(bound, formula_id)
+                        } else {
+                            evaluated
+                        };
+
+                        self.results[operation_id.0] = Some(evaluated);
                     } else {
                         let dependencies = self.dependencies(operation);
 

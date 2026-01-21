@@ -1,12 +1,15 @@
 use std::collections::BTreeMap;
 
-use crate::domain::bitvector::{
-    BitvectorBound,
-    abstr::{
-        BitvectorDisplay, BitvectorDomain,
-        linear::{LinearBitvector, LinearCombination},
+use crate::{
+    domain::bitvector::{
+        BitvectorBound,
+        abstr::{
+            BitvectorDisplay, BitvectorDomain,
+            linear::{LinearBitvector, LinearCombination},
+        },
+        concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     },
-    concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
+    problem::formula::FormulaId,
 };
 
 impl<B: BitvectorBound> BitvectorDomain for LinearBitvector<B> {
@@ -32,6 +35,19 @@ impl<B: BitvectorBound> BitvectorDomain for LinearBitvector<B> {
         Self {
             bound,
             combination: None,
+        }
+    }
+
+    fn formula(bound: Self::Bound, formula: FormulaId) -> Self {
+        let mut coefficients = BTreeMap::new();
+        coefficients.insert(formula, ConcreteBitvector::one(bound));
+
+        Self {
+            bound,
+            combination: Some(LinearCombination {
+                constant: ConcreteBitvector::zero(bound),
+                coefficients,
+            }),
         }
     }
 
