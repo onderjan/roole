@@ -139,6 +139,20 @@ impl Operation {
             Operation::ExtractOp(extract_op) => extract_op.width.get(),
         }
     }
+
+    pub fn used_ids(&self) -> Vec<FormulaId> {
+        match self {
+            Operation::Constant(_, _) => vec![],
+            Operation::UniOp(uni_op) => vec![uni_op.inner],
+            Operation::BiOp(bi_op) => vec![bi_op.left, bi_op.right],
+            Operation::ExtOp(ext_op) => vec![ext_op.inner],
+            Operation::IteOp(ite_op) => {
+                vec![ite_op.condition, ite_op.formula_then, ite_op.formula_else]
+            }
+            Operation::ConcatOp(concat_op) => vec![concat_op.left, concat_op.right],
+            Operation::ExtractOp(extract_op) => vec![extract_op.inner],
+        }
+    }
 }
 
 impl Debug for FormulaId {

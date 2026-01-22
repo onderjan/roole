@@ -26,6 +26,14 @@ impl<B: BitvectorBound> LinearBitvector<B> {
             }),
         }
     }
+
+    pub fn used_ids(&self) -> Vec<FormulaId> {
+        let Some(combination) = &self.combination else {
+            return Vec::new();
+        };
+
+        combination.coefficients.keys().copied().collect()
+    }
 }
 
 impl<B: BitvectorBound> LinearCombination<B> {

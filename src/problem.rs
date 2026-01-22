@@ -5,7 +5,7 @@ use crate::{
         RBound,
         abstr::{BitvectorDomain, RBitvector, linear::LinearBitvector},
     },
-    problem::formula::VariableId,
+    problem::formula::{OperationId, VariableId},
 };
 use formula::{FormulaId, Operation};
 
@@ -51,6 +51,14 @@ impl Problem {
 
     pub fn variable_widths(&self) -> &[u32] {
         &self.variable_widths
+    }
+
+    pub fn operation(&self, id: OperationId) -> &Operation {
+        &self.operations[id.0]
+    }
+
+    pub fn assertion(&self) -> FormulaId {
+        self.assertion
     }
 
     /// An assignment of variables where all variables are unknown.

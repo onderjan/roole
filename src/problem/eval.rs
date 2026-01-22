@@ -38,7 +38,7 @@ impl<
 
 pub struct Evaluator<'a, D: EvaluableDomain> {
     problem: &'a Problem,
-    // the results are indexed by FormulaId
+    // the results are indexed by OperationId
     results: Vec<Option<D>>,
 }
 
@@ -52,6 +52,12 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
 
     pub fn problem(&self) -> &'a Problem {
         self.problem
+    }
+
+    pub fn result(&self, operation_id: OperationId) -> &D {
+        self.results[operation_id.0]
+            .as_ref()
+            .expect("Result of operation {:?} should be computed")
     }
 
     /// Evaluates this problem assertion on the given variable assignment.
