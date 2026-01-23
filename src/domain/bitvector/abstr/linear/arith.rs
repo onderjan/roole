@@ -13,21 +13,16 @@ use crate::domain::{
 };
 
 impl HwArith for LinearBitvector {
-    fn arith_neg(mut self) -> Self {
-        let LinearType::Combination(combination) = &mut self.ty else {
+    fn arith_neg(self) -> Self {
+        let LinearType::Combination(combination) = self.ty else {
             // return top value
             return Self::top(self.bound);
         };
 
-        combination.constant = combination.constant.arith_neg();
-
-        for coeff in combination.coefficients.values_mut() {
-            *coeff = (*coeff).arith_neg();
+        Self {
+            bound: self.bound,
+            ty: LinearType::Combination(combination.arith_neg()),
         }
-
-        combination.normalize();
-
-        self
     }
     fn add(self, rhs: Self) -> Self {
         self.linear_combine(rhs, |a, b| a.add(b))
@@ -82,6 +77,17 @@ impl LinearBitvector {
 }
 
 impl LinearCombination {
+    pub(super) fn arith_neg(mut self) -> LinearCombination {
+        self.constant = self.constant.arith_neg();
+        for coeff in self.coefficients.values_mut() {
+            *coeff = (*coeff).arith_neg();
+        }
+
+        self.normalize();
+
+        self
+    }
+
     pub(super) fn add(self, rhs: LinearCombination) -> LinearCombination {
         self.linear_combine(rhs, |a, b| a.add(b))
     }

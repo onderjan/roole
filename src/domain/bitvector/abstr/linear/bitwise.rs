@@ -1,8 +1,10 @@
+use itertools::Itertools;
+
 use crate::domain::{
     bitvector::{
         abstr::{
             BitvectorDomain,
-            linear::{LinearBitvector, LinearType},
+            linear::{LinearBitvector, LinearRelation, LinearStatement, LinearType},
         },
         concr::ConcreteBitvector,
     },
@@ -11,21 +13,35 @@ use crate::domain::{
 
 impl Bitwise for LinearBitvector {
     fn bit_not(self) -> Self {
-        // bit_not(x) = arith_neg(x) - 1
+        match self.ty {
+            LinearType::Top => self,
+            LinearType::Combination(combination) => {
+                // bit_not(x) = arith_neg(x) - 1
 
-        let mut arith_neg = self.arith_neg();
+                let mut result = combination.arith_neg();
 
-        let LinearType::Combination(combination) = &mut arith_neg.ty else {
-            return Self::top(arith_neg.bound);
-        };
+                result.constant = result.constant.sub(ConcreteBitvector::one(self.bound));
 
-        combination.constant = combination
-            .constant
-            .sub(ConcreteBitvector::one(arith_neg.bound));
+                result.normalize();
 
-        combination.normalize();
+                LinearBitvector {
+                    bound: self.bound,
+                    ty: LinearType::Combination(result),
+                }
+            }
+            LinearType::System(linear_system) => {
+                let Ok(statement) = linear_system.equations.into_iter().exactly_one() else {
+                    return Self::top(self.bound);
+                };
 
-        arith_neg
+                LinearBitvector {
+                    bound: self.bound,
+                    ty: LinearType::System(super::LinearSystem {
+                        equations: vec![statement.negate()],
+                    }),
+                }
+            }
+        }
     }
     fn bit_and(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
@@ -44,5 +60,21 @@ impl Bitwise for LinearBitvector {
         // TODO: handle masking situations
 
         LinearBitvector::top(self.bound)
+    }
+}
+
+impl LinearStatement {
+    fn negate(self) -> Self {
+        let op = match self.op {
+            LinearRelation::Eq => LinearRelation::Ne,
+            LinearRelation::Ne => LinearRelation::Eq,
+            super::LinearRelation::Lt => todo!("Negate inequality"),
+        };
+
+        Self {
+            left: self.left,
+            op,
+            right: self.right,
+        }
     }
 }

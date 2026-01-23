@@ -4,7 +4,9 @@ use crate::{
     domain::{
         bitvector::{
             BitvectorBound, RBound,
-            abstr::linear::{LinearBitvector, LinearCombination, LinearSystem, LinearType},
+            abstr::linear::{
+                LinearBitvector, LinearCombination, LinearRelation, LinearSystem, LinearType,
+            },
             concr::ConcreteBitvector,
         },
         traits::Join,
@@ -36,7 +38,7 @@ impl LinearBitvector {
             LinearType::System(system) => system
                 .equations
                 .iter()
-                .map(|equation| &equation.side)
+                .map(|equation| &equation.left)
                 .flat_map(|combination| combination.coefficients.keys().copied())
                 .collect(),
         }
@@ -115,8 +117,14 @@ impl Debug for LinearSystem {
             } else {
                 write!(f, " ∧ ")?;
             }
-            Debug::fmt(&equation.side, f)?;
-            write!(f, " == 0")?;
+            Debug::fmt(&equation.left, f)?;
+            let op = match equation.op {
+                LinearRelation::Eq => "==",
+                LinearRelation::Ne => "!=",
+                LinearRelation::Lt => "<",
+            };
+            write!(f, " {} ", op)?;
+            Debug::fmt(&equation.right, f)?;
         }
         Ok(())
     }

@@ -24,13 +24,22 @@ pub struct LinearCombination {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct LinearEquation {
-    side: LinearCombination,
+enum LinearRelation {
+    Eq,
+    Ne,
+    Lt,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct LinearStatement {
+    left: LinearCombination,
+    op: LinearRelation,
+    right: ConcreteBitvector<RBound>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {
-    equations: Vec<LinearEquation>,
+    equations: Vec<LinearStatement>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
