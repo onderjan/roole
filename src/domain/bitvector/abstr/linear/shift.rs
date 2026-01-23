@@ -1,13 +1,6 @@
-use crate::domain::{
-    bitvector::{
-        BitvectorBound,
-        abstr::{BitvectorDomain, linear::LinearBitvector},
-        concr::ConcreteBitvector,
-    },
-    traits::forward::{Bitwise, HwShift},
-};
+use crate::domain::{bitvector::abstr::linear::LinearBitvector, traits::forward::HwShift};
 
-impl<B: BitvectorBound> HwShift for LinearBitvector<B> {
+impl HwShift for LinearBitvector {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {

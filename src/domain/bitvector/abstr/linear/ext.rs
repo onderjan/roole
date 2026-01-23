@@ -1,28 +1,16 @@
 use crate::domain::{
-    bitvector::{BitvectorBound, CBound, abstr::linear::LinearBitvector},
-    traits::forward::{BExt, Ext},
+    bitvector::{RBound, abstr::linear::LinearBitvector},
+    traits::forward::BExt,
 };
 
-impl<B: BitvectorBound, X: BitvectorBound> BExt<X> for LinearBitvector<B> {
-    type Output = LinearBitvector<X>;
+impl BExt<RBound> for LinearBitvector {
+    type Output = LinearBitvector;
 
-    fn uext(self, new_bound: X) -> Self::Output {
+    fn uext(self, new_bound: RBound) -> Self::Output {
         todo!()
     }
 
-    fn sext(self, new_bound: X) -> Self::Output {
+    fn sext(self, new_bound: RBound) -> Self::Output {
         todo!()
-    }
-}
-
-impl<const W: u32, const X: u32> Ext<X> for LinearBitvector<CBound<W>> {
-    type Output = LinearBitvector<CBound<X>>;
-
-    fn uext(self) -> Self::Output {
-        BExt::uext(self, CBound::<X>)
-    }
-
-    fn sext(self) -> Self::Output {
-        BExt::sext(self, CBound::<X>)
     }
 }

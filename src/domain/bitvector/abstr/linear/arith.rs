@@ -2,21 +2,21 @@ use std::collections::BTreeMap;
 
 use crate::domain::{
     bitvector::{
-        BitvectorBound,
+        RBound,
         abstr::{
             BitvectorDomain,
-            linear::{LinearBitvector, LinearCombination},
+            linear::{LinearBitvector, LinearCombination, LinearType},
         },
         concr::ConcreteBitvector,
     },
     traits::forward::HwArith,
 };
 
-impl<B: BitvectorBound> HwArith for LinearBitvector<B> {
+impl HwArith for LinearBitvector {
     fn arith_neg(mut self) -> Self {
-        let Some(combination) = &mut self.combination else {
-            // already top value
-            return self;
+        let LinearType::Combination(combination) = &mut self.ty else {
+            // return top value
+            return Self::top(self.bound);
         };
 
         combination.constant = combination.constant.arith_neg();
@@ -30,14 +30,15 @@ impl<B: BitvectorBound> HwArith for LinearBitvector<B> {
         self
     }
     fn add(self, rhs: Self) -> Self {
-        linear_combine(self, rhs, |a, b| a.add(b))
+        self.linear_combine(rhs, |a, b| a.add(b))
     }
 
     fn sub(self, rhs: Self) -> Self {
-        linear_combine(self, rhs, |a, b| a.sub(b))
+        self.linear_combine(rhs, |a, b| a.sub(b))
     }
 
     fn mul(self, rhs: Self) -> Self {
+        // TODO: multiply if one has a definite value
         todo!()
     }
 
@@ -58,45 +59,67 @@ impl<B: BitvectorBound> HwArith for LinearBitvector<B> {
     }
 }
 
-fn linear_combine<B: BitvectorBound>(
-    lhs: LinearBitvector<B>,
-    rhs: LinearBitvector<B>,
-    op: fn(ConcreteBitvector<B>, ConcreteBitvector<B>) -> ConcreteBitvector<B>,
-) -> LinearBitvector<B> {
-    assert_eq!(lhs.bound, rhs.bound);
-    let bound = lhs.bound;
+impl LinearBitvector {
+    fn linear_combine(
+        self,
+        rhs: LinearBitvector,
+        op: fn(LinearCombination, LinearCombination) -> LinearCombination,
+    ) -> Self {
+        assert_eq!(self.bound, rhs.bound);
+        let bound = self.bound;
 
-    let (Some(lhs), Some(mut rhs)) = (lhs.combination, rhs.combination) else {
-        return LinearBitvector::<B>::top(bound);
-    };
-
-    let constant = lhs.constant.add(rhs.constant);
-    let mut coefficients = BTreeMap::new();
-
-    for (formula, left_coeff) in lhs.coefficients {
-        let coeff = if let Some(right_coeff) = rhs.coefficients.remove(&formula) {
-            op(left_coeff, right_coeff)
-        } else {
-            let zero = ConcreteBitvector::zero(left_coeff.bound());
-            op(left_coeff, zero)
+        let (LinearType::Combination(lhs), LinearType::Combination(rhs)) = (self.ty, rhs.ty) else {
+            return LinearBitvector::top(bound);
         };
-        coefficients.insert(formula, coeff);
+
+        let combination = op(lhs, rhs);
+
+        Self {
+            bound,
+            ty: LinearType::Combination(combination),
+        }
+    }
+}
+
+impl LinearCombination {
+    pub(super) fn add(self, rhs: LinearCombination) -> LinearCombination {
+        self.linear_combine(rhs, |a, b| a.add(b))
     }
 
-    for (formula, right_coeff) in rhs.coefficients {
-        let zero = ConcreteBitvector::zero(right_coeff.bound());
-        let coeff = op(zero, right_coeff);
-        coefficients.insert(formula, coeff);
+    pub(super) fn sub(self, rhs: LinearCombination) -> LinearCombination {
+        self.linear_combine(rhs, |a, b| a.sub(b))
     }
 
-    let mut combination = LinearCombination {
-        constant,
-        coefficients,
-    };
-    combination.normalize();
+    fn linear_combine(
+        self,
+        mut rhs: LinearCombination,
+        op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
+    ) -> LinearCombination {
+        let constant = self.constant.add(rhs.constant);
+        let mut coefficients = BTreeMap::new();
 
-    LinearBitvector {
-        bound,
-        combination: Some(combination),
+        for (formula, left_coeff) in self.coefficients {
+            let coeff = if let Some(right_coeff) = rhs.coefficients.remove(&formula) {
+                op(left_coeff, right_coeff)
+            } else {
+                let zero = ConcreteBitvector::zero(left_coeff.bound());
+                op(left_coeff, zero)
+            };
+            coefficients.insert(formula, coeff);
+        }
+
+        for (formula, right_coeff) in rhs.coefficients {
+            let zero = ConcreteBitvector::zero(right_coeff.bound());
+            let coeff = op(zero, right_coeff);
+            coefficients.insert(formula, coeff);
+        }
+
+        let mut combination = LinearCombination {
+            constant,
+            coefficients,
+        };
+        combination.normalize();
+
+        combination
     }
 }

@@ -1,21 +1,22 @@
 use crate::domain::{
     bitvector::{
-        BitvectorBound,
-        abstr::{BitvectorDomain, linear::LinearBitvector},
+        abstr::{
+            BitvectorDomain,
+            linear::{LinearBitvector, LinearType},
+        },
         concr::ConcreteBitvector,
     },
     traits::forward::{Bitwise, HwArith},
 };
 
-impl<B: BitvectorBound> Bitwise for LinearBitvector<B> {
+impl Bitwise for LinearBitvector {
     fn bit_not(self) -> Self {
         // bit_not(x) = arith_neg(x) - 1
 
         let mut arith_neg = self.arith_neg();
 
-        let Some(combination) = &mut arith_neg.combination else {
-            // already top value
-            return arith_neg;
+        let LinearType::Combination(combination) = &mut arith_neg.ty else {
+            return Self::top(arith_neg.bound);
         };
 
         combination.constant = combination

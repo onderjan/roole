@@ -1,10 +1,7 @@
-use crate::domain::{
-    bitvector::{BitvectorBound, abstr::linear::LinearBitvector},
-    traits::forward::TypedCmp,
-};
+use crate::domain::{bitvector::abstr::linear::LinearBitvector, traits::forward::TypedCmp};
 
-impl<B: BitvectorBound> TypedCmp for LinearBitvector<B> {
-    type Output = LinearBitvector<B::SingleBit>;
+impl TypedCmp for LinearBitvector {
+    type Output = LinearBitvector;
 
     fn ult(self, rhs: Self) -> Self::Output {
         todo!()

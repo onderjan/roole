@@ -1,19 +1,34 @@
 use crate::domain::{
     bitvector::{
-        BitvectorBound,
-        abstr::{BitvectorDomain, linear::LinearBitvector},
+        BitvectorBound, RBound,
+        abstr::{
+            BitvectorDomain,
+            linear::{LinearBitvector, LinearEquation, LinearSystem, LinearType},
+        },
     },
-    traits::forward::{Bitwise, TypedEq},
+    traits::forward::TypedEq,
 };
 
-impl<B: BitvectorBound> TypedEq for LinearBitvector<B> {
-    type Output = LinearBitvector<B::SingleBit>;
+impl TypedEq for LinearBitvector {
+    type Output = LinearBitvector;
     fn eq(self, rhs: Self) -> Self::Output {
         assert_eq!(self.bound, rhs.bound);
 
-        // this is not really a linear combination for arbitrary widths
-        // TODO: allow resolving equality somewhat
-        Self::Output::top(B::single_bit_bound())
+        let (LinearType::Combination(lhs), LinearType::Combination(rhs)) = (self.ty, rhs.ty) else {
+            return LinearBitvector::top(RBound::single_bit_bound());
+        };
+
+        // if both are combinations, make into an equation
+
+        let side = lhs.sub(rhs);
+
+        let system = LinearSystem {
+            equations: vec![LinearEquation { side }],
+        };
+        Self::Output {
+            bound: RBound::single_bit_bound(),
+            ty: LinearType::System(system),
+        }
     }
 
     fn ne(self, rhs: Self) -> Self::Output {

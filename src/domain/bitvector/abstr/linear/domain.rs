@@ -2,49 +2,47 @@ use std::collections::BTreeMap;
 
 use crate::{
     domain::bitvector::{
-        BitvectorBound,
+        RBound,
         abstr::{
             BitvectorDisplay, BitvectorDomain,
-            linear::{LinearBitvector, LinearCombination},
+            linear::{LinearBitvector, LinearCombination, LinearType},
         },
         concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     },
     problem::formula::FormulaId,
 };
 
-impl<B: BitvectorBound> BitvectorDomain for LinearBitvector<B> {
-    type Bound = B;
+impl BitvectorDomain for LinearBitvector {
+    type Bound = RBound;
 
-    type General<X: BitvectorBound> = LinearBitvector<X>;
-
-    fn bound(&self) -> Self::Bound {
+    fn bound(&self) -> RBound {
         self.bound
     }
 
-    fn single_value(value: ConcreteBitvector<Self::Bound>) -> Self {
+    fn single_value(value: ConcreteBitvector<RBound>) -> Self {
         Self {
             bound: value.bound(),
-            combination: Some(LinearCombination {
+            ty: LinearType::Combination(LinearCombination {
                 constant: value,
                 coefficients: BTreeMap::new(),
             }),
         }
     }
 
-    fn top(bound: Self::Bound) -> Self {
+    fn top(bound: RBound) -> Self {
         Self {
             bound,
-            combination: None,
+            ty: LinearType::Top,
         }
     }
 
-    fn formula(bound: Self::Bound, formula: FormulaId) -> Self {
+    fn formula(bound: RBound, formula: FormulaId) -> Self {
         let mut coefficients = BTreeMap::new();
         coefficients.insert(formula, ConcreteBitvector::one(bound));
 
         Self {
             bound,
-            combination: Some(LinearCombination {
+            ty: LinearType::Combination(LinearCombination {
                 constant: ConcreteBitvector::zero(bound),
                 coefficients,
             }),
@@ -55,23 +53,23 @@ impl<B: BitvectorBound> BitvectorDomain for LinearBitvector<B> {
         todo!()
     }
 
-    fn umin(&self) -> UnsignedBitvector<Self::Bound> {
+    fn umin(&self) -> UnsignedBitvector<RBound> {
         todo!()
     }
 
-    fn umax(&self) -> UnsignedBitvector<Self::Bound> {
+    fn umax(&self) -> UnsignedBitvector<RBound> {
         todo!()
     }
 
-    fn smin(&self) -> SignedBitvector<Self::Bound> {
+    fn smin(&self) -> SignedBitvector<RBound> {
         todo!()
     }
 
-    fn smax(&self) -> SignedBitvector<Self::Bound> {
+    fn smax(&self) -> SignedBitvector<RBound> {
         todo!()
     }
 
-    fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>> {
+    fn concrete_value(&self) -> Option<ConcreteBitvector<RBound>> {
         todo!()
     }
 

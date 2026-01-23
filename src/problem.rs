@@ -71,7 +71,7 @@ impl Problem {
         assignment
     }
 
-    pub fn linear_assignment(&self) -> Assignment<LinearBitvector<RBound>> {
+    pub fn linear_assignment(&self) -> Assignment<LinearBitvector> {
         let mut assignment = Assignment { values: Vec::new() };
         for (variable_id, width) in self.variable_widths.iter().enumerate() {
             let bound = RBound::new(*width);

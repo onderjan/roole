@@ -3,8 +3,8 @@ use std::{collections::BTreeMap, fmt::Debug};
 use crate::{
     domain::{
         bitvector::{
-            BitvectorBound,
-            abstr::linear::{LinearBitvector, LinearCombination},
+            BitvectorBound, RBound,
+            abstr::linear::{LinearBitvector, LinearCombination, LinearSystem, LinearType},
             concr::ConcreteBitvector,
         },
         traits::Join,
@@ -12,15 +12,15 @@ use crate::{
     problem::formula::FormulaId,
 };
 
-impl<B: BitvectorBound> LinearBitvector<B> {
-    pub fn for_formula_id(formula_id: FormulaId, bound: B) -> Self {
+impl LinearBitvector {
+    pub fn for_formula_id(formula_id: FormulaId, bound: RBound) -> Self {
         let constant = ConcreteBitvector::zero(bound);
         let mut coefficients = BTreeMap::new();
         coefficients.insert(formula_id, ConcreteBitvector::one(bound));
 
         LinearBitvector {
             bound,
-            combination: Some(LinearCombination {
+            ty: LinearType::Combination(LinearCombination {
                 constant,
                 coefficients,
             }),
@@ -28,22 +28,29 @@ impl<B: BitvectorBound> LinearBitvector<B> {
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
-        let Some(combination) = &self.combination else {
-            return Vec::new();
-        };
-
-        combination.coefficients.keys().copied().collect()
+        match &self.ty {
+            LinearType::Top => vec![],
+            LinearType::Combination(combination) => {
+                combination.coefficients.keys().copied().collect()
+            }
+            LinearType::System(system) => system
+                .equations
+                .iter()
+                .map(|equation| &equation.side)
+                .flat_map(|combination| combination.coefficients.keys().copied())
+                .collect(),
+        }
     }
 }
 
-impl<B: BitvectorBound> LinearCombination<B> {
+impl LinearCombination {
     pub(super) fn normalize(&mut self) {
         // eliminate zero coefficients
         self.coefficients.retain(|_, coeff| !coeff.is_zero());
     }
 }
 
-impl<B: BitvectorBound> Join for LinearBitvector<B> {
+impl Join for LinearBitvector {
     fn join(self, other: &Self) -> Self {
         todo!()
     }
@@ -57,17 +64,17 @@ impl<B: BitvectorBound> Join for LinearBitvector<B> {
     }
 }
 
-impl<B: BitvectorBound> Debug for LinearBitvector<B> {
+impl Debug for LinearBitvector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(combination) = &self.combination {
-            Debug::fmt(combination, f)
-        } else {
-            write!(f, "⊤")
+        match &self.ty {
+            LinearType::Top => write!(f, "⊤"),
+            LinearType::Combination(combination) => Debug::fmt(combination, f),
+            LinearType::System(system) => Debug::fmt(system, f),
         }
     }
 }
 
-impl<B: BitvectorBound> Debug for LinearCombination<B> {
+impl Debug for LinearCombination {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut is_first = true;
 
@@ -80,7 +87,14 @@ impl<B: BitvectorBound> Debug for LinearCombination<B> {
             } else {
                 write!(f, " + ")?;
             }
-            write!(f, "{}*{:?}", coefficient, formula_id)?;
+
+            let one = ConcreteBitvector::<RBound>::one(coefficient.bound());
+
+            if coefficient != &one {
+                write!(f, "{}*", coefficient)?;
+            }
+
+            write!(f, "{:?}", formula_id)?;
         }
 
         if is_first {
@@ -89,5 +103,21 @@ impl<B: BitvectorBound> Debug for LinearCombination<B> {
             write!(f, " + {}", self.constant)?;
         }
         write!(f, ") mod {}", 1u64 << self.constant.bound().width())
+    }
+}
+
+impl Debug for LinearSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut is_first = true;
+        for equation in &self.equations {
+            if is_first {
+                is_first = false;
+            } else {
+                write!(f, " ∧ ")?;
+            }
+            Debug::fmt(&equation.side, f)?;
+            write!(f, " == 0")?;
+        }
+        Ok(())
     }
 }

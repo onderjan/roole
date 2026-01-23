@@ -19,7 +19,6 @@ pub mod linear;
 
 pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {
     type Bound: BitvectorBound;
-    type General<X: BitvectorBound>: BitvectorDomain<Bound = X>;
 
     fn bound(&self) -> Self::Bound;
 
@@ -45,6 +44,10 @@ pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {
         let _ = formula;
         Self::top(bound)
     }
+}
+
+pub trait GeneralBitvectorDomain: BitvectorDomain {
+    type General<X: BitvectorBound>: BitvectorDomain<Bound = X>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

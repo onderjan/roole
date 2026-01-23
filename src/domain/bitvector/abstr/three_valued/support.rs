@@ -3,7 +3,10 @@ use std::fmt::{Debug, Display};
 use crate::domain::{
     bitvector::{
         BitvectorBound,
-        abstr::{BitvectorDisplay, BitvectorDomain, DomainDisplay, three_valued::InvalidZerosOnes},
+        abstr::{
+            BitvectorDisplay, BitvectorDomain, DomainDisplay, GeneralBitvectorDomain,
+            three_valued::InvalidZerosOnes,
+        },
         concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     },
     traits::{Join, forward::Bitwise},
@@ -212,7 +215,6 @@ impl<B: BitvectorBound<SingleBit = B>> ThreeValuedBitvector<B> {
 
 impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
     type Bound = B;
-    type General<X: BitvectorBound> = ThreeValuedBitvector<X>;
 
     fn single_value(value: ConcreteBitvector<Self::Bound>) -> Self {
         Self::from_concrete_value(value)
@@ -284,6 +286,10 @@ impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
         let domains = vec![DomainDisplay::Value(format!("{}", self))];
         BitvectorDisplay { domains }
     }
+}
+
+impl<B: BitvectorBound> GeneralBitvectorDomain for ThreeValuedBitvector<B> {
+    type General<X: BitvectorBound> = ThreeValuedBitvector<X>;
 }
 
 impl<B: BitvectorBound> Debug for ThreeValuedBitvector<B> {

@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, path::PathBuf};
 
 use crate::{
     SolverMode,
-    domain::bitvector::{RBound, abstr::linear::LinearBitvector},
+    domain::bitvector::abstr::linear::LinearBitvector,
     problem::{Evaluator, Problem, formula::FormulaId},
     solver::internal::{InternalSolver, roole::RooleLearned},
 };
@@ -19,7 +19,7 @@ pub fn solve(
 ) {
     if preprocess {
         // preprocess
-        let mut preprocessor = Evaluator::<LinearBitvector<RBound>>::new(problem);
+        let mut preprocessor = Evaluator::<LinearBitvector>::new(problem);
 
         let assignment = problem.linear_assignment();
         preprocessor.evaluate(&assignment);
