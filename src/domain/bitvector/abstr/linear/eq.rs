@@ -3,9 +3,8 @@ use crate::domain::{
         BitvectorBound, RBound,
         abstr::{
             BitvectorDomain,
-            linear::{LinearBitvector, LinearRelation, LinearStatement, LinearSystem, LinearType},
+            linear::{LinearBitvector, LinearRelation, LinearSystem, LinearType},
         },
-        concr::ConcreteBitvector,
     },
     traits::forward::{Bitwise, TypedEq},
 };
@@ -21,15 +20,10 @@ impl TypedEq for LinearBitvector {
 
         // if both are combinations, make into an equality
 
-        let left = lhs.sub(rhs);
-        let right = ConcreteBitvector::zero(self.bound);
+        let combination = lhs.sub(rhs);
 
         let system = LinearSystem {
-            equations: vec![LinearStatement {
-                left,
-                op: LinearRelation::Eq,
-                right,
-            }],
+            relations: vec![LinearRelation::Eq(combination)],
         };
         Self::Output {
             bound: RBound::single_bit_bound(),

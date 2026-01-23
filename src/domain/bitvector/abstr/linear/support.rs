@@ -9,7 +9,7 @@ use crate::{
             },
             concr::ConcreteBitvector,
         },
-        traits::Join,
+        traits::{Join, forward::HwArith},
     },
     problem::formula::FormulaId,
 };
@@ -36,10 +36,17 @@ impl LinearBitvector {
                 combination.coefficients.keys().copied().collect()
             }
             LinearType::System(system) => system
-                .equations
+                .relations
                 .iter()
-                .map(|equation| &equation.left)
-                .flat_map(|combination| combination.coefficients.keys().copied())
+                .flat_map(|relation| {
+                    match relation {
+                        LinearRelation::Eq(combination) => combination,
+                        LinearRelation::Ne(combination) => combination,
+                    }
+                    .coefficients
+                    .keys()
+                    .copied()
+                })
                 .collect(),
         }
     }
@@ -49,6 +56,16 @@ impl LinearCombination {
     pub(super) fn normalize(&mut self) {
         // eliminate zero coefficients
         self.coefficients.retain(|_, coeff| !coeff.is_zero());
+
+        // if first coefficient has a sign, negate everything
+        if let Some(first_coeff) = self.coefficients.values().next()
+            && first_coeff.is_sign_bit_set()
+        {
+            self.constant = self.constant.arith_neg();
+            for coeff in &mut self.coefficients {
+                *coeff.1 = coeff.1.arith_neg();
+            }
+        }
     }
 }
 
@@ -111,20 +128,22 @@ impl Debug for LinearCombination {
 impl Debug for LinearSystem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut is_first = true;
-        for equation in &self.equations {
+        for relation in &self.relations {
             if is_first {
                 is_first = false;
             } else {
                 write!(f, " ∧ ")?;
             }
-            Debug::fmt(&equation.left, f)?;
-            let op = match equation.op {
-                LinearRelation::Eq => "==",
-                LinearRelation::Ne => "!=",
-                LinearRelation::Lt => "<",
+            match relation {
+                LinearRelation::Eq(combination) => {
+                    Debug::fmt(combination, f)?;
+                    write!(f, " == 0")?
+                }
+                LinearRelation::Ne(combination) => {
+                    Debug::fmt(combination, f)?;
+                    write!(f, " != 0")?
+                }
             };
-            write!(f, " {} ", op)?;
-            Debug::fmt(&equation.right, f)?;
         }
         Ok(())
     }
