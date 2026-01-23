@@ -31,6 +31,7 @@ enum LinearRelation {
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {
+    universal: bool,
     relations: Vec<LinearRelation>,
 }
 

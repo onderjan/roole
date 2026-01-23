@@ -23,6 +23,7 @@ impl TypedEq for LinearBitvector {
         let combination = lhs.sub(rhs);
 
         let system = LinearSystem {
+            universal: true,
             relations: vec![LinearRelation::Eq(combination)],
         };
         Self::Output {

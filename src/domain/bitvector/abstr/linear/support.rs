@@ -131,8 +131,10 @@ impl Debug for LinearSystem {
         for relation in &self.relations {
             if is_first {
                 is_first = false;
-            } else {
+            } else if self.universal {
                 write!(f, " ∧ ")?;
+            } else {
+                write!(f, " ∨ ")?;
             }
             match relation {
                 LinearRelation::Eq(combination) => {
