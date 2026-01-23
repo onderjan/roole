@@ -4,7 +4,7 @@ use crate::domain::{
     bitvector::{
         abstr::{
             BitvectorDomain,
-            linear::{LinearBitvector, LinearRelation, LinearStatement, LinearType},
+            linear::{LinearBitvector, LinearRelation, LinearStatement, LinearSystem, LinearType},
         },
         concr::ConcreteBitvector,
     },
@@ -45,9 +45,19 @@ impl Bitwise for LinearBitvector {
     }
     fn bit_and(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        // TODO: handle masking situations
+        let bound = self.bound;
 
-        LinearBitvector::top(self.bound)
+        match (self.ty, rhs.ty) {
+            (LinearType::System(lhs), LinearType::System(mut rhs)) => {
+                let mut equations = lhs.equations;
+                equations.append(&mut rhs.equations);
+                Self {
+                    bound,
+                    ty: LinearType::System(LinearSystem { equations }),
+                }
+            }
+            _ => Self::top(bound),
+        }
     }
     fn bit_or(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
