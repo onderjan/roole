@@ -7,10 +7,12 @@ impl BExt<RBound> for LinearBitvector {
     type Output = LinearBitvector;
 
     fn uext(self, new_bound: RBound) -> Self::Output {
-        todo!()
+        // TODO: bit extension
+        Self::Top(new_bound)
     }
 
     fn sext(self, new_bound: RBound) -> Self::Output {
-        todo!()
+        // TODO: bit extension
+        Self::Top(new_bound)
     }
 }
