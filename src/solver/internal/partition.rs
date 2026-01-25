@@ -59,8 +59,8 @@ impl Partition {
         // fully unknown assignment at the start
         let assignment = problem.unknown_assignment();
         let mut decision_order = Vec::new();
-        for (variable_index, width) in problem.variable_widths().iter().cloned().enumerate() {
-            for bit_index in 0..width {
+        for (variable_index, variable) in problem.variables().iter().cloned().enumerate() {
+            for bit_index in 0..variable.width {
                 decision_order.push(Decision::new(variable_index, bit_index));
             }
         }

@@ -14,7 +14,7 @@ use crate::{
     SolverMode,
     problem::{
         Problem,
-        formula::{BiOp, BiOperator, FormulaId, Operation, OperationId, VariableId},
+        formula::{BiOp, BiOperator, FormulaId, Operation, OperationId, Variable, VariableId},
     },
     solver::{self},
 };
@@ -64,8 +64,8 @@ pub fn parse(
 struct Parser {
     /// Stack of binding scopes.
     scopes: Vec<Scope>,
-    /// Widths of defined bitvector variables.
-    variables: Vec<u32>,
+    /// Bitvector variables.
+    variables: Vec<Variable>,
     /// Operations on variables and other operation results.
     operations: Vec<Operation>,
     /// List of assertions.
@@ -344,7 +344,7 @@ impl Parser {
         // add the variable with given width into our variables
 
         let variable_id = VariableId(self.variables.len());
-        self.variables.push(width);
+        self.variables.push(Variable { width });
 
         // add the variable name mapping to the current scope
         if self

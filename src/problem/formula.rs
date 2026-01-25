@@ -23,6 +23,12 @@ pub struct VariableId(pub usize);
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct OperationId(pub usize);
 
+/// Bitvector variable.
+#[derive(Clone, Debug)]
+pub struct Variable {
+    pub width: u32,
+}
+
 /// Operation on bitvector(s).
 ///
 /// The operations store ids of their inputs,

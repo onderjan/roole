@@ -215,7 +215,7 @@ impl super::Parser {
 
     fn formula_result_width(&self, id: FormulaId) -> u32 {
         match id {
-            FormulaId::Variable(variable_id) => self.variables[variable_id.0],
+            FormulaId::Variable(variable_id) => self.variables[variable_id.0].width,
             FormulaId::Operation(operation_id) => self.operations[operation_id.0].result_width(),
         }
     }

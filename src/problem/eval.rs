@@ -325,7 +325,7 @@ impl<D: EvaluableDomain + Debug> Debug for Evaluator<'_, D> {
             }
         }
 
-        for (variable_id, width) in self.problem.variable_widths.iter().enumerate() {
+        for (variable_id, width) in self.problem.variables.iter().enumerate() {
             let variable_id = VariableId(variable_id);
             franz.field(
                 format!("{:?}", variable_id).as_str(),

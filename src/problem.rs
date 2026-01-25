@@ -5,7 +5,7 @@ use crate::{
         RBound,
         abstr::{BitvectorDomain, RBitvector},
     },
-    problem::formula::{OperationId, VariableId},
+    problem::formula::{OperationId, Variable, VariableId},
 };
 use formula::{FormulaId, Operation};
 
@@ -25,8 +25,8 @@ pub use eval::Evaluator;
 /// A satisfiability problem.
 #[derive(Debug)]
 pub struct Problem {
-    /// Widths of universally-quantified bitvector variables.
-    variable_widths: Vec<u32>,
+    /// Universally-quantified bitvector variables.
+    variables: Vec<Variable>,
     /// Operations on the variables and results of other operations.
     operations: Vec<Operation>,
     /// Formula id of the variable/operation which serves as the assertion.
@@ -39,24 +39,20 @@ pub struct Problem {
 }
 
 impl Problem {
-    pub fn new(
-        variable_widths: Vec<u32>,
-        operations: Vec<Operation>,
-        assertion: FormulaId,
-    ) -> Self {
+    pub fn new(variables: Vec<Variable>, operations: Vec<Operation>, assertion: FormulaId) -> Self {
         Self {
-            variable_widths,
+            variables,
             operations,
             assertion,
         }
     }
 
-    pub fn variable_widths(&self) -> &[u32] {
-        &self.variable_widths
+    pub fn variables(&self) -> &[Variable] {
+        &self.variables
     }
 
-    pub fn variable_width(&self, id: VariableId) -> u32 {
-        self.variable_widths[id.0]
+    pub fn variable(&self, id: VariableId) -> &Variable {
+        &self.variables[id.0]
     }
 
     pub fn operation(&self, id: OperationId) -> &Operation {
@@ -70,8 +66,10 @@ impl Problem {
     /// An assignment of variables where all variables are unknown.
     pub fn unknown_assignment(&self) -> Assignment<RBitvector> {
         let mut assignment = Assignment { values: Vec::new() };
-        for width in &self.variable_widths {
-            assignment.values.push(RBitvector::top(RBound::new(*width)));
+        for variable in &self.variables {
+            assignment
+                .values
+                .push(RBitvector::top(RBound::new(variable.width)));
         }
 
         assignment
@@ -79,8 +77,8 @@ impl Problem {
 
     pub fn linear_assignment(&self) -> Assignment<LinearBitvector> {
         let mut assignment = Assignment { values: Vec::new() };
-        for (variable_id, width) in self.variable_widths.iter().enumerate() {
-            let bound = RBound::new(*width);
+        for (variable_id, variable) in self.variables.iter().enumerate() {
+            let bound = RBound::new(variable.width);
             assignment.values.push(LinearBitvector::for_formula_id(
                 FormulaId::Variable(VariableId(variable_id)),
                 bound,

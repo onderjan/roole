@@ -75,15 +75,15 @@ pub fn solve(
 
         let mut old_to_new = BiBTreeMap::new();
 
-        let mut new_variable_widths = Vec::new();
+        let mut new_variables = Vec::new();
         let mut new_operations = Vec::new();
 
         for (old_id, new_operation) in used_ids_redone {
             let new_id = match old_id {
                 FormulaId::Variable(variable_id) => {
-                    let width = problem.variable_width(variable_id);
-                    new_variable_widths.push(width);
-                    FormulaId::Variable(VariableId(new_variable_widths.len() - 1))
+                    let variable = problem.variable(variable_id);
+                    new_variables.push(variable.clone());
+                    FormulaId::Variable(VariableId(new_variables.len() - 1))
                 }
                 FormulaId::Operation(operation_id) => {
                     let operation = if let Some(new_operation) = new_operation {
@@ -115,7 +115,7 @@ pub fn solve(
             .get_by_left(&problem.assertion())
             .expect("Assertion should be within new operations");
 
-        let new_problem = Problem::new(new_variable_widths, new_operations, new_assertion);
+        let new_problem = Problem::new(new_variables, new_operations, new_assertion);
 
         eprintln!("New problem: {:#?}", new_problem);
 

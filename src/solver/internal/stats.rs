@@ -23,9 +23,9 @@ const PRECISION_CONST: u64 = 1_000_000;
 impl Stats {
     pub fn new(problem: &Problem) -> Self {
         let total_width: u64 = problem
-            .variable_widths()
+            .variables()
             .iter()
-            .map(|width| *width as u64)
+            .map(|variable| variable.width as u64)
             .sum();
 
         let num_leaves = BigUint::one() << total_width;
