@@ -188,7 +188,7 @@ impl Parser {
             Term::Constant(constant) => match constant {
                 Constant::Binary(items) => {
                     let mut value = 0u64;
-                    for bit in items.iter().cloned().rev() {
+                    for bit in items.iter().cloned() {
                         value = value.checked_mul(2).expect("Binary constant too big");
                         value += bit as u64;
                     }
