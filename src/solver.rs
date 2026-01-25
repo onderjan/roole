@@ -118,10 +118,12 @@ pub fn solve(
 
         eprintln!("New problem: {:#?}", new_problem);
 
-        Some(problem)
+        Some(new_problem)
     } else {
         None
     };
+
+    let problem = new_problem.as_ref().unwrap_or(problem);
 
     // process
     match solver_mode {

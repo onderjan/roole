@@ -3,7 +3,14 @@ use std::fmt::{Debug, Display};
 use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+        bitvector::{
+            BitvectorBound, RBound,
+            abstr::{
+                BitvectorDomain,
+                linear::{LinearCombination, LinearRelation, LinearSystem},
+            },
+            concr::ConcreteBitvector,
+        },
         traits::forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     },
     problem::{
@@ -239,11 +246,61 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 // narrow to extraction width
                 inner.uext(RBound::new(extract_op.width.get()))
             }
-            Operation::LinearCombination(linear_combination) => {
-                todo!("Evaluate linear combination")
+            Operation::LinearCombination(combination) => {
+                self.evaluate_combination(assignment, combination)
             }
-            Operation::LinearSystem(linear_system) => todo!("Evaluate linear system"),
+            Operation::LinearSystem(system) => self.evaluate_system(assignment, system),
         }
+    }
+
+    fn evaluate_combination(
+        &self,
+        assignment: &Assignment<D>,
+        combination: &LinearCombination,
+    ) -> D {
+        let mut value = D::single_value(combination.constant);
+        for (formula_id, coeff) in &combination.coefficients {
+            let formula_value = self.fetch_result(assignment, *formula_id);
+            let term_value = formula_value.mul(D::single_value(*coeff));
+            value = value.add(term_value);
+        }
+
+        value
+    }
+
+    fn evaluate_system(&self, assignment: &Assignment<D>, system: &LinearSystem) -> D {
+        let bound = RBound::new(1);
+        let mut result = if system.universal {
+            // start with 1
+            D::single_value(ConcreteBitvector::one(bound))
+        } else {
+            // start with 0
+            D::single_value(ConcreteBitvector::zero(bound))
+        };
+
+        for relation in &system.relations {
+            let relation_result = match relation {
+                LinearRelation::Eq(combination) => {
+                    let zero =
+                        D::single_value(ConcreteBitvector::zero(combination.constant.bound()));
+                    let value = self.evaluate_combination(assignment, combination);
+                    TypedEq::eq(value, zero)
+                }
+                LinearRelation::Ne(combination) => {
+                    let zero =
+                        D::single_value(ConcreteBitvector::zero(combination.constant.bound()));
+                    let value = self.evaluate_combination(assignment, combination);
+                    TypedEq::ne(value, zero)
+                }
+            };
+
+            if system.universal {
+                result = result.bit_and(relation_result);
+            } else {
+                result = result.bit_or(relation_result);
+            }
+        }
+        result
     }
 }
 
