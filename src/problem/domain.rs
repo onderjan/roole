@@ -5,7 +5,7 @@ mod eq;
 mod ext;
 mod shift;
 
-mod domain;
+mod bitvector;
 mod support;
 
 use std::collections::BTreeMap;

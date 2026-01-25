@@ -1,12 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::domain::bitvector::{
-    BitvectorBound, RBound,
-    abstr::{
-        BitvectorDomain,
-        linear::{LinearBitvector, LinearCombination},
-    },
-    concr::ConcreteBitvector,
+use crate::{
+    domain::bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+    problem::domain::{LinearBitvector, LinearCombination},
 };
 
 impl BitvectorDomain for LinearBitvector {

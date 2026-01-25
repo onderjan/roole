@@ -8,10 +8,7 @@ use crate::{
     domain::{
         bitvector::{
             BitvectorBound, RBound,
-            abstr::{
-                AbstractBitvector, BitvectorDomain,
-                linear::{LinearBitvector, LinearCombination, LinearRelationType, LinearSystem},
-            },
+            abstr::{AbstractBitvector, BitvectorDomain},
             concr::ConcreteBitvector,
         },
         traits::forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
@@ -19,6 +16,7 @@ use crate::{
     problem::{
         Problem,
         assignment::Assignment,
+        domain::{LinearBitvector, LinearCombination, LinearRelationType, LinearSystem},
         formula::{OperationId, VariableId},
     },
 };

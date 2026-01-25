@@ -14,8 +14,6 @@ pub mod dual_interval;
 pub mod eq_domain;*/
 pub mod three_valued;
 
-pub mod linear;
-
 pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {
     type Bound: BitvectorBound;
 

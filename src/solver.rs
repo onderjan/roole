@@ -4,9 +4,8 @@ use bimap::BiBTreeMap;
 
 use crate::{
     SolverMode,
-    domain::bitvector::abstr::linear::LinearBitvector,
     problem::{
-        Evaluator, Problem,
+        Evaluator, LinearBitvector, Problem,
         formula::{FormulaId, Operation, OperationId, VariableId},
     },
     solver::internal::{InternalSolver, roole::RooleLearned},

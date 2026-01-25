@@ -3,9 +3,9 @@ use std::{fmt::Debug, num::NonZeroU32};
 use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
-use crate::domain::bitvector::{
-    BitvectorBound,
-    abstr::linear::{LinearCombination, LinearSystem},
+use crate::{
+    domain::bitvector::BitvectorBound,
+    problem::domain::{LinearCombination, LinearSystem},
 };
 
 /// Formula id.

@@ -4,17 +4,13 @@ use bimap::BiBTreeMap;
 
 use crate::{
     domain::{
-        bitvector::{
-            BitvectorBound, RBound,
-            abstr::{
-                BitvectorDomain,
-                linear::{LinearBitvector, LinearCombination, LinearSystem},
-            },
-            concr::ConcreteBitvector,
-        },
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::{Join, forward::HwArith},
     },
-    problem::formula::FormulaId,
+    problem::{
+        domain::{LinearBitvector, LinearCombination, LinearSystem},
+        formula::FormulaId,
+    },
 };
 
 impl LinearBitvector {

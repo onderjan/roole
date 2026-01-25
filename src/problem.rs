@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::{
     domain::bitvector::{
         RBound,
-        abstr::{BitvectorDomain, RBitvector, linear::LinearBitvector},
+        abstr::{BitvectorDomain, RBitvector},
     },
     problem::formula::{OperationId, VariableId},
 };
@@ -14,10 +14,12 @@ pub mod solution;
 
 mod assignment;
 mod decision;
+mod domain;
 mod eval;
 
 pub use assignment::Assignment;
 pub use decision::Decision;
+pub use domain::LinearBitvector;
 pub use eval::Evaluator;
 
 /// A satisfiability problem.

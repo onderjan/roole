@@ -1,6 +1,6 @@
-use crate::domain::{
-    bitvector::abstr::{BitvectorDomain, linear::LinearBitvector},
-    traits::forward::HwShift,
+use crate::{
+    domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwShift},
+    problem::domain::LinearBitvector,
 };
 
 impl HwShift for LinearBitvector {

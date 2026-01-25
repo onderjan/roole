@@ -1,14 +1,11 @@
 use vec1::vec1;
 
-use crate::domain::{
-    bitvector::{
-        BitvectorBound, RBound,
-        abstr::{
-            BitvectorDomain,
-            linear::{LinearBitvector, LinearRelation, LinearRelationType, LinearSystem},
-        },
+use crate::{
+    domain::{
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
+        traits::forward::{Bitwise, TypedEq},
     },
-    traits::forward::{Bitwise, TypedEq},
+    problem::domain::{LinearBitvector, LinearRelation, LinearRelationType, LinearSystem},
 };
 
 impl TypedEq for LinearBitvector {

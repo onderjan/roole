@@ -1,6 +1,6 @@
-use crate::domain::{
-    bitvector::{RBound, abstr::linear::LinearBitvector},
-    traits::forward::BExt,
+use crate::{
+    domain::{bitvector::RBound, traits::forward::BExt},
+    problem::domain::LinearBitvector,
 };
 
 impl BExt<RBound> for LinearBitvector {

@@ -1,15 +1,11 @@
 use std::collections::BTreeMap;
 
-use crate::domain::{
-    bitvector::{
-        RBound,
-        abstr::{
-            BitvectorDomain,
-            linear::{LinearBitvector, LinearCombination},
-        },
-        concr::ConcreteBitvector,
+use crate::{
+    domain::{
+        bitvector::{RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+        traits::forward::HwArith,
     },
-    traits::forward::HwArith,
+    problem::domain::{LinearBitvector, LinearCombination},
 };
 
 impl HwArith for LinearBitvector {

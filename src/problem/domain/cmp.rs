@@ -1,6 +1,6 @@
-use crate::domain::{
-    bitvector::abstr::{BitvectorDomain, linear::LinearBitvector},
-    traits::forward::TypedCmp,
+use crate::{
+    domain::{bitvector::abstr::BitvectorDomain, traits::forward::TypedCmp},
+    problem::domain::LinearBitvector,
 };
 
 impl TypedCmp for LinearBitvector {
