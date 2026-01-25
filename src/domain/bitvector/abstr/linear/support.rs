@@ -81,6 +81,17 @@ impl LinearCombination {
             ),
         }
     }
+
+    pub fn apply_fixed_mult(&mut self, fixed: ConcreteBitvector<RBound>) {
+        let bound = self.bound();
+        assert_eq!(bound, fixed.bound());
+
+        self.constant = self.constant.mul(fixed);
+
+        for coeff in self.coefficients.values_mut() {
+            *coeff = coeff.mul(fixed);
+        }
+    }
 }
 
 impl LinearSystem {

@@ -30,8 +30,27 @@ impl HwArith for LinearBitvector {
     }
 
     fn mul(self, rhs: Self) -> Self {
-        // TODO: multiply if one has a definite value
-        todo!()
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+
+        let (LinearBitvector::Combination(lhs), LinearBitvector::Combination(rhs)) = (self, rhs)
+        else {
+            // return top value
+            return Self::top(bound);
+        };
+
+        let (constant, mut combination) = if lhs.coefficients.is_empty() {
+            (lhs.constant, rhs)
+        } else if rhs.coefficients.is_empty() {
+            (rhs.constant, lhs)
+        } else {
+            // return top value
+            return Self::top(bound);
+        };
+
+        // multiply combination by constant
+        combination.apply_fixed_mult(constant);
+        Self::Combination(combination)
     }
 
     fn udiv(self, _rhs: Self) -> Self {
