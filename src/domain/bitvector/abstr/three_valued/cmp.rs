@@ -1,5 +1,8 @@
 use crate::domain::{
-    bitvector::{BitvectorBound, abstr::BitvectorDomain},
+    bitvector::{
+        BitvectorBound,
+        abstr::{BitvectorDomain, ExtendedBitvectorDomain},
+    },
     traits::forward::TypedCmp,
 };
 

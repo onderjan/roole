@@ -1,4 +1,7 @@
-use std::fmt::{Debug, Display};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, Display},
+};
 
 use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
@@ -6,8 +9,8 @@ use crate::{
         bitvector::{
             BitvectorBound, RBound,
             abstr::{
-                BitvectorDomain,
-                linear::{LinearCombination, LinearRelationType, LinearSystem},
+                AbstractBitvector, BitvectorDomain,
+                linear::{LinearBitvector, LinearCombination, LinearRelationType, LinearSystem},
             },
             concr::ConcreteBitvector,
         },
@@ -19,29 +22,6 @@ use crate::{
         formula::{OperationId, VariableId},
     },
 };
-
-pub trait EvaluableDomain:
-    BitvectorDomain<Bound = RBound>
-    + HwArith
-    + Bitwise
-    + TypedEq<Output = Self>
-    + TypedCmp<Output = Self>
-    + HwShift<Output = Self>
-    + BExt<RBound, Output = Self>
-{
-}
-
-impl<
-    T: BitvectorDomain<Bound = RBound>
-        + HwArith
-        + Bitwise
-        + TypedEq<Output = Self>
-        + TypedCmp<Output = Self>
-        + HwShift<Output = Self>
-        + BExt<RBound, Output = Self>,
-> EvaluableDomain for T
-{
-}
 
 pub struct Evaluator<'a, D: EvaluableDomain> {
     problem: &'a Problem,
@@ -302,6 +282,36 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
             }
         }
         result
+    }
+}
+
+pub trait EvaluableDomain:
+    BitvectorDomain<Bound = RBound>
+    + HwArith
+    + Bitwise
+    + TypedEq<Output = Self>
+    + TypedCmp<Output = Self>
+    + HwShift<Output = Self>
+    + BExt<RBound, Output = Self>
+{
+    fn formula(bound: RBound, formula: FormulaId) -> Self;
+}
+
+impl EvaluableDomain for AbstractBitvector<RBound> {
+    fn formula(bound: RBound, formula: FormulaId) -> Self {
+        let _ = formula;
+        Self::top(bound)
+    }
+}
+
+impl EvaluableDomain for LinearBitvector {
+    fn formula(bound: RBound, formula: FormulaId) -> Self {
+        let mut coefficients = BTreeMap::new();
+        coefficients.insert(formula, ConcreteBitvector::one(bound));
+        LinearBitvector::Combination(LinearCombination {
+            constant: ConcreteBitvector::zero(bound),
+            coefficients,
+        })
     }
 }
 

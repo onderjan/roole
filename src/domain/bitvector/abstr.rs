@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::domain::bitvector::BitvectorBound;
 use crate::domain::bitvector::concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector};
-use crate::problem::formula::FormulaId;
 
 use super::super::traits::Join;
 use super::bound::{CBound, RBound};
@@ -24,6 +23,13 @@ pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {
 
     fn single_value(value: ConcreteBitvector<Self::Bound>) -> Self;
     fn top(bound: Self::Bound) -> Self;
+
+    fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>>;
+}
+
+pub trait ExtendedBitvectorDomain: BitvectorDomain {
+    type General<X: BitvectorBound>: BitvectorDomain<Bound = X>;
+
     fn meet(self, other: &Self) -> Option<Self>;
 
     fn umin(&self) -> UnsignedBitvector<Self::Bound>;
@@ -31,23 +37,12 @@ pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {
     fn smin(&self) -> SignedBitvector<Self::Bound>;
     fn smax(&self) -> SignedBitvector<Self::Bound>;
 
-    fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>>;
-
     fn display(&self) -> BitvectorDisplay;
 
     fn get_tracker(&self) -> Option<u32> {
         None
     }
     fn assign_tracker(&mut self, _tracker: Option<u32>) {}
-
-    fn formula(bound: Self::Bound, formula: FormulaId) -> Self {
-        let _ = formula;
-        Self::top(bound)
-    }
-}
-
-pub trait GeneralBitvectorDomain: BitvectorDomain {
-    type General<X: BitvectorBound>: BitvectorDomain<Bound = X>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

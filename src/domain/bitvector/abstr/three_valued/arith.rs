@@ -1,7 +1,7 @@
 use crate::domain::{
     bitvector::{
         BitvectorBound,
-        abstr::BitvectorDomain,
+        abstr::{BitvectorDomain, ExtendedBitvectorDomain},
         bound::compute_u64_mask,
         concr::{ConcreteBitvector, UnsignedBitvector},
     },

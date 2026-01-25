@@ -6,7 +6,10 @@ use crate::{
     domain::{
         bitvector::{
             BitvectorBound, RBound,
-            abstr::linear::{LinearBitvector, LinearCombination, LinearSystem},
+            abstr::{
+                BitvectorDomain,
+                linear::{LinearBitvector, LinearCombination, LinearSystem},
+            },
             concr::ConcreteBitvector,
         },
         traits::{Join, forward::HwArith},
@@ -92,15 +95,14 @@ impl LinearSystem {
 
 impl Join for LinearBitvector {
     fn join(self, other: &Self) -> Self {
-        todo!()
-    }
+        assert_eq!(self.bound(), other.bound());
 
-    fn apply_join(&mut self, other: &Self) {
-        todo!()
-    }
-
-    fn contains(&self, contained: &Self) -> bool {
-        todo!()
+        // single-layer lattice
+        if &self == other {
+            self
+        } else {
+            Self::Top(self.bound())
+        }
     }
 }
 

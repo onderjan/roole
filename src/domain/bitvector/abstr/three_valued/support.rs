@@ -4,7 +4,7 @@ use crate::domain::{
     bitvector::{
         BitvectorBound,
         abstr::{
-            BitvectorDisplay, BitvectorDomain, DomainDisplay, GeneralBitvectorDomain,
+            BitvectorDisplay, BitvectorDomain, DomainDisplay, ExtendedBitvectorDomain,
             three_valued::InvalidZerosOnes,
         },
         concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
@@ -216,6 +216,11 @@ impl<B: BitvectorBound<SingleBit = B>> ThreeValuedBitvector<B> {
 impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
     type Bound = B;
 
+    fn bound(&self) -> Self::Bound {
+        // zeros and ones must have the same bound
+        self.zeros.bound()
+    }
+
     fn single_value(value: ConcreteBitvector<Self::Bound>) -> Self {
         Self::from_concrete_value(value)
     }
@@ -224,16 +229,25 @@ impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
         Self::new_unknown(bound)
     }
 
+    fn concrete_value(&self) -> Option<ConcreteBitvector<B>> {
+        // all bits must be equal
+        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
+        if !nxor.is_zero() {
+            return None;
+        }
+        // ones then contain the value
+        Some(self.ones)
+    }
+}
+
+impl<B: BitvectorBound> ExtendedBitvectorDomain for ThreeValuedBitvector<B> {
+    type General<X: BitvectorBound> = ThreeValuedBitvector<X>;
+
     fn meet(self, rhs: &Self) -> Option<Self> {
         let zeros = self.zeros.bit_and(rhs.zeros);
         let ones = self.ones.bit_and(rhs.ones);
 
         Self::try_from_zeros_ones(zeros, ones).ok()
-    }
-
-    fn bound(&self) -> Self::Bound {
-        // zeros and ones must have the same bound
-        self.zeros.bound()
     }
 
     fn umin(&self) -> UnsignedBitvector<Self::Bound> {
@@ -272,24 +286,10 @@ impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
         result.as_signed()
     }
 
-    fn concrete_value(&self) -> Option<ConcreteBitvector<B>> {
-        // all bits must be equal
-        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
-        if !nxor.is_zero() {
-            return None;
-        }
-        // ones then contain the value
-        Some(self.ones)
-    }
-
     fn display(&self) -> BitvectorDisplay {
         let domains = vec![DomainDisplay::Value(format!("{}", self))];
         BitvectorDisplay { domains }
     }
-}
-
-impl<B: BitvectorBound> GeneralBitvectorDomain for ThreeValuedBitvector<B> {
-    type General<X: BitvectorBound> = ThreeValuedBitvector<X>;
 }
 
 impl<B: BitvectorBound> Debug for ThreeValuedBitvector<B> {

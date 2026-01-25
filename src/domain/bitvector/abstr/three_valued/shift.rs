@@ -1,5 +1,9 @@
 use crate::domain::{
-    bitvector::{BitvectorBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+    bitvector::{
+        BitvectorBound,
+        abstr::{BitvectorDomain, ExtendedBitvectorDomain},
+        concr::ConcreteBitvector,
+    },
     traits::forward::{Bitwise, HwShift},
 };
 
