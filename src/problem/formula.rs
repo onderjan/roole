@@ -1,6 +1,12 @@
-use std::{fmt::Debug, num::NonZeroU32};
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU32};
 
+use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
+
+use crate::domain::bitvector::{
+    BitvectorBound,
+    abstr::linear::{LinearCombination, LinearRelation, LinearSystem},
+};
 
 /// Formula id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -31,6 +37,8 @@ pub enum Operation {
     IteOp(IteOp),
     ConcatOp(ConcatOp),
     ExtractOp(ExtractOp),
+    LinearCombination(LinearCombination),
+    LinearSystem(LinearSystem),
 }
 
 #[derive(Clone)]
@@ -79,12 +87,12 @@ pub struct ExtractOp {
     pub width: NonZeroU32,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum UniOperator {
     Not,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum BiOperator {
     Add,
     Sub,
@@ -137,6 +145,8 @@ impl Operation {
             Operation::IteOp(ite_op) => ite_op.width,
             Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
             Operation::ExtractOp(extract_op) => extract_op.width.get(),
+            Operation::LinearCombination(combination) => combination.constant.bound().width(),
+            Operation::LinearSystem(_) => 1,
         }
     }
 
@@ -151,6 +161,98 @@ impl Operation {
             }
             Operation::ConcatOp(concat_op) => vec![concat_op.left, concat_op.right],
             Operation::ExtractOp(extract_op) => vec![extract_op.inner],
+            Operation::LinearCombination(combination) => {
+                combination.coefficients.keys().copied().collect()
+            }
+            Operation::LinearSystem(system) => system
+                .relations
+                .iter()
+                .flat_map(|relation| {
+                    let combination = match relation {
+                        LinearRelation::Eq(combination) => combination,
+                        LinearRelation::Ne(combination) => combination,
+                    };
+                    combination.coefficients.keys().copied()
+                })
+                .collect(),
+        }
+    }
+
+    pub fn remapped(&self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
+        let remap = |formula_id| {
+            let Some(new_id) = old_to_new.get_by_left(&formula_id) else {
+                panic!("Used formula id {:?} should be remappable", formula_id);
+            };
+            *new_id
+        };
+
+        let remap_combination = |combination: &LinearCombination| LinearCombination {
+            constant: combination.constant,
+            coefficients: BTreeMap::from_iter(
+                combination
+                    .coefficients
+                    .iter()
+                    .map(|(formula_id, coeff)| (remap(*formula_id), *coeff)),
+            ),
+        };
+
+        match self {
+            Operation::Constant(_, _) => self.clone(),
+            Operation::UniOp(uni_op) => Operation::UniOp(UniOp {
+                op: uni_op.op,
+                input_width: uni_op.input_width,
+                inner: remap(uni_op.inner),
+            }),
+            Operation::BiOp(bi_op) => Operation::BiOp(BiOp {
+                op: bi_op.op,
+                input_width: bi_op.input_width,
+                left: remap(bi_op.left),
+                right: remap(bi_op.right),
+            }),
+            Operation::ExtOp(ext_op) => Operation::ExtOp(ExtOp {
+                signed: ext_op.signed,
+                input_width: ext_op.input_width,
+                output_width: ext_op.output_width,
+                inner: remap(ext_op.inner),
+            }),
+            Operation::IteOp(ite_op) => Operation::IteOp(IteOp {
+                condition: remap(ite_op.condition),
+                width: ite_op.width,
+                formula_then: remap(ite_op.formula_then),
+                formula_else: remap(ite_op.formula_else),
+            }),
+            Operation::ConcatOp(concat_op) => Operation::ConcatOp(ConcatOp {
+                left_width: concat_op.left_width,
+                left: remap(concat_op.left),
+                right_width: concat_op.right_width,
+                right: remap(concat_op.right),
+            }),
+            Operation::ExtractOp(extract_op) => Operation::ExtractOp(ExtractOp {
+                inner: remap(extract_op.inner),
+                lsb: extract_op.lsb,
+                width: extract_op.width,
+            }),
+            Operation::LinearCombination(combination) => {
+                Operation::LinearCombination(remap_combination(combination))
+            }
+            Operation::LinearSystem(system) => {
+                let relations = system
+                    .relations
+                    .iter()
+                    .map(|relation| match relation {
+                        LinearRelation::Eq(combination) => {
+                            LinearRelation::Eq(remap_combination(combination))
+                        }
+                        LinearRelation::Ne(combination) => {
+                            LinearRelation::Ne(remap_combination(combination))
+                        }
+                    })
+                    .collect();
+                Operation::LinearSystem(LinearSystem {
+                    universal: system.universal,
+                    relations,
+                })
+            }
         }
     }
 }
@@ -236,6 +338,12 @@ impl Debug for Operation {
             ),
             Operation::ExtractOp(ExtractOp { inner, lsb, width }) => {
                 write!(f, "extract_{}_{}({:?})", lsb + width.get() - 1, lsb, inner)
+            }
+            Operation::LinearCombination(combination) => {
+                write!(f, "linear_combination({:?})", combination)
+            }
+            Operation::LinearSystem(system) => {
+                write!(f, "linear_system({:?})", system)
             }
         }
     }

@@ -53,6 +53,10 @@ impl Problem {
         &self.variable_widths
     }
 
+    pub fn variable_width(&self, id: VariableId) -> u32 {
+        self.variable_widths[id.0]
+    }
+
     pub fn operation(&self, id: OperationId) -> &Operation {
         &self.operations[id.0]
     }

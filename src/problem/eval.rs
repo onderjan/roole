@@ -89,7 +89,7 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
 
                         self.results[operation_id.0] = Some(evaluated);
                     } else {
-                        let dependencies = self.dependencies(operation);
+                        let dependencies = operation.used_ids();
 
                         op_stack.push((formula_id, true));
                         for dependency in dependencies.into_iter().rev() {
@@ -101,32 +101,6 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         }
 
         self.fetch_result(assignment, self.problem.assertion)
-    }
-
-    fn dependencies(&self, operation: &Operation) -> Vec<FormulaId> {
-        match operation {
-            Operation::Constant(_, _) => {
-                vec![]
-            }
-            Operation::UniOp(uni_op) => {
-                vec![uni_op.inner]
-            }
-            Operation::BiOp(bi_op) => {
-                vec![bi_op.left, bi_op.right]
-            }
-            Operation::ExtOp(ext_op) => {
-                vec![ext_op.inner]
-            }
-            Operation::IteOp(ite_op) => {
-                vec![ite_op.condition, ite_op.formula_then, ite_op.formula_else]
-            }
-            Operation::ConcatOp(concat_op) => {
-                vec![concat_op.left, concat_op.right]
-            }
-            Operation::ExtractOp(extract_op) => {
-                vec![extract_op.inner]
-            }
-        }
     }
 
     fn fetch_result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> D {
@@ -265,6 +239,10 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 // narrow to extraction width
                 inner.uext(RBound::new(extract_op.width.get()))
             }
+            Operation::LinearCombination(linear_combination) => {
+                todo!("Evaluate linear combination")
+            }
+            Operation::LinearSystem(linear_system) => todo!("Evaluate linear system"),
         }
     }
 }

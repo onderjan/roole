@@ -1,9 +1,14 @@
-use std::{collections::BTreeSet, path::PathBuf};
+use std::{collections::BTreeMap, path::PathBuf};
+
+use bimap::BiBTreeMap;
 
 use crate::{
     SolverMode,
-    domain::bitvector::abstr::linear::LinearBitvector,
-    problem::{Evaluator, Problem, formula::FormulaId},
+    domain::bitvector::abstr::linear::{LinearBitvector, LinearType},
+    problem::{
+        Evaluator, Problem,
+        formula::{FormulaId, Operation, OperationId, VariableId},
+    },
     solver::internal::{InternalSolver, roole::RooleLearned},
 };
 
@@ -17,7 +22,7 @@ pub fn solve(
     solver_mode: SolverMode,
     preprocess: bool,
 ) {
-    if preprocess {
+    let new_problem = if preprocess {
         // preprocess
         let mut preprocessor = Evaluator::<LinearBitvector>::new(problem);
 
@@ -26,18 +31,19 @@ pub fn solve(
 
         eprintln!("Preprocessor: {:#?}", preprocessor);
 
-        let mut used_ids = BTreeSet::new();
+        let mut used_ids_redone = BTreeMap::new();
 
         let mut stack = vec![problem.assertion()];
 
         while let Some(formula_id) = stack.pop() {
-            if !used_ids.insert(formula_id) {
+            if used_ids_redone.contains_key(&formula_id) {
                 continue;
             }
 
-            match formula_id {
+            let redone = match formula_id {
                 FormulaId::Variable(_) => {
                     // nothing used by this
+                    None
                 }
                 FormulaId::Operation(operation_id) => {
                     let result = preprocessor.result(operation_id);
@@ -56,19 +62,66 @@ pub fn solve(
                         for used_id in operation.used_ids() {
                             stack.push(used_id);
                         }
+                        None
+                    } else {
+                        Some(result)
                     }
                 }
-            }
+            };
+
+            used_ids_redone.insert(formula_id, redone);
         }
 
-        eprintln!("Used ids: {:?}", used_ids);
+        eprintln!("Used ids: {:?}", used_ids_redone);
 
-        /*let problem = Problem {
-            variable_widths,
-            operations,
-            assertion,
-        };*/
-    }
+        let mut old_to_new = BiBTreeMap::new();
+
+        let mut new_variable_widths = Vec::new();
+        let mut new_operations = Vec::new();
+
+        for (old_id, new_operation) in used_ids_redone {
+            let new_id = match old_id {
+                FormulaId::Variable(variable_id) => {
+                    let width = problem.variable_width(variable_id);
+                    new_variable_widths.push(width);
+                    FormulaId::Variable(VariableId(new_variable_widths.len() - 1))
+                }
+                FormulaId::Operation(operation_id) => {
+                    let operation = if let Some(new_operation) = new_operation {
+                        match &new_operation.ty {
+                            LinearType::Top => {
+                                problem.operation(operation_id).remapped(&old_to_new)
+                            }
+                            LinearType::Combination(linear_combination) => {
+                                Operation::LinearCombination(linear_combination.clone())
+                            }
+                            LinearType::System(linear_system) => {
+                                Operation::LinearSystem(linear_system.clone())
+                            }
+                        }
+                    } else {
+                        problem.operation(operation_id).remapped(&old_to_new)
+                    };
+
+                    new_operations.push(operation);
+                    FormulaId::Operation(OperationId(new_operations.len() - 1))
+                }
+            };
+            old_to_new.insert(old_id, new_id);
+        }
+
+        let new_assertion = *old_to_new
+            .get_by_left(&problem.assertion())
+            .expect("Assertion should be within new operations");
+
+        let new_problem = Problem::new(new_variable_widths, new_operations, new_assertion);
+
+        eprintln!("New problem: {:#?}", new_problem);
+
+        Some(problem)
+    } else {
+        None
+    };
 
     // process
     match solver_mode {

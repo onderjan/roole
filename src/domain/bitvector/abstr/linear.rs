@@ -19,24 +19,24 @@ use crate::{
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearCombination {
-    constant: ConcreteBitvector<RBound>,
-    coefficients: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
+    pub constant: ConcreteBitvector<RBound>,
+    pub coefficients: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-enum LinearRelation {
+pub enum LinearRelation {
     Eq(LinearCombination),
     Ne(LinearCombination),
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {
-    universal: bool,
-    relations: Vec<LinearRelation>,
+    pub universal: bool,
+    pub relations: Vec<LinearRelation>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-enum LinearType {
+pub enum LinearType {
     Top,
     Combination(LinearCombination),
     System(LinearSystem),
@@ -44,6 +44,6 @@ enum LinearType {
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearBitvector {
-    bound: RBound,
-    ty: LinearType,
+    pub bound: RBound,
+    pub ty: LinearType,
 }
