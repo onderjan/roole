@@ -4,7 +4,7 @@ use bimap::BiBTreeMap;
 
 use crate::{
     SolverMode,
-    domain::bitvector::abstr::linear::{LinearBitvector, LinearType},
+    domain::bitvector::abstr::linear::LinearBitvector,
     problem::{
         Evaluator, Problem,
         formula::{FormulaId, Operation, OperationId, VariableId},
@@ -88,15 +88,17 @@ pub fn solve(
                 }
                 FormulaId::Operation(operation_id) => {
                     let operation = if let Some(new_operation) = new_operation {
-                        match &new_operation.ty {
-                            LinearType::Top => {
+                        match &new_operation {
+                            LinearBitvector::Top(_) => {
                                 problem.operation(operation_id).remapped(&old_to_new)
                             }
-                            LinearType::Combination(linear_combination) => {
-                                Operation::LinearCombination(linear_combination.clone())
+                            LinearBitvector::Combination(linear_combination) => {
+                                Operation::LinearCombination(
+                                    linear_combination.clone().remap(&old_to_new),
+                                )
                             }
-                            LinearType::System(linear_system) => {
-                                Operation::LinearSystem(linear_system.clone())
+                            LinearBitvector::System(linear_system) => {
+                                Operation::LinearSystem(linear_system.clone().remap(&old_to_new))
                             }
                         }
                     } else {

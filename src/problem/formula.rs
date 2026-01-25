@@ -1,11 +1,11 @@
-use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU32};
+use std::{fmt::Debug, num::NonZeroU32};
 
 use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::bitvector::{
     BitvectorBound,
-    abstr::linear::{LinearCombination, LinearRelation, LinearSystem},
+    abstr::linear::{LinearCombination, LinearSystem},
 };
 
 /// Formula id.
@@ -167,13 +167,7 @@ impl Operation {
             Operation::LinearSystem(system) => system
                 .relations
                 .iter()
-                .flat_map(|relation| {
-                    let combination = match relation {
-                        LinearRelation::Eq(combination) => combination,
-                        LinearRelation::Ne(combination) => combination,
-                    };
-                    combination.coefficients.keys().copied()
-                })
+                .flat_map(|relation| relation.combination.coefficients.keys().copied())
                 .collect(),
         }
     }
@@ -184,16 +178,6 @@ impl Operation {
                 panic!("Used formula id {:?} should be remappable", formula_id);
             };
             *new_id
-        };
-
-        let remap_combination = |combination: &LinearCombination| LinearCombination {
-            constant: combination.constant,
-            coefficients: BTreeMap::from_iter(
-                combination
-                    .coefficients
-                    .iter()
-                    .map(|(formula_id, coeff)| (remap(*formula_id), *coeff)),
-            ),
         };
 
         match self {
@@ -233,25 +217,21 @@ impl Operation {
                 width: extract_op.width,
             }),
             Operation::LinearCombination(combination) => {
-                Operation::LinearCombination(remap_combination(combination))
+                Operation::LinearCombination(combination.clone().remap(old_to_new))
             }
             Operation::LinearSystem(system) => {
-                let relations = system
-                    .relations
-                    .iter()
-                    .map(|relation| match relation {
-                        LinearRelation::Eq(combination) => {
-                            LinearRelation::Eq(remap_combination(combination))
-                        }
-                        LinearRelation::Ne(combination) => {
-                            LinearRelation::Ne(remap_combination(combination))
-                        }
-                    })
-                    .collect();
-                Operation::LinearSystem(LinearSystem {
+                eprintln!("Remapping system: {:?} with {:?}", system, old_to_new);
+                let mut relations = system.relations.clone();
+                for relation in &mut relations {
+                    relation.combination = relation.combination.clone().remap(old_to_new);
+                }
+                let result = Operation::LinearSystem(LinearSystem {
                     universal: system.universal,
                     relations,
-                })
+                });
+
+                eprintln!("Remapped: {:?}", result);
+                result
             }
         }
     }

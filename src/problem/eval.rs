@@ -7,7 +7,7 @@ use crate::{
             BitvectorBound, RBound,
             abstr::{
                 BitvectorDomain,
-                linear::{LinearCombination, LinearRelation, LinearSystem},
+                linear::{LinearCombination, LinearRelationType, LinearSystem},
             },
             concr::ConcreteBitvector,
         },
@@ -279,14 +279,15 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         };
 
         for relation in &system.relations {
-            let relation_result = match relation {
-                LinearRelation::Eq(combination) => {
+            let combination = &relation.combination;
+            let relation_result = match &relation.ty {
+                LinearRelationType::Eq => {
                     let zero =
                         D::single_value(ConcreteBitvector::zero(combination.constant.bound()));
                     let value = self.evaluate_combination(assignment, combination);
                     TypedEq::eq(value, zero)
                 }
-                LinearRelation::Ne(combination) => {
+                LinearRelationType::Ne => {
                     let zero =
                         D::single_value(ConcreteBitvector::zero(combination.constant.bound()));
                     let value = self.evaluate_combination(assignment, combination);

@@ -1,12 +1,12 @@
 use std::{collections::BTreeMap, fmt::Debug};
 
+use bimap::BiBTreeMap;
+
 use crate::{
     domain::{
         bitvector::{
             BitvectorBound, RBound,
-            abstr::linear::{
-                LinearBitvector, LinearCombination, LinearRelation, LinearSystem, LinearType,
-            },
+            abstr::linear::{LinearBitvector, LinearCombination, LinearSystem},
             concr::ConcreteBitvector,
         },
         traits::{Join, forward::HwArith},
@@ -20,39 +20,32 @@ impl LinearBitvector {
         let mut coefficients = BTreeMap::new();
         coefficients.insert(formula_id, ConcreteBitvector::one(bound));
 
-        LinearBitvector {
-            bound,
-            ty: LinearType::Combination(LinearCombination {
-                constant,
-                coefficients,
-            }),
-        }
+        LinearBitvector::Combination(LinearCombination {
+            constant,
+            coefficients,
+        })
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
-        match &self.ty {
-            LinearType::Top => vec![],
-            LinearType::Combination(combination) => {
+        match &self {
+            LinearBitvector::Top(_) => vec![],
+            LinearBitvector::Combination(combination) => {
                 combination.coefficients.keys().copied().collect()
             }
-            LinearType::System(system) => system
+            LinearBitvector::System(system) => system
                 .relations
                 .iter()
-                .flat_map(|relation| {
-                    match relation {
-                        LinearRelation::Eq(combination) => combination,
-                        LinearRelation::Ne(combination) => combination,
-                    }
-                    .coefficients
-                    .keys()
-                    .copied()
-                })
+                .flat_map(|relation| relation.combination.coefficients.keys().copied())
                 .collect(),
         }
     }
 }
 
 impl LinearCombination {
+    pub fn bound(&self) -> RBound {
+        self.constant.bound()
+    }
+
     pub(super) fn normalize(&mut self) {
         // eliminate zero coefficients
         self.coefficients.retain(|_, coeff| !coeff.is_zero());
@@ -66,6 +59,34 @@ impl LinearCombination {
                 *coeff.1 = coeff.1.arith_neg();
             }
         }
+    }
+
+    pub fn remap(self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
+        let remap = |formula_id| {
+            let Some(new_id) = old_to_new.get_by_left(&formula_id) else {
+                panic!("Used formula id {:?} should be remappable", formula_id);
+            };
+            *new_id
+        };
+
+        LinearCombination {
+            constant: self.constant,
+            coefficients: BTreeMap::from_iter(
+                self.coefficients
+                    .iter()
+                    .map(|(formula_id, coeff)| (remap(*formula_id), *coeff)),
+            ),
+        }
+    }
+}
+
+impl LinearSystem {
+    pub fn remap(mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
+        for relation in &mut self.relations {
+            relation.combination = relation.combination.clone().remap(old_to_new);
+        }
+
+        self
     }
 }
 
@@ -85,10 +106,10 @@ impl Join for LinearBitvector {
 
 impl Debug for LinearBitvector {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.ty {
-            LinearType::Top => write!(f, "⊤"),
-            LinearType::Combination(combination) => Debug::fmt(combination, f),
-            LinearType::System(system) => Debug::fmt(system, f),
+        match &self {
+            LinearBitvector::Top(bound) => write!(f, "⊤({})", bound.width()),
+            LinearBitvector::Combination(combination) => Debug::fmt(combination, f),
+            LinearBitvector::System(system) => Debug::fmt(system, f),
         }
     }
 }
@@ -136,16 +157,14 @@ impl Debug for LinearSystem {
             } else {
                 write!(f, " ∨ ")?;
             }
-            match relation {
-                LinearRelation::Eq(combination) => {
-                    Debug::fmt(combination, f)?;
-                    write!(f, " == 0")?
-                }
-                LinearRelation::Ne(combination) => {
-                    Debug::fmt(combination, f)?;
-                    write!(f, " != 0")?
-                }
+
+            let operator = match relation.ty {
+                super::LinearRelationType::Eq => "==",
+                super::LinearRelationType::Ne => "!=",
             };
+
+            Debug::fmt(&relation.combination, f)?;
+            write!(f, " {} 0", operator)?;
         }
         Ok(())
     }

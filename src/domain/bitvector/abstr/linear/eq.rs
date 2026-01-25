@@ -1,9 +1,11 @@
+use vec1::vec1;
+
 use crate::domain::{
     bitvector::{
         BitvectorBound, RBound,
         abstr::{
             BitvectorDomain,
-            linear::{LinearBitvector, LinearRelation, LinearSystem, LinearType},
+            linear::{LinearBitvector, LinearRelation, LinearRelationType, LinearSystem},
         },
     },
     traits::forward::{Bitwise, TypedEq},
@@ -12,9 +14,10 @@ use crate::domain::{
 impl TypedEq for LinearBitvector {
     type Output = LinearBitvector;
     fn eq(self, rhs: Self) -> Self::Output {
-        assert_eq!(self.bound, rhs.bound);
+        assert_eq!(self.bound(), rhs.bound());
 
-        let (LinearType::Combination(lhs), LinearType::Combination(rhs)) = (self.ty, rhs.ty) else {
+        let (LinearBitvector::Combination(lhs), LinearBitvector::Combination(rhs)) = (self, rhs)
+        else {
             return LinearBitvector::top(RBound::single_bit_bound());
         };
 
@@ -24,12 +27,12 @@ impl TypedEq for LinearBitvector {
 
         let system = LinearSystem {
             universal: true,
-            relations: vec![LinearRelation::Eq(combination)],
+            relations: vec1![LinearRelation {
+                ty: LinearRelationType::Eq,
+                combination,
+            }],
         };
-        Self::Output {
-            bound: RBound::single_bit_bound(),
-            ty: LinearType::System(system),
-        }
+        LinearBitvector::System(system)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {

@@ -5,7 +5,7 @@ use crate::domain::{
         RBound,
         abstr::{
             BitvectorDomain,
-            linear::{LinearBitvector, LinearCombination, LinearType},
+            linear::{LinearBitvector, LinearCombination},
         },
         concr::ConcreteBitvector,
     },
@@ -14,15 +14,12 @@ use crate::domain::{
 
 impl HwArith for LinearBitvector {
     fn arith_neg(self) -> Self {
-        let LinearType::Combination(combination) = self.ty else {
+        let LinearBitvector::Combination(combination) = self else {
             // return top value
-            return Self::top(self.bound);
+            return Self::top(self.bound());
         };
 
-        Self {
-            bound: self.bound,
-            ty: LinearType::Combination(combination.arith_neg()),
-        }
+        LinearBitvector::Combination(combination.arith_neg())
     }
     fn add(self, rhs: Self) -> Self {
         self.linear_combine(rhs, |a, b| a.add(b))
@@ -60,19 +57,17 @@ impl LinearBitvector {
         rhs: LinearBitvector,
         op: fn(LinearCombination, LinearCombination) -> LinearCombination,
     ) -> Self {
-        assert_eq!(self.bound, rhs.bound);
-        let bound = self.bound;
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
 
-        let (LinearType::Combination(lhs), LinearType::Combination(rhs)) = (self.ty, rhs.ty) else {
+        let (LinearBitvector::Combination(lhs), LinearBitvector::Combination(rhs)) = (self, rhs)
+        else {
             return LinearBitvector::top(bound);
         };
 
         let combination = op(lhs, rhs);
 
-        Self {
-            bound,
-            ty: LinearType::Combination(combination),
-        }
+        LinearBitvector::Combination(combination)
     }
 }
 
