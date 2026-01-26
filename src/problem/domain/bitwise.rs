@@ -1,11 +1,9 @@
-use std::collections::BTreeMap;
-
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, HwArith},
     },
-    problem::domain::{LinearBitvector, LinearCombination, LinearRelationType, LinearSystem},
+    problem::domain::{LinearBitvector, LinearRelationType, LinearSystem},
 };
 
 impl Bitwise for LinearBitvector {
@@ -46,7 +44,7 @@ impl Bitwise for LinearBitvector {
 
         match (self, rhs) {
             (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => {
-                merge_systems(lhs, rhs, bound, true)
+                merge_systems(lhs, rhs, true)
             }
             _ => Self::top(bound),
         }
@@ -57,7 +55,7 @@ impl Bitwise for LinearBitvector {
 
         match (self, rhs) {
             (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => {
-                merge_systems(lhs, rhs, bound, false)
+                merge_systems(lhs, rhs, false)
             }
             _ => Self::top(bound),
         }
@@ -71,12 +69,7 @@ impl Bitwise for LinearBitvector {
     }
 }
 
-fn merge_systems(
-    lhs: LinearSystem,
-    rhs: LinearSystem,
-    bound: RBound,
-    universal: bool,
-) -> LinearBitvector {
+fn merge_systems(lhs: LinearSystem, rhs: LinearSystem, universal: bool) -> LinearBitvector {
     let lhs_compatible = lhs.relations.len() == 1 || lhs.universal == universal;
     let rhs_compatible = rhs.relations.len() == 1 || rhs.universal == universal;
 
@@ -84,48 +77,9 @@ fn merge_systems(
         return LinearBitvector::Top(RBound::single_bit_bound());
     }
 
-    let mut relations = lhs.relations;
-    let num_lhs_relations = relations.len();
+    let mut system = lhs;
+    system.relations.extend(rhs.relations);
+    system.normalize();
 
-    // remove duplicates
-    for rhs_relation in rhs.relations {
-        let mut unnecessary = false;
-
-        for lhs_relation in relations.iter().take(num_lhs_relations) {
-            match (&lhs_relation.ty, &rhs_relation.ty) {
-                (LinearRelationType::Eq, LinearRelationType::Eq)
-                | (LinearRelationType::Ne, LinearRelationType::Ne) => {
-                    if lhs_relation.combination == rhs_relation.combination {
-                        unnecessary = true;
-                        break;
-                    }
-                }
-                (LinearRelationType::Eq, LinearRelationType::Ne)
-                | (LinearRelationType::Ne, LinearRelationType::Eq) => {
-                    if lhs_relation.combination == rhs_relation.combination {
-                        // opposing equations
-                        let constant = if universal {
-                            ConcreteBitvector::zero(bound)
-                        } else {
-                            ConcreteBitvector::one(bound)
-                        };
-
-                        return LinearBitvector::Combination(LinearCombination {
-                            constant,
-                            coefficients: BTreeMap::new(),
-                        });
-                    }
-                }
-            }
-        }
-
-        if !unnecessary {
-            relations.push(rhs_relation);
-        }
-    }
-
-    LinearBitvector::System(LinearSystem {
-        universal,
-        relations,
-    })
+    LinearBitvector::System(system)
 }

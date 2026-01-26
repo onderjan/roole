@@ -48,16 +48,6 @@ impl LinearCombination {
     pub(super) fn normalize(&mut self) {
         // eliminate zero coefficients
         self.coefficients.retain(|_, coeff| !coeff.is_zero());
-
-        // if first coefficient has a sign, negate everything
-        if let Some(first_coeff) = self.coefficients.values().next()
-            && first_coeff.is_sign_bit_set()
-        {
-            self.constant = self.constant.arith_neg();
-            for coeff in &mut self.coefficients {
-                *coeff.1 = coeff.1.arith_neg();
-            }
-        }
     }
 
     pub fn remap(self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
@@ -91,6 +81,12 @@ impl LinearCombination {
 }
 
 impl LinearSystem {
+    pub fn normalize(&mut self) {
+        eprintln!("Normalizing system: {:?}", self);
+
+        // TODO: normalize
+    }
+
     pub fn remap(mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
         for relation in &mut self.relations {
             relation.combination = relation.combination.clone().remap(old_to_new);
