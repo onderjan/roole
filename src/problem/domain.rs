@@ -25,15 +25,9 @@ pub struct LinearCombination {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum LinearRelationType {
-    Eq,
-    Ne,
-}
-
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearRelation {
     pub combination: LinearCombination,
-    pub ty: LinearRelationType,
+    pub slack: ConcreteBitvector<RBound>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -2,10 +2,10 @@ use vec1::vec1;
 
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, TypedEq},
     },
-    problem::domain::{LinearBitvector, LinearRelation, LinearRelationType, LinearSystem},
+    problem::domain::{LinearBitvector, LinearRelation, LinearSystem},
 };
 
 impl TypedEq for LinearBitvector {
@@ -21,13 +21,11 @@ impl TypedEq for LinearBitvector {
         // if both are combinations, make into an equality
 
         let combination = lhs.sub(rhs);
+        let slack = ConcreteBitvector::zero(combination.constant.bound());
 
         let system = LinearSystem {
             universal: true,
-            relations: vec1![LinearRelation {
-                ty: LinearRelationType::Eq,
-                combination,
-            }],
+            relations: vec1![LinearRelation { combination, slack }],
         };
         LinearBitvector::System(system)
     }

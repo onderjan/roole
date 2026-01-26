@@ -16,7 +16,7 @@ use crate::{
     problem::{
         Problem,
         assignment::Assignment,
-        domain::{LinearBitvector, LinearCombination, LinearRelationType, LinearSystem},
+        domain::{LinearBitvector, LinearCombination, LinearSystem},
         formula::{OperationId, VariableId},
     },
 };
@@ -258,20 +258,13 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
 
         for relation in &system.relations {
             let combination = &relation.combination;
-            let relation_result = match &relation.ty {
-                LinearRelationType::Eq => {
-                    let zero =
-                        D::single_value(ConcreteBitvector::zero(combination.constant.bound()));
-                    let value = self.evaluate_combination(assignment, combination);
-                    TypedEq::eq(value, zero)
-                }
-                LinearRelationType::Ne => {
-                    let zero =
-                        D::single_value(ConcreteBitvector::zero(combination.constant.bound()));
-                    let value = self.evaluate_combination(assignment, combination);
-                    TypedEq::ne(value, zero)
-                }
-            };
+            let value = self.evaluate_combination(assignment, combination);
+            let slack = D::single_value(relation.slack);
+
+            // we are determining value + [0, slack] = 0 in modular arithmetic
+            // this can be computed as [0, slack] = -value
+            // which is (0 <=) -value <= slack
+            let relation_result = value.arith_neg().ule(slack);
 
             if system.universal {
                 result = result.bit_and(relation_result);
@@ -291,6 +284,7 @@ pub trait EvaluableDomain:
     + TypedCmp<Output = Self>
     + HwShift<Output = Self>
     + BExt<RBound, Output = Self>
+    + Debug
 {
     fn formula(bound: RBound, formula: FormulaId) -> Self;
 }
@@ -313,7 +307,7 @@ impl EvaluableDomain for LinearBitvector {
     }
 }
 
-impl<D: EvaluableDomain + Debug> Debug for Evaluator<'_, D> {
+impl<D: EvaluableDomain> Debug for Evaluator<'_, D> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut franz = f.debug_struct("Evaluator");
 

@@ -8,7 +8,7 @@ use crate::{
         traits::{Join, forward::HwArith},
     },
     problem::{
-        domain::{LinearBitvector, LinearCombination, LinearSystem},
+        domain::{LinearBitvector, LinearCombination, LinearRelation, LinearSystem},
         formula::FormulaId,
     },
 };
@@ -84,7 +84,8 @@ impl LinearSystem {
     pub fn normalize(&mut self) {
         eprintln!("Normalizing system: {:?}", self);
 
-        for relation in self.relations.iter_mut() {
+        // TODO: normalize with slack
+        /*for relation in self.relations.iter_mut() {
             if let Some((first_formula_id, first_coeff)) =
                 relation.combination.coefficients.first_key_value()
             {
@@ -99,7 +100,7 @@ impl LinearSystem {
             } else {
                 // TODO: turn system without coefficients into a value
             }
-        }
+        }*/
 
         eprintln!("Normalized system: {:?}", self);
     }
@@ -136,8 +137,8 @@ impl Debug for LinearBitvector {
     }
 }
 
-impl Debug for LinearCombination {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl LinearCombination {
+    fn debug_nonmod(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut is_first = true;
 
         write!(f, "(")?;
@@ -164,7 +165,30 @@ impl Debug for LinearCombination {
         } else if self.constant.is_nonzero() {
             write!(f, " + {}", self.constant)?;
         }
-        write!(f, ") mod {}", 1u64 << self.constant.bound().width())
+        write!(f, ")")
+    }
+}
+
+impl Debug for LinearCombination {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.debug_nonmod(f)?;
+        write!(f, " mod {}", 1u128 << self.constant.bound().width())
+    }
+}
+
+impl Debug for LinearRelation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.combination.debug_nonmod(f)?;
+
+        if self.slack.is_nonzero() {
+            write!(f, " + [0, {}]", self.slack,)?;
+        }
+
+        write!(
+            f,
+            " == 0 mod {}",
+            1u128 << self.combination.constant.bound().width()
+        )
     }
 }
 
@@ -180,13 +204,7 @@ impl Debug for LinearSystem {
                 write!(f, " ∨ ")?;
             }
 
-            let operator = match relation.ty {
-                super::LinearRelationType::Eq => "==",
-                super::LinearRelationType::Ne => "!=",
-            };
-
-            Debug::fmt(&relation.combination, f)?;
-            write!(f, " {} 0", operator)?;
+            Debug::fmt(relation, f)?;
         }
         Ok(())
     }

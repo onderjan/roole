@@ -3,7 +3,7 @@ use crate::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, HwArith},
     },
-    problem::domain::{LinearBitvector, LinearRelationType, LinearSystem},
+    problem::domain::{LinearBitvector, LinearSystem},
 };
 
 impl Bitwise for LinearBitvector {
@@ -26,11 +26,21 @@ impl Bitwise for LinearBitvector {
                 system.universal = !system.universal;
 
                 for relation in &mut system.relations {
-                    // negate relation type
-                    relation.ty = match relation.ty {
-                        LinearRelationType::Eq => LinearRelationType::Ne,
-                        LinearRelationType::Ne => LinearRelationType::Eq,
-                    };
+                    // to properly negate, start after the end of the old wrapping interval
+                    let old_length = relation
+                        .slack
+                        .add(ConcreteBitvector::one(relation.slack.bound()));
+                    relation.combination.constant = relation.combination.constant.add(old_length);
+
+                    // old wrapping interval length is slack + 1
+                    // e.g. a + [0,3] == 0 mod 16 has interval length 4
+                    // we want the new interval length equal to modulus - old length, i.e. modulus - old_slack - 1
+                    // the new slack is length - 1, i.e. modulus - old_slack - 2
+                    // since !x = -x-1, this can be also represented as (!old_slack) - 1
+                    relation.slack = relation
+                        .slack
+                        .bit_not()
+                        .sub(ConcreteBitvector::one(relation.slack.bound()));
                 }
 
                 LinearBitvector::System(system)
