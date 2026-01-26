@@ -84,7 +84,24 @@ impl LinearSystem {
     pub fn normalize(&mut self) {
         eprintln!("Normalizing system: {:?}", self);
 
-        // TODO: normalize
+        for relation in self.relations.iter_mut() {
+            if let Some((first_formula_id, first_coeff)) =
+                relation.combination.coefficients.first_key_value()
+            {
+                eprintln!("First: {}*{:?}", first_coeff, first_formula_id);
+                if let Some(inverse_coeff) = first_coeff.modular_inverse() {
+                    // multiply by the inverse coefficient
+                    // the right side is zero, no need to multiply it
+                    relation.combination.apply_fixed_mult(inverse_coeff);
+                } else {
+                    // TODO: do something without modular inverse
+                }
+            } else {
+                // TODO: turn system without coefficients into a value
+            }
+        }
+
+        eprintln!("Normalized system: {:?}", self);
     }
 
     pub fn remap(mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {

@@ -9,6 +9,7 @@ use crate::domain::bitvector::concr::ConcreteBitvector;
 use crate::domain::bitvector::concr::OutsideBound;
 use crate::domain::bitvector::concr::SignedBitvector;
 use crate::domain::bitvector::concr::UnsignedBitvector;
+use crate::domain::traits::forward::HwArith;
 
 impl<B: BitvectorBound> ConcreteBitvector<B> {
     pub fn new(value: u64, bound: B) -> Self {
@@ -141,6 +142,63 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
 
         Self::new(value, bound)
     }
+
+    pub fn modular_inverse(self) -> Option<Self> {
+        // TODO: more general computation of modular inverse
+        let a = self.to_u64().into();
+        let modulus = 1i128 << self.bound.width();
+
+        let (g, x, _) = Self::extended_euclidean(a, modulus);
+        if g != 1 {
+            return None;
+        }
+
+        let inverse = ((x % modulus) + modulus) % modulus;
+        let Ok(inverse) = inverse.try_into() else {
+            panic!("Modular inverse does not fit in u64");
+        };
+        let inverse = Self::new(inverse, self.bound);
+
+        assert_eq!(inverse.mul(self), ConcreteBitvector::one(self.bound));
+
+        Some(inverse)
+    }
+
+    fn extended_euclidean(a: i128, b: i128) -> (i128, i128, i128) {
+        if a == 0 || b == 0 {
+            panic!("Extended Euclidean algorithm cannot be used with zero");
+        }
+        eprintln!("Extended euclidean: {}, {}", a, b);
+
+        let mut x = 1;
+        let mut y = 0;
+        let mut x1 = 0;
+        let mut y1 = 1;
+        let mut a1 = a;
+        let mut b1 = b;
+        loop {
+            if b1 == 0 {
+                let gcd = x * a + y * b;
+                eprintln!("GCD: {} = {}*{} + {}*{}", gcd, x, a, y, b);
+
+                return (gcd, x, y);
+            }
+
+            let q = a1 / b1;
+            (x, x1) = (x1, x - q * x1);
+            (y, y1) = (y1, y - q * y1);
+            (a1, b1) = (b1, a1 - q * b1);
+        }
+    }
+}
+
+fn extended_gcd(a: u64, b: u64) -> (u64, u64, u64) {
+    if a == 0 {
+        return (b, 0, 1);
+    }
+    let (g, x, y) = extended_gcd(b % a, a);
+    let next = y - (b / a) * x;
+    (g, next, x)
 }
 
 impl<B: BitvectorBound<SingleBit = B>> ConcreteBitvector<B> {
