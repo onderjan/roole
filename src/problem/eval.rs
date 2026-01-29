@@ -55,14 +55,28 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
             *result = None;
         }
 
-        let mut op_stack = vec![(self.problem.assertion, false)];
+        let mut op_stack = vec![self.problem.assertion];
+        let mut resolve = Vec::new();
 
-        while let Some((formula_id, evaluated)) = op_stack.pop() {
+        while let Some(formula_id) = op_stack.pop() {
             match formula_id {
                 FormulaId::Variable(_) => {}
                 FormulaId::Operation(operation_id) => {
                     let operation = &self.problem.operations[operation_id.0];
-                    if evaluated {
+                    let dependencies = operation.used_ids();
+
+                    // resolve is empty here
+
+                    for dependency in dependencies.into_iter().rev() {
+                        assert_ne!(dependency, formula_id);
+                        if let FormulaId::Operation(dependency_operation_id) = dependency
+                            && self.results[dependency_operation_id.0].is_none()
+                        {
+                            resolve.push(dependency);
+                        }
+                    }
+
+                    if resolve.is_empty() {
                         let evaluated = self.evaluate_operation(assignment, operation);
                         let bound = evaluated.bound();
                         // replace top with formula
@@ -73,13 +87,13 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                         };
 
                         self.results[operation_id.0] = Some(evaluated);
+                        // resolve is empty
                     } else {
-                        let dependencies = operation.used_ids();
-
-                        op_stack.push((formula_id, true));
-                        for dependency in dependencies.into_iter().rev() {
-                            op_stack.push((dependency, false));
-                        }
+                        // push the current formula id to operation stack before the dependencies
+                        // so the dependencies will get resolved before it is next encountered
+                        op_stack.push(formula_id);
+                        // append resolve to operation stack, empties it
+                        op_stack.append(&mut resolve);
                     }
                 }
             };
