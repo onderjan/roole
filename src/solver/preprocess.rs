@@ -8,20 +8,28 @@ use crate::problem::{
 };
 
 pub fn preprocess(problem: &Problem) -> Problem {
-    // preprocess
-    let mut preprocessor = Evaluator::<LinearBitvector>::new(problem);
+    let mut evaluator = Evaluator::<LinearBitvector>::new(problem);
+    evaluator.evaluate(&problem.linear_assignment());
 
-    let assignment = problem.linear_assignment();
-    preprocessor.evaluate(&assignment);
+    eprintln!("Preprocessing evaluator: {:#?}", evaluator);
 
-    eprintln!("Preprocessor: {:#?}", preprocessor);
+    let used_operations = used_operations(problem, &evaluator);
+    let preprocessed = create_preprocessed(problem, used_operations);
 
-    let mut used_ids_redone = BTreeMap::new();
+    eprintln!("Preprocessed problem: {:#?}", preprocessed);
 
+    preprocessed
+}
+
+fn used_operations<'a>(
+    problem: &Problem,
+    evaluator: &'a Evaluator<'a, LinearBitvector>,
+) -> BTreeMap<FormulaId, Option<&'a LinearBitvector>> {
+    let mut used_operations = BTreeMap::new();
     let mut stack = vec![problem.assertion()];
 
     while let Some(formula_id) = stack.pop() {
-        if used_ids_redone.contains_key(&formula_id) {
+        if used_operations.contains_key(&formula_id) {
             continue;
         }
 
@@ -31,7 +39,7 @@ pub fn preprocess(problem: &Problem) -> Problem {
                 None
             }
             FormulaId::Operation(operation_id) => {
-                let result = preprocessor.result(operation_id);
+                let result = evaluator.result(operation_id);
                 let mut used_own_id = false;
                 for used_id in result.used_ids() {
                     if used_id != formula_id {
@@ -43,7 +51,6 @@ pub fn preprocess(problem: &Problem) -> Problem {
 
                 if used_own_id {
                     let operation = problem.operation(operation_id);
-
                     for used_id in operation.used_ids() {
                         stack.push(used_id);
                     }
@@ -54,17 +61,22 @@ pub fn preprocess(problem: &Problem) -> Problem {
             }
         };
 
-        used_ids_redone.insert(formula_id, redone);
+        used_operations.insert(formula_id, redone);
     }
 
-    eprintln!("Used ids: {:?}", used_ids_redone);
+    used_operations
+}
 
+fn create_preprocessed(
+    problem: &Problem,
+    used_operations: BTreeMap<FormulaId, Option<&LinearBitvector>>,
+) -> Problem {
     let mut old_to_new = BiBTreeMap::new();
 
     let mut new_variables = Vec::new();
     let mut new_operations = Vec::new();
 
-    for (old_id, new_operation) in used_ids_redone {
+    for (old_id, new_operation) in used_operations {
         let new_id = match old_id {
             FormulaId::Variable(variable_id) => {
                 let variable = problem.variable(variable_id);
@@ -101,9 +113,5 @@ pub fn preprocess(problem: &Problem) -> Problem {
         .get_by_left(&problem.assertion())
         .expect("Assertion should be within new operations");
 
-    let new_problem = Problem::new(new_variables, new_operations, new_assertion);
-
-    eprintln!("New problem: {:#?}", new_problem);
-
-    new_problem
+    Problem::new(new_variables, new_operations, new_assertion)
 }
