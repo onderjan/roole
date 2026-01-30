@@ -17,10 +17,7 @@ impl OperationDomain {
         let constant = ConcreteBitvector::zero(bound);
         let monomials = BTreeMap::from_iter([(formula_id, ConcreteBitvector::one(bound))]);
 
-        OperationDomain::from_combination(LinearCombination {
-            constant,
-            monomials,
-        })
+        OperationDomain::from_combination(LinearCombination::new(constant, monomials))
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {

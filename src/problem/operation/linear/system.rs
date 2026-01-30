@@ -1,11 +1,15 @@
 use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
-use vec1::Vec1;
+use vec1::{Vec1, vec1};
 
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
-    problem::{eval::EvaluableDomain, formula::FormulaId, operation::linear::LinearRelation},
+    problem::{
+        eval::EvaluableDomain,
+        formula::FormulaId,
+        operation::{LinearCombination, linear::LinearRelation},
+    },
 };
 
 mod ops;
@@ -14,12 +18,23 @@ mod ops;
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {
     /// If true, the system is a conjunction of relations. If false, it is a disjunction.
-    pub universal: bool,
+    universal: bool,
     /// Linear relations.
-    pub relations: Vec1<LinearRelation>,
+    relations: Vec1<LinearRelation>,
 }
 
 impl LinearSystem {
+    pub fn from_eq(lhs: LinearCombination, rhs: LinearCombination) -> Self {
+        // if both are combinations, make into an equality
+
+        let combination = lhs.sub(rhs);
+        let slack = ConcreteBitvector::zero(combination.bound());
+        LinearSystem {
+            universal: true,
+            relations: vec1![LinearRelation::new(combination, slack)],
+        }
+    }
+
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
         let bound = RBound::new(1);
         let mut result = if self.universal {
@@ -31,9 +46,8 @@ impl LinearSystem {
         };
 
         for relation in &self.relations {
-            let combination = &relation.combination;
-            let value = combination.evaluate(&fetch);
-            let slack = D::single_value(relation.slack);
+            let value = relation.combination().evaluate(&fetch);
+            let slack = D::single_value(*relation.slack());
 
             // we are determining value <= slack
             let relation_result = value.ule(slack);
@@ -73,14 +87,14 @@ impl LinearSystem {
 
     pub fn remap(&mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) {
         for relation in &mut self.relations {
-            relation.combination.remap(old_to_new);
+            relation.remap(old_to_new);
         }
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
         self.relations
             .iter()
-            .flat_map(|relation| relation.combination.monomials.keys().copied())
+            .flat_map(|relation| relation.used_ids())
             .collect()
     }
 }

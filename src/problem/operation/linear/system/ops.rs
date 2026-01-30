@@ -29,7 +29,7 @@ impl LinearSystem {
             // for left side, 0 <= (!a) < m, but for right side, -1 <= (!s)-1 < m-1
             // handle the case where (!s) == 0 specially
 
-            let bit_not_slack = relation.slack.bit_not();
+            let bit_not_slack = relation.slack().bit_not();
             if bit_not_slack.is_zero() {
                 // the relation a <= s was a tautology as s was the highest possible value
                 // the negated relation will be a contradiction
@@ -46,10 +46,10 @@ impl LinearSystem {
             // as such, we can construct the relation -a <= (!s-1)
             // as the negation of a <= s
 
-            let combination = relation.combination.clone().bit_not();
-            let slack = bit_not_slack.sub(ConcreteBitvector::one(relation.slack.bound()));
+            let combination = relation.combination().clone().bit_not();
+            let slack = bit_not_slack.sub(ConcreteBitvector::one(relation.slack().bound()));
 
-            new_relations.push(LinearRelation { combination, slack });
+            new_relations.push(LinearRelation::new(combination, slack));
         }
 
         let Ok(new_relations) = Vec1::try_from_vec(new_relations) else {

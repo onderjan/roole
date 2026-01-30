@@ -16,7 +16,7 @@ mod linear;
 
 pub use bi::{BiOp, BiOperator};
 
-pub use linear::{LinearCombination, LinearOperation, LinearRelation, LinearSystem};
+pub use linear::{LinearCombination, LinearOperation, LinearSystem};
 
 /// Operation id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -188,7 +188,7 @@ impl Operation {
             Operation::IteOp(ite_op) => ite_op.width,
             Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
             Operation::ExtractOp(extract_op) => extract_op.width.get(),
-            Operation::Linear(linear) => linear.result_width(),
+            Operation::Linear(linear) => linear.result_bound().width(),
         }
     }
 

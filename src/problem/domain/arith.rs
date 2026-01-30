@@ -29,10 +29,10 @@ impl HwArith for OperationDomain {
             return Self::top(bound);
         };
 
-        let (constant, mut combination) = if lhs.monomials.is_empty() {
-            (lhs.constant, rhs)
-        } else if rhs.monomials.is_empty() {
-            (rhs.constant, lhs)
+        let (constant, mut combination) = if let Some(constant) = lhs.constant_value() {
+            (constant, rhs)
+        } else if let Some(constant) = rhs.constant_value() {
+            (constant, lhs)
         } else {
             // return top value
             return Self::top(bound);
@@ -75,52 +75,5 @@ impl OperationDomain {
 
         let combination = op(lhs, rhs);
         OperationDomain::from_combination(combination)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::BTreeMap;
-
-    use crate::{
-        domain::bitvector::{RBound, concr::ConcreteBitvector},
-        problem::formula::{FormulaId, VariableId},
-    };
-
-    use super::*;
-
-    #[test]
-    fn test_addsub() {
-        let bound = RBound::new(32);
-        let a = OperationDomain::from_combination(LinearCombination {
-            constant: ConcreteBitvector::new(38, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(12, bound),
-            )]),
-        });
-        let b = OperationDomain::from_combination(LinearCombination {
-            constant: ConcreteBitvector::new(17, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(7, bound),
-            )]),
-        });
-        let add_result = OperationDomain::from_combination(LinearCombination {
-            constant: ConcreteBitvector::new(55, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(19, bound),
-            )]),
-        });
-        let sub_result = OperationDomain::from_combination(LinearCombination {
-            constant: ConcreteBitvector::new(21, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(5, bound),
-            )]),
-        });
-        assert_eq!(a.clone().add(b.clone()), add_result);
-        assert_eq!(a.sub(b), sub_result);
     }
 }

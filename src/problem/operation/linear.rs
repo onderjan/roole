@@ -29,15 +29,8 @@ impl LinearOperation {
 
     pub fn result_bound(&self) -> RBound {
         match self {
-            LinearOperation::Combination(combination) => combination.constant.bound(),
+            LinearOperation::Combination(combination) => combination.bound(),
             LinearOperation::System(_) => RBound::single_bit_bound(),
-        }
-    }
-
-    pub fn result_width(&self) -> u32 {
-        match self {
-            LinearOperation::Combination(combination) => combination.constant.bound().width(),
-            LinearOperation::System(_) => 1,
         }
     }
 

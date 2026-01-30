@@ -1,14 +1,9 @@
-use vec1::vec1;
-
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
         traits::forward::{Bitwise, TypedEq},
     },
-    problem::{
-        domain::OperationDomain,
-        operation::{LinearRelation, LinearSystem},
-    },
+    problem::{domain::OperationDomain, operation::LinearSystem},
 };
 
 impl TypedEq for OperationDomain {
@@ -20,16 +15,7 @@ impl TypedEq for OperationDomain {
             return OperationDomain::top(RBound::single_bit_bound());
         };
 
-        // if both are combinations, make into an equality
-
-        let combination = lhs.sub(rhs);
-        let slack = ConcreteBitvector::zero(combination.constant.bound());
-
-        let system = LinearSystem {
-            universal: true,
-            relations: vec1![LinearRelation { combination, slack }],
-        };
-        OperationDomain::from_system(system)
+        OperationDomain::from_system(LinearSystem::from_eq(lhs, rhs))
     }
 
     fn ne(self, rhs: Self) -> Self::Output {

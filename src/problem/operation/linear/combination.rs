@@ -17,11 +17,23 @@ mod ops;
 /// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearCombination {
-    pub constant: ConcreteBitvector<RBound>,
-    pub monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
+    constant: ConcreteBitvector<RBound>,
+    monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
 }
 
 impl LinearCombination {
+    pub fn new(
+        constant: ConcreteBitvector<RBound>,
+        monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
+    ) -> Self {
+        let mut result = Self {
+            constant,
+            monomials,
+        };
+        result.normalize();
+        result
+    }
+
     pub fn from_constant(constant: ConcreteBitvector<RBound>) -> Self {
         Self {
             constant,
@@ -90,6 +102,14 @@ impl LinearCombination {
 
         LinearCombination::from_constant(constant)
     }
+
+    pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
+        if self.monomials.is_empty() {
+            Some(self.constant)
+        } else {
+            None
+        }
+    }
 }
 
 impl Debug for LinearCombination {
@@ -121,5 +141,52 @@ impl Debug for LinearCombination {
             write!(f, " + {}", self.constant)?;
         }
         write!(f, ") mod {}", 1u128 << self.constant.bound().width())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use crate::{
+        domain::bitvector::{RBound, concr::ConcreteBitvector},
+        problem::formula::{FormulaId, VariableId},
+    };
+
+    use super::*;
+
+    #[test]
+    fn test_addsub() {
+        let bound = RBound::new(32);
+        let a = LinearCombination {
+            constant: ConcreteBitvector::new(38, bound),
+            monomials: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(12, bound),
+            )]),
+        };
+        let b = LinearCombination {
+            constant: ConcreteBitvector::new(17, bound),
+            monomials: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(7, bound),
+            )]),
+        };
+        let add_result = LinearCombination {
+            constant: ConcreteBitvector::new(55, bound),
+            monomials: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(19, bound),
+            )]),
+        };
+        let sub_result = LinearCombination {
+            constant: ConcreteBitvector::new(21, bound),
+            monomials: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(5, bound),
+            )]),
+        };
+        assert_eq!(a.clone().add(b.clone()), add_result);
+        assert_eq!(a.sub(b), sub_result);
     }
 }
