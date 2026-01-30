@@ -78,6 +78,20 @@ impl LinearCombination {
             *coeff = coeff.mul(fixed);
         }
     }
+
+    pub fn single_bit(is_one: bool) -> LinearCombination {
+        let bound = RBound::single_bit_bound();
+        let constant = if is_one {
+            ConcreteBitvector::one(bound)
+        } else {
+            ConcreteBitvector::zero(bound)
+        };
+
+        LinearCombination {
+            constant,
+            coefficients: BTreeMap::new(),
+        }
+    }
 }
 
 impl LinearSystem {
@@ -137,8 +151,8 @@ impl Debug for LinearBitvector {
     }
 }
 
-impl LinearCombination {
-    fn debug_nonmod(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for LinearCombination {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut is_first = true;
 
         write!(f, "(")?;
@@ -165,30 +179,17 @@ impl LinearCombination {
         } else if self.constant.is_nonzero() {
             write!(f, " + {}", self.constant)?;
         }
-        write!(f, ")")
-    }
-}
-
-impl Debug for LinearCombination {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.debug_nonmod(f)?;
-        write!(f, " mod {}", 1u128 << self.constant.bound().width())
+        write!(f, ") mod {}", 1u128 << self.constant.bound().width())
     }
 }
 
 impl Debug for LinearRelation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.combination.debug_nonmod(f)?;
+        Debug::fmt(&self.combination, f)?;
 
-        if self.slack.is_nonzero() {
-            write!(f, " + [0, {}]", self.slack,)?;
-        }
+        let op = if self.slack.is_zero() { "==" } else { "<=" };
 
-        write!(
-            f,
-            " == 0 mod {}",
-            1u128 << self.combination.constant.bound().width()
-        )
+        write!(f, " {} {}", op, self.slack)
     }
 }
 

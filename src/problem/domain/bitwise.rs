@@ -1,9 +1,11 @@
+use vec1::Vec1;
+
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, HwArith},
     },
-    problem::domain::{LinearBitvector, LinearSystem},
+    problem::domain::{LinearBitvector, LinearCombination, LinearRelation, LinearSystem},
 };
 
 impl Bitwise for LinearBitvector {
@@ -13,38 +15,9 @@ impl Bitwise for LinearBitvector {
             LinearBitvector::Combination(combination) => {
                 // bit_not(x) = arith_neg(x) - 1
 
-                let mut result = combination.arith_neg();
-
-                result.constant = result.constant.sub(ConcreteBitvector::one(result.bound()));
-
-                result.normalize();
-
-                LinearBitvector::Combination(result)
+                LinearBitvector::Combination(combination.bit_not())
             }
-            LinearBitvector::System(mut system) => {
-                // negate universality
-                system.universal = !system.universal;
-
-                for relation in &mut system.relations {
-                    // to properly negate, start after the end of the old wrapping interval
-                    let old_length = relation
-                        .slack
-                        .add(ConcreteBitvector::one(relation.slack.bound()));
-                    relation.combination.constant = relation.combination.constant.add(old_length);
-
-                    // old wrapping interval length is slack + 1
-                    // e.g. a + [0,3] == 0 mod 16 has interval length 4
-                    // we want the new interval length equal to modulus - old length, i.e. modulus - old_slack - 1
-                    // the new slack is length - 1, i.e. modulus - old_slack - 2
-                    // since !x = -x-1, this can be also represented as (!old_slack) - 1
-                    relation.slack = relation
-                        .slack
-                        .bit_not()
-                        .sub(ConcreteBitvector::one(relation.slack.bound()));
-                }
-
-                LinearBitvector::System(system)
-            }
+            LinearBitvector::System(system) => LinearBitvector::negate_system(system),
         }
     }
 
@@ -53,9 +26,10 @@ impl Bitwise for LinearBitvector {
         assert_eq!(bound, rhs.bound());
 
         match (self, rhs) {
-            (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => {
-                merge_systems(lhs, rhs, true)
-            }
+            (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => lhs
+                .combine(rhs, true)
+                .map(LinearBitvector::System)
+                .unwrap_or_else(|| LinearBitvector::Top(RBound::single_bit_bound())),
             _ => Self::top(bound),
         }
     }
@@ -64,9 +38,10 @@ impl Bitwise for LinearBitvector {
         assert_eq!(bound, rhs.bound());
 
         match (self, rhs) {
-            (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => {
-                merge_systems(lhs, rhs, false)
-            }
+            (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => lhs
+                .combine(rhs, false)
+                .map(LinearBitvector::System)
+                .unwrap_or_else(|| LinearBitvector::Top(RBound::single_bit_bound())),
             _ => Self::top(bound),
         }
     }
@@ -79,17 +54,84 @@ impl Bitwise for LinearBitvector {
     }
 }
 
-fn merge_systems(lhs: LinearSystem, rhs: LinearSystem, universal: bool) -> LinearBitvector {
-    let lhs_compatible = lhs.relations.len() == 1 || lhs.universal == universal;
-    let rhs_compatible = rhs.relations.len() == 1 || rhs.universal == universal;
-
-    if !lhs_compatible || !rhs_compatible {
-        return LinearBitvector::Top(RBound::single_bit_bound());
+impl LinearCombination {
+    fn bit_not(self) -> Self {
+        let mut result = self.arith_neg();
+        result.constant = result.constant.sub(ConcreteBitvector::one(result.bound()));
+        result.normalize();
+        result
     }
+}
 
-    let mut system = lhs;
-    system.relations.extend(rhs.relations);
-    system.normalize();
+impl LinearBitvector {
+    fn negate_system(system: LinearSystem) -> Self {
+        // negate universality
+        let new_universal = !system.universal;
+        let mut new_relations = Vec::new();
 
-    LinearBitvector::System(system)
+        for relation in &system.relations {
+            // consider modulus 'm', left side 'a' and right side slack 's'
+            // where 0 <= a < m, 0 <= s < m
+            // we can now manipulate inequalities without regard to modularity
+            // as long as we ensure the end values are within [0, m-1]
+            // we want to negate the original inequality !(a <= s) and obtain the same lesser-or-equal form
+            // 1. propagate negation into inequality: a > s
+            // 2. multiply by minus one: -a < -s
+            // 3. add m to both sides: m-a < m-s
+            // 4. subtract 1 from right side and change to non-strict inequality: m-a <= m-s-1
+            // 5. to bring the left side into bounds, subtract 1 from both sides: m-a-1 <= m-s-2
+            // 6. use (!x) = m-x-1 to simplify: (!a) <= (!s)-1
+            // for left side, 0 <= (!a) < m, but for right side, -1 <= (!s)-1 < m-1
+            // handle the case where (!s) == 0 specially
+
+            let bit_not_slack = relation.slack.bit_not();
+            if bit_not_slack.is_zero() {
+                // the relation a <= s was a tautology as s was the highest possible value
+                // the negated relation will be a contradiction
+                if new_universal {
+                    // the new system is a conjunction of relations, becomes a contradiction
+                    return LinearBitvector::Combination(LinearCombination::single_bit(false));
+                }
+
+                // the new system is a disjunction of relations, skip the relation
+                continue;
+            }
+
+            // we now know 0 <= (!a) < m and 0 <= (!s)-1 < m-1
+            // as such, we can construct the relation -a <= (!s-1)
+            // as the negation of a <= s
+
+            let combination = relation.combination.clone().bit_not();
+            let slack = bit_not_slack.sub(ConcreteBitvector::one(relation.slack.bound()));
+
+            new_relations.push(LinearRelation { combination, slack });
+        }
+
+        let Ok(new_relations) = Vec1::try_from_vec(new_relations) else {
+            // no relations retained, the system is an empty disjunction of relations
+            assert!(!new_universal);
+            return LinearBitvector::Combination(LinearCombination::single_bit(true));
+        };
+
+        LinearBitvector::System(LinearSystem {
+            universal: new_universal,
+            relations: new_relations,
+        })
+    }
+}
+
+impl LinearSystem {
+    fn combine(mut self, rhs: LinearSystem, universal: bool) -> Option<Self> {
+        let lhs_compatible = self.relations.len() == 1 || self.universal == universal;
+        let rhs_compatible = rhs.relations.len() == 1 || rhs.universal == universal;
+
+        if !lhs_compatible || !rhs_compatible {
+            return None;
+        }
+
+        self.relations.extend(rhs.relations);
+        self.normalize();
+
+        Some(self)
+    }
 }

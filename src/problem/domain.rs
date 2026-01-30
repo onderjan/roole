@@ -24,15 +24,21 @@ pub struct LinearCombination {
     pub coefficients: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
 }
 
+/// A linear relation `combination` <= `slack`.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearRelation {
+    /// Left-side linear combination.
     pub combination: LinearCombination,
+    /// Right-side slack value. With zero slack, the relation becomes equality.
     pub slack: ConcreteBitvector<RBound>,
 }
 
+/// A system of linear relations.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {
+    /// If true, the system is a conjunction of relations. If false, it is a disjunction.
     pub universal: bool,
+    /// Linear relations.
     pub relations: Vec1<LinearRelation>,
 }
 

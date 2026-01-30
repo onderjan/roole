@@ -275,10 +275,8 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
             let value = self.evaluate_combination(assignment, combination);
             let slack = D::single_value(relation.slack);
 
-            // we are determining value + [0, slack] = 0 in modular arithmetic
-            // this can be computed as [0, slack] = -value
-            // which is (0 <=) -value <= slack
-            let relation_result = value.arith_neg().ule(slack);
+            // we are determining value <= slack
+            let relation_result = value.ule(slack);
 
             if system.universal {
                 result = result.bit_and(relation_result);
