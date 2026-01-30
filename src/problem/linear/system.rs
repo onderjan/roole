@@ -39,12 +39,10 @@ impl LinearSystem {
         eprintln!("Normalized system: {:?}", self);
     }
 
-    pub fn remap(mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
+    pub fn remap(&mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) {
         for relation in &mut self.relations {
-            relation.combination = relation.combination.clone().remap(old_to_new);
+            relation.combination.remap(old_to_new);
         }
-
-        self
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {

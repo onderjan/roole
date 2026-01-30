@@ -18,7 +18,7 @@ use crate::{
         assignment::Assignment,
         domain::OperationDomain,
         formula::{OperationId, VariableId},
-        linear::{LinearCombination, LinearSystem},
+        linear::{LinearCombination, LinearOperation, LinearSystem},
     },
 };
 
@@ -239,10 +239,16 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 // narrow to extraction width
                 inner.uext(RBound::new(extract_op.width.get()))
             }
-            Operation::LinearCombination(combination) => {
+            Operation::Linear(linear) => self.evaluate_linear(assignment, linear),
+        }
+    }
+
+    fn evaluate_linear(&self, assignment: &Assignment<D>, linear: &LinearOperation) -> D {
+        match linear {
+            LinearOperation::Combination(combination) => {
                 self.evaluate_combination(assignment, combination)
             }
-            Operation::LinearSystem(system) => self.evaluate_system(assignment, system),
+            LinearOperation::System(system) => self.evaluate_system(assignment, system),
         }
     }
 

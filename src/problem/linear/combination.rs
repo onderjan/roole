@@ -42,7 +42,7 @@ impl LinearCombination {
         self.monomials.retain(|_, coeff| !coeff.is_zero());
     }
 
-    pub fn remap(self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
+    pub fn remap(&mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) {
         let remap = |formula_id| {
             let Some(new_id) = old_to_new.get_by_left(&formula_id) else {
                 panic!("Used formula id {:?} should be remappable", formula_id);
@@ -50,13 +50,11 @@ impl LinearCombination {
             *new_id
         };
 
-        LinearCombination {
-            constant: self.constant,
-            monomials: BTreeMap::from_iter(
-                self.monomials
-                    .iter()
-                    .map(|(formula_id, coeff)| (remap(*formula_id), *coeff)),
-            ),
+        let mut old_monomials = BTreeMap::new();
+        std::mem::swap(&mut self.monomials, &mut old_monomials);
+
+        for (formula_id, coefficient) in old_monomials {
+            self.monomials.insert(remap(formula_id), coefficient);
         }
     }
 

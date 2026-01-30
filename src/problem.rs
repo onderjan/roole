@@ -22,6 +22,7 @@ pub use assignment::Assignment;
 pub use decision::Decision;
 pub use domain::OperationDomain;
 pub use eval::Evaluator;
+pub use linear::LinearOperation;
 
 /// A satisfiability problem.
 #[derive(Debug)]

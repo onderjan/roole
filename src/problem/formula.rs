@@ -3,10 +3,7 @@ use std::{fmt::Debug, num::NonZeroU32};
 use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::bitvector::BitvectorBound,
-    problem::linear::{LinearCombination, LinearSystem},
-};
+use crate::problem::linear::LinearOperation;
 
 /// Formula id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -43,8 +40,7 @@ pub enum Operation {
     IteOp(IteOp),
     ConcatOp(ConcatOp),
     ExtractOp(ExtractOp),
-    LinearCombination(LinearCombination),
-    LinearSystem(LinearSystem),
+    Linear(LinearOperation),
 }
 
 #[derive(Clone)]
@@ -151,8 +147,7 @@ impl Operation {
             Operation::IteOp(ite_op) => ite_op.width,
             Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
             Operation::ExtractOp(extract_op) => extract_op.width.get(),
-            Operation::LinearCombination(combination) => combination.constant.bound().width(),
-            Operation::LinearSystem(_) => 1,
+            Operation::Linear(linear) => linear.result_width(),
         }
     }
 
@@ -167,8 +162,7 @@ impl Operation {
             }
             Operation::ConcatOp(concat_op) => vec![concat_op.left, concat_op.right],
             Operation::ExtractOp(extract_op) => vec![extract_op.inner],
-            Operation::LinearCombination(combination) => combination.used_ids(),
-            Operation::LinearSystem(system) => system.used_ids(),
+            Operation::Linear(linear) => linear.used_ids(),
         }
     }
 
@@ -216,22 +210,11 @@ impl Operation {
                 lsb: extract_op.lsb,
                 width: extract_op.width,
             }),
-            Operation::LinearCombination(combination) => {
-                Operation::LinearCombination(combination.clone().remap(old_to_new))
-            }
-            Operation::LinearSystem(system) => {
-                eprintln!("Remapping system: {:?} with {:?}", system, old_to_new);
-                let mut relations = system.relations.clone();
-                for relation in &mut relations {
-                    relation.combination = relation.combination.clone().remap(old_to_new);
-                }
-                let result = Operation::LinearSystem(LinearSystem {
-                    universal: system.universal,
-                    relations,
-                });
-
-                eprintln!("Remapped: {:?}", result);
-                result
+            Operation::Linear(linear) => {
+                // TODO: rewrite remapped to use mutable reference
+                let mut linear = linear.clone();
+                linear.remap(old_to_new);
+                Operation::Linear(linear)
             }
         }
     }
@@ -319,12 +302,7 @@ impl Debug for Operation {
             Operation::ExtractOp(ExtractOp { inner, lsb, width }) => {
                 write!(f, "extract_{}_{}({:?})", lsb + width.get() - 1, lsb, inner)
             }
-            Operation::LinearCombination(combination) => {
-                write!(f, "linear_combination({:?})", combination)
-            }
-            Operation::LinearSystem(system) => {
-                write!(f, "linear_system({:?})", system)
-            }
+            Operation::Linear(linear) => Debug::fmt(&linear, f),
         }
     }
 }
