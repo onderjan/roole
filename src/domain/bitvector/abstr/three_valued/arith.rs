@@ -17,6 +17,15 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
         HwArith::sub(Self::new(0, self.bound()), self)
     }
     fn add(self, rhs: Self) -> Self {
+        // return early if one of arguments is zero
+        let is_zero = |val: ConcreteBitvector<B>| val.is_zero();
+        if self.concrete_value().is_some_and(is_zero) {
+            return rhs;
+        }
+        if rhs.concrete_value().is_some_and(is_zero) {
+            return self;
+        }
+
         minmax_compute(self, rhs, |lhs, rhs, k| {
             addsub_zeta_k_fn(
                 lhs.umin(),
@@ -29,6 +38,11 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
         })
     }
     fn sub(self, rhs: Self) -> Self {
+        // return early if rhs is zero
+        if rhs.concrete_value().is_some_and(|val| val.is_zero()) {
+            return self;
+        }
+
         minmax_compute(self, rhs, |lhs, rhs, k| {
             // swap rhs min and max as it is applied in negative
             addsub_zeta_k_fn(
@@ -42,7 +56,18 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
         })
     }
     fn mul(self, rhs: Self) -> Self {
-        assert_eq!(self.bound(), rhs.bound());
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+
+        let is_zero = |val: ConcreteBitvector<B>| val.is_zero();
+        let is_one = |val: ConcreteBitvector<B>| val.is_one();
+        // return zero if one is zero, return the other argument if an argument is one
+        if self.concrete_value().is_some_and(is_zero) || rhs.concrete_value().is_some_and(is_one) {
+            return self;
+        }
+        if rhs.concrete_value().is_some_and(is_zero) || self.concrete_value().is_some_and(is_one) {
+            return rhs;
+        }
 
         // use the minmax algorithm for now
         minmax_compute(self, rhs, |lhs, rhs, k| {

@@ -94,6 +94,15 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     pub fn is_nonzero(&self) -> bool {
         self.value != 0
     }
+
+    pub fn is_one(&self) -> bool {
+        if self.bound.width() == 0 {
+            true
+        } else {
+            self.value == 1
+        }
+    }
+
     pub fn is_full_mask(&self) -> bool {
         self.value == self.bound.mask()
     }
