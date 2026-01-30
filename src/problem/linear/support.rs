@@ -8,7 +8,7 @@ use crate::{
     },
     problem::{
         formula::FormulaId,
-        linear::{LinearCombination, LinearRelation, LinearSystem},
+        linear::{LinearCombination, LinearSystem},
     },
 };
 
@@ -144,16 +144,6 @@ impl Debug for LinearCombination {
             write!(f, " + {}", self.constant)?;
         }
         write!(f, ") mod {}", 1u128 << self.constant.bound().width())
-    }
-}
-
-impl Debug for LinearRelation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.combination, f)?;
-
-        let op = if self.slack.is_zero() { "==" } else { "<=" };
-
-        write!(f, " {} {}", op, self.slack)
     }
 }
 

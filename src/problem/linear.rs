@@ -1,21 +1,11 @@
 mod combination;
+mod relation;
 mod support;
 
-pub use combination::LinearCombination;
+pub use {combination::LinearCombination, relation::LinearRelation};
 
 use serde::{Deserialize, Serialize};
 use vec1::Vec1;
-
-use crate::domain::bitvector::{RBound, concr::ConcreteBitvector};
-
-/// A linear relation `combination` <= `slack`.
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct LinearRelation {
-    /// Left-side linear combination.
-    pub combination: LinearCombination,
-    /// Right-side slack value. With zero slack, the relation becomes equality.
-    pub slack: ConcreteBitvector<RBound>,
-}
 
 /// A system of linear relations.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
