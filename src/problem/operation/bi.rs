@@ -2,7 +2,10 @@ use std::fmt::Debug;
 
 use bimap::BiBTreeMap;
 
-use crate::problem::formula::FormulaId;
+use crate::{
+    domain::traits::forward::{TypedCmp, TypedEq},
+    problem::{eval::EvaluableDomain, formula::FormulaId},
+};
 
 #[derive(Clone)]
 pub struct BiOp {
@@ -42,6 +45,39 @@ pub enum BiOperator {
 }
 
 impl BiOp {
+    pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
+        let left = (fetch)(self.left);
+        let right = (fetch)(self.right);
+
+        match self.op {
+            BiOperator::Add => left.add(right),
+            BiOperator::Sub => left.sub(right),
+            BiOperator::Mul => left.mul(right),
+
+            BiOperator::BitAnd => left.bit_and(right),
+            BiOperator::BitOr => left.bit_or(right),
+            BiOperator::BitXor => left.bit_xor(right),
+
+            BiOperator::Eq => TypedEq::eq(left, right),
+            BiOperator::Ne => TypedEq::ne(left, right),
+            BiOperator::Implies => (left.bit_not()).bit_or(right),
+
+            BiOperator::Ult => TypedCmp::ult(left, right),
+            BiOperator::Ule => TypedCmp::ule(left, right),
+            BiOperator::Ugt => TypedCmp::ule(left, right).bit_not(),
+            BiOperator::Uge => TypedCmp::ult(left, right).bit_not(),
+
+            BiOperator::Slt => TypedCmp::slt(left, right),
+            BiOperator::Sle => TypedCmp::sle(left, right),
+            BiOperator::Sgt => TypedCmp::sle(left, right).bit_not(),
+            BiOperator::Sge => TypedCmp::slt(left, right).bit_not(),
+
+            BiOperator::Shl => left.logic_shl(right),
+            BiOperator::Lshr => left.logic_shr(right),
+            BiOperator::Ashr => left.arith_shr(right),
+        }
+    }
+
     pub(super) fn result_width(&self) -> u32 {
         match self.op {
             BiOperator::Eq
