@@ -16,6 +16,7 @@ mod assignment;
 mod decision;
 mod domain;
 mod eval;
+mod linear;
 
 pub use assignment::Assignment;
 pub use decision::Decision;

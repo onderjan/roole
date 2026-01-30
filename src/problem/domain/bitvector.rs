@@ -1,8 +1,6 @@
-use std::collections::BTreeMap;
-
 use crate::{
     domain::bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
-    problem::domain::{OperationDomain, LinearCombination},
+    problem::{domain::OperationDomain, linear::LinearCombination},
 };
 
 impl BitvectorDomain for OperationDomain {
@@ -17,10 +15,7 @@ impl BitvectorDomain for OperationDomain {
     }
 
     fn single_value(value: ConcreteBitvector<RBound>) -> Self {
-        OperationDomain::Combination(LinearCombination {
-            constant: value,
-            monomials: BTreeMap::new(),
-        })
+        OperationDomain::Combination(LinearCombination::from_constant(value))
     }
 
     fn top(bound: RBound) -> Self {

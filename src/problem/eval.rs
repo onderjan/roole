@@ -16,8 +16,9 @@ use crate::{
     problem::{
         Problem,
         assignment::Assignment,
-        domain::{OperationDomain, LinearCombination, LinearSystem},
+        domain::OperationDomain,
         formula::{OperationId, VariableId},
+        linear::{LinearCombination, LinearSystem},
     },
 };
 

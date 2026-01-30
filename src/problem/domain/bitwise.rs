@@ -5,7 +5,10 @@ use crate::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, HwArith},
     },
-    problem::domain::{OperationDomain, LinearCombination, LinearRelation, LinearSystem},
+    problem::{
+        domain::OperationDomain,
+        linear::{LinearCombination, LinearRelation, LinearSystem},
+    },
 };
 
 impl Bitwise for OperationDomain {
@@ -51,15 +54,6 @@ impl Bitwise for OperationDomain {
         // TODO: handle masking situations
 
         OperationDomain::top(bound)
-    }
-}
-
-impl LinearCombination {
-    fn bit_not(self) -> Self {
-        let mut result = self.arith_neg();
-        result.constant = result.constant.sub(ConcreteBitvector::one(result.bound()));
-        result.normalize();
-        result
     }
 }
 

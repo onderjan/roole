@@ -5,7 +5,10 @@ use crate::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, TypedEq},
     },
-    problem::domain::{OperationDomain, LinearRelation, LinearSystem},
+    problem::{
+        domain::OperationDomain,
+        linear::{LinearRelation, LinearSystem},
+    },
 };
 
 impl TypedEq for OperationDomain {

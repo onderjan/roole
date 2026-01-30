@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     domain::bitvector::BitvectorBound,
-    problem::domain::{LinearCombination, LinearSystem},
+    problem::linear::{LinearCombination, LinearSystem},
 };
 
 /// Formula id.
