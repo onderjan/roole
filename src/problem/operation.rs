@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::problem::formula::FormulaId;
 
+mod bi;
 mod linear;
+
+pub use bi::{BiOp, BiOperator};
 
 pub use linear::{LinearCombination, LinearOperation, LinearRelation, LinearSystem};
 
@@ -35,14 +38,6 @@ pub struct UniOp {
     pub op: UniOperator,
     pub input_width: u32,
     pub inner: FormulaId,
-}
-
-#[derive(Clone)]
-pub struct BiOp {
-    pub op: BiOperator,
-    pub input_width: u32,
-    pub left: FormulaId,
-    pub right: FormulaId,
 }
 
 #[derive(Clone)]
@@ -81,35 +76,6 @@ pub enum UniOperator {
     Not,
 }
 
-#[derive(Clone, Copy, Debug)]
-pub enum BiOperator {
-    Add,
-    Sub,
-    Mul,
-
-    BitAnd,
-    BitOr,
-    BitXor,
-
-    Eq,
-    Ne,
-    Implies,
-
-    Ult,
-    Ule,
-    Ugt,
-    Uge,
-
-    Slt,
-    Sle,
-    Sgt,
-    Sge,
-
-    Shl,
-    Lshr,
-    Ashr,
-}
-
 impl Operation {
     pub fn result_width(&self) -> u32 {
         match self {
@@ -117,19 +83,7 @@ impl Operation {
             Operation::UniOp(uni_op) => match uni_op.op {
                 UniOperator::Not => uni_op.input_width,
             },
-            Operation::BiOp(bi_op) => match bi_op.op {
-                BiOperator::Eq
-                | BiOperator::Ne
-                | BiOperator::Ult
-                | BiOperator::Ule
-                | BiOperator::Ugt
-                | BiOperator::Uge
-                | BiOperator::Slt
-                | BiOperator::Sle
-                | BiOperator::Sgt
-                | BiOperator::Sge => 1,
-                _ => bi_op.input_width,
-            },
+            Operation::BiOp(bi_op) => bi_op.result_width(),
             Operation::ExtOp(ext_op) => ext_op.output_width,
             Operation::IteOp(ite_op) => ite_op.width,
             Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
@@ -168,12 +122,7 @@ impl Operation {
                 input_width: uni_op.input_width,
                 inner: remap(uni_op.inner),
             }),
-            Operation::BiOp(bi_op) => Operation::BiOp(BiOp {
-                op: bi_op.op,
-                input_width: bi_op.input_width,
-                left: remap(bi_op.left),
-                right: remap(bi_op.right),
-            }),
+            Operation::BiOp(bi_op) => Operation::BiOp(bi_op.remapped(old_to_new)),
             Operation::ExtOp(ext_op) => Operation::ExtOp(ExtOp {
                 signed: ext_op.signed,
                 input_width: ext_op.input_width,
@@ -235,14 +184,7 @@ impl Debug for Operation {
             }) => {
                 write!(f, "{:?}_{}({:?})", op, width, inner)
             }
-            Operation::BiOp(BiOp {
-                op,
-                input_width: width,
-                left,
-                right,
-            }) => {
-                write!(f, "{:?}_{}({:?},{:?})", op, width, left, right)
-            }
+            Operation::BiOp(bi_op) => Debug::fmt(&bi_op, f),
             Operation::ExtOp(ExtOp {
                 signed,
                 input_width,
