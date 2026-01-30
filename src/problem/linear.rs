@@ -1,23 +1,12 @@
-mod arith;
-mod bitwise;
+mod combination;
 mod support;
 
-use std::collections::BTreeMap;
+pub use combination::LinearCombination;
 
 use serde::{Deserialize, Serialize};
 use vec1::Vec1;
 
-use crate::{
-    domain::bitvector::{RBound, concr::ConcreteBitvector},
-    problem::formula::FormulaId,
-};
-
-/// A linear combination of bitvectors and a constant.
-#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct LinearCombination {
-    pub constant: ConcreteBitvector<RBound>,
-    pub monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
-}
+use crate::domain::bitvector::{RBound, concr::ConcreteBitvector};
 
 /// A linear relation `combination` <= `slack`.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -1,14 +1,30 @@
 use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
+
 use crate::{
     domain::{
         bitvector::{RBound, concr::ConcreteBitvector},
         traits::forward::HwArith,
     },
-    problem::linear::LinearCombination,
+    problem::formula::FormulaId,
 };
 
+/// A linear combination of bitvectors and a constant.
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct LinearCombination {
+    pub constant: ConcreteBitvector<RBound>,
+    pub monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
+}
+
 impl LinearCombination {
+    pub fn bit_not(self) -> Self {
+        let mut result = self.arith_neg();
+        result.constant = result.constant.sub(ConcreteBitvector::one(result.bound()));
+        result.normalize();
+        result
+    }
+
     pub fn arith_neg(mut self) -> LinearCombination {
         self.constant = self.constant.arith_neg();
         for coefficient in self.monomials.values_mut() {
