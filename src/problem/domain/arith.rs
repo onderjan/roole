@@ -111,7 +111,7 @@ impl LinearCombination {
         mut rhs: LinearCombination,
         op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
     ) -> LinearCombination {
-        let constant = self.constant.add(rhs.constant);
+        let constant = op(self.constant, rhs.constant);
         let mut coefficients = BTreeMap::new();
 
         for (formula, left_coeff) in self.coefficients {
@@ -137,5 +137,47 @@ impl LinearCombination {
         combination.normalize();
 
         combination
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::problem::formula::{FormulaId, VariableId};
+
+    use super::*;
+
+    #[test]
+    fn test_addsub() {
+        let bound = RBound::new(32);
+        let a = LinearBitvector::Combination(LinearCombination {
+            constant: ConcreteBitvector::new(38, bound),
+            coefficients: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(12, bound),
+            )]),
+        });
+        let b = LinearBitvector::Combination(LinearCombination {
+            constant: ConcreteBitvector::new(17, bound),
+            coefficients: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(7, bound),
+            )]),
+        });
+        let add_result = LinearBitvector::Combination(LinearCombination {
+            constant: ConcreteBitvector::new(55, bound),
+            coefficients: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(19, bound),
+            )]),
+        });
+        let sub_result = LinearBitvector::Combination(LinearCombination {
+            constant: ConcreteBitvector::new(21, bound),
+            coefficients: BTreeMap::from_iter([(
+                FormulaId::Variable(VariableId(0)),
+                ConcreteBitvector::new(5, bound),
+            )]),
+        });
+        assert_eq!(a.clone().add(b.clone()), add_result);
+        assert_eq!(a.sub(b), sub_result);
     }
 }
