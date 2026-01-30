@@ -1,14 +1,18 @@
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 
+use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     domain::{
-        bitvector::{RBound, concr::ConcreteBitvector},
+        bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
         traits::forward::HwArith,
     },
     problem::formula::FormulaId,
 };
+
+mod ops;
 
 /// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -18,62 +22,95 @@ pub struct LinearCombination {
 }
 
 impl LinearCombination {
-    pub fn bit_not(self) -> Self {
-        let mut result = self.arith_neg();
-        result.constant = result.constant.sub(ConcreteBitvector::one(result.bound()));
-        result.normalize();
-        result
-    }
-
-    pub fn arith_neg(mut self) -> LinearCombination {
-        self.constant = self.constant.arith_neg();
-        for coefficient in self.monomials.values_mut() {
-            *coefficient = (*coefficient).arith_neg();
-        }
-
-        self.normalize();
-
-        self
-    }
-
-    pub fn add(self, rhs: LinearCombination) -> LinearCombination {
-        self.linear_combine(rhs, |a, b| a.add(b))
-    }
-
-    pub fn sub(self, rhs: LinearCombination) -> LinearCombination {
-        self.linear_combine(rhs, |a, b| a.sub(b))
-    }
-
-    fn linear_combine(
-        self,
-        mut rhs: LinearCombination,
-        op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
-    ) -> LinearCombination {
-        let constant = op(self.constant, rhs.constant);
-        let mut monomials = BTreeMap::new();
-
-        for (formula, left_coeff) in self.monomials {
-            let coeff = if let Some(right_coeff) = rhs.monomials.remove(&formula) {
-                op(left_coeff, right_coeff)
-            } else {
-                let zero = ConcreteBitvector::zero(left_coeff.bound());
-                op(left_coeff, zero)
-            };
-            monomials.insert(formula, coeff);
-        }
-
-        for (formula, right_coeff) in rhs.monomials {
-            let zero = ConcreteBitvector::zero(right_coeff.bound());
-            let coeff = op(zero, right_coeff);
-            monomials.insert(formula, coeff);
-        }
-
-        let mut combination = LinearCombination {
+    pub fn from_constant(constant: ConcreteBitvector<RBound>) -> Self {
+        Self {
             constant,
-            monomials,
-        };
-        combination.normalize();
+            monomials: BTreeMap::new(),
+        }
+    }
 
-        combination
+    pub fn used_ids(&self) -> Vec<FormulaId> {
+        self.monomials.keys().copied().collect()
+    }
+
+    pub fn bound(&self) -> RBound {
+        self.constant.bound()
+    }
+
+    pub(super) fn normalize(&mut self) {
+        // eliminate zero coefficients
+        self.monomials.retain(|_, coeff| !coeff.is_zero());
+    }
+
+    pub fn remap(self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
+        let remap = |formula_id| {
+            let Some(new_id) = old_to_new.get_by_left(&formula_id) else {
+                panic!("Used formula id {:?} should be remappable", formula_id);
+            };
+            *new_id
+        };
+
+        LinearCombination {
+            constant: self.constant,
+            monomials: BTreeMap::from_iter(
+                self.monomials
+                    .iter()
+                    .map(|(formula_id, coeff)| (remap(*formula_id), *coeff)),
+            ),
+        }
+    }
+
+    pub fn apply_fixed_mult(&mut self, fixed: ConcreteBitvector<RBound>) {
+        let bound = self.bound();
+        assert_eq!(bound, fixed.bound());
+
+        self.constant = self.constant.mul(fixed);
+
+        for coefficient in self.monomials.values_mut() {
+            *coefficient = coefficient.mul(fixed);
+        }
+    }
+
+    pub fn single_bit(is_one: bool) -> LinearCombination {
+        let bound = RBound::single_bit_bound();
+        let constant = if is_one {
+            ConcreteBitvector::one(bound)
+        } else {
+            ConcreteBitvector::zero(bound)
+        };
+
+        LinearCombination::from_constant(constant)
+    }
+}
+
+impl Debug for LinearCombination {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut is_first = true;
+
+        write!(f, "(")?;
+
+        // write the linear combinations of formulas with coefficients
+        for (formula_id, coefficient) in &self.monomials {
+            if is_first {
+                is_first = false;
+            } else {
+                write!(f, " + ")?;
+            }
+
+            let one = ConcreteBitvector::<RBound>::one(coefficient.bound());
+
+            if coefficient != &one {
+                write!(f, "{}*", coefficient)?;
+            }
+
+            write!(f, "{:?}", formula_id)?;
+        }
+
+        if is_first {
+            write!(f, "{}", self.constant)?;
+        } else if self.constant.is_nonzero() {
+            write!(f, " + {}", self.constant)?;
+        }
+        write!(f, ") mod {}", 1u128 << self.constant.bound().width())
     }
 }
