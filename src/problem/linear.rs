@@ -6,7 +6,7 @@ use std::fmt::Debug;
 
 use crate::{
     domain::bitvector::{BitvectorBound, RBound},
-    problem::formula::FormulaId,
+    problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
@@ -20,6 +20,13 @@ pub enum LinearOperation {
 }
 
 impl LinearOperation {
+    pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
+        match self {
+            LinearOperation::Combination(combination) => combination.evaluate(fetch),
+            LinearOperation::System(system) => system.evaluate(fetch),
+        }
+    }
+
     pub fn result_bound(&self) -> RBound {
         match self {
             LinearOperation::Combination(combination) => combination.constant.bound(),

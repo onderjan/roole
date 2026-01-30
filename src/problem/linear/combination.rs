@@ -9,7 +9,7 @@ use crate::{
         bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
         traits::forward::HwArith,
     },
-    problem::formula::FormulaId,
+    problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 
 mod ops;
@@ -35,6 +35,17 @@ impl LinearCombination {
 
     pub fn bound(&self) -> RBound {
         self.constant.bound()
+    }
+
+    pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
+        let mut value = D::single_value(self.constant);
+        for (formula_id, coefficient) in &self.monomials {
+            let formula_value = (fetch)(*formula_id);
+            let term_value = formula_value.mul(D::single_value(*coefficient));
+            value = value.add(term_value);
+        }
+
+        value
     }
 
     pub(super) fn normalize(&mut self) {

@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use vec1::Vec1;
 
-use crate::problem::{formula::FormulaId, linear::LinearRelation};
+use crate::{
+    domain::bitvector::{RBound, concr::ConcreteBitvector},
+    problem::{eval::EvaluableDomain, formula::FormulaId, linear::LinearRelation},
+};
 
 mod ops;
 
@@ -17,6 +20,33 @@ pub struct LinearSystem {
 }
 
 impl LinearSystem {
+    pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
+        let bound = RBound::new(1);
+        let mut result = if self.universal {
+            // start with 1
+            D::single_value(ConcreteBitvector::one(bound))
+        } else {
+            // start with 0
+            D::single_value(ConcreteBitvector::zero(bound))
+        };
+
+        for relation in &self.relations {
+            let combination = &relation.combination;
+            let value = combination.evaluate(&fetch);
+            let slack = D::single_value(relation.slack);
+
+            // we are determining value <= slack
+            let relation_result = value.ule(slack);
+
+            if self.universal {
+                result = result.bit_and(relation_result);
+            } else {
+                result = result.bit_or(relation_result);
+            }
+        }
+        result
+    }
+
     pub fn normalize(&mut self) {
         eprintln!("Normalizing system: {:?}", self);
 

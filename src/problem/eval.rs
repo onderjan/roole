@@ -18,7 +18,7 @@ use crate::{
         assignment::Assignment,
         domain::OperationDomain,
         formula::{OperationId, VariableId},
-        linear::{LinearCombination, LinearOperation, LinearSystem},
+        linear::LinearCombination,
     },
 };
 
@@ -239,59 +239,10 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 // narrow to extraction width
                 inner.uext(RBound::new(extract_op.width.get()))
             }
-            Operation::Linear(linear) => self.evaluate_linear(assignment, linear),
-        }
-    }
-
-    fn evaluate_linear(&self, assignment: &Assignment<D>, linear: &LinearOperation) -> D {
-        match linear {
-            LinearOperation::Combination(combination) => {
-                self.evaluate_combination(assignment, combination)
-            }
-            LinearOperation::System(system) => self.evaluate_system(assignment, system),
-        }
-    }
-
-    fn evaluate_combination(
-        &self,
-        assignment: &Assignment<D>,
-        combination: &LinearCombination,
-    ) -> D {
-        let mut value = D::single_value(combination.constant);
-        for (formula_id, coefficient) in &combination.monomials {
-            let formula_value = self.fetch_result(assignment, *formula_id);
-            let term_value = formula_value.mul(D::single_value(*coefficient));
-            value = value.add(term_value);
-        }
-
-        value
-    }
-
-    fn evaluate_system(&self, assignment: &Assignment<D>, system: &LinearSystem) -> D {
-        let bound = RBound::new(1);
-        let mut result = if system.universal {
-            // start with 1
-            D::single_value(ConcreteBitvector::one(bound))
-        } else {
-            // start with 0
-            D::single_value(ConcreteBitvector::zero(bound))
-        };
-
-        for relation in &system.relations {
-            let combination = &relation.combination;
-            let value = self.evaluate_combination(assignment, combination);
-            let slack = D::single_value(relation.slack);
-
-            // we are determining value <= slack
-            let relation_result = value.ule(slack);
-
-            if system.universal {
-                result = result.bit_and(relation_result);
-            } else {
-                result = result.bit_or(relation_result);
+            Operation::Linear(linear) => {
+                linear.evaluate(|formula_id| self.fetch_result(assignment, formula_id))
             }
         }
-        result
     }
 }
 
