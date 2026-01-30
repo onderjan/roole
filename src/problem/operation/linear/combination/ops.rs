@@ -5,7 +5,7 @@ use crate::{
         bitvector::{RBound, concr::ConcreteBitvector},
         traits::forward::HwArith,
     },
-    problem::linear::LinearCombination,
+    problem::operation::LinearCombination,
 };
 
 impl LinearCombination {

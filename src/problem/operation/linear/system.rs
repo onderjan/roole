@@ -5,7 +5,7 @@ use vec1::Vec1;
 
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
-    problem::{eval::EvaluableDomain, formula::FormulaId, linear::LinearRelation},
+    problem::{eval::EvaluableDomain, formula::FormulaId, operation::linear::LinearRelation},
 };
 
 mod ops;

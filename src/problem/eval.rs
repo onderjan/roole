@@ -17,8 +17,10 @@ use crate::{
         assignment::Assignment,
         domain::OperationDomain,
         formula::{FormulaId, VariableId},
-        linear::LinearCombination,
-        operation::{BiOp, BiOperator, ExtOp, IteOp, Operation, OperationId, UniOp, UniOperator},
+        operation::{
+            BiOp, BiOperator, ExtOp, IteOp, LinearCombination, Operation, OperationId, UniOp,
+            UniOperator,
+        },
     },
 };
 

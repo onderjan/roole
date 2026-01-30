@@ -3,7 +3,11 @@ use std::{fmt::Debug, num::NonZeroU32};
 use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
-use crate::problem::{formula::FormulaId, linear::LinearOperation};
+use crate::problem::formula::FormulaId;
+
+mod linear;
+
+pub use linear::{LinearCombination, LinearOperation, LinearRelation, LinearSystem};
 
 /// Operation id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

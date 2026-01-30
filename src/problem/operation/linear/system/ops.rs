@@ -5,7 +5,7 @@ use crate::{
         bitvector::concr::ConcreteBitvector,
         traits::forward::{Bitwise, HwArith},
     },
-    problem::linear::{LinearRelation, LinearSystem},
+    problem::operation::linear::{LinearRelation, LinearSystem},
 };
 
 impl LinearSystem {

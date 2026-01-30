@@ -1,6 +1,6 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwArith},
-    problem::{domain::OperationDomain, linear::LinearCombination},
+    problem::{domain::OperationDomain, operation::LinearCombination},
 };
 
 impl HwArith for OperationDomain {

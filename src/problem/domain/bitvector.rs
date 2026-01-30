@@ -1,6 +1,6 @@
 use crate::{
     domain::bitvector::{RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
-    problem::{domain::OperationDomain, linear::LinearCombination},
+    problem::{domain::OperationDomain, operation::LinearCombination},
 };
 
 impl BitvectorDomain for OperationDomain {

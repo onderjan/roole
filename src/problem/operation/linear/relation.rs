@@ -3,7 +3,7 @@ use std::fmt::Debug;
 
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
-    problem::linear::LinearCombination,
+    problem::operation::LinearCombination,
 };
 
 /// A linear relation `combination` <= `slack`.

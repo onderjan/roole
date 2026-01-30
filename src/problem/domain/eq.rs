@@ -7,7 +7,7 @@ use crate::{
     },
     problem::{
         domain::OperationDomain,
-        linear::{LinearRelation, LinearSystem},
+        operation::{LinearRelation, LinearSystem},
     },
 };
 

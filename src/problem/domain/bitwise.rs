@@ -1,6 +1,6 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::Bitwise},
-    problem::{domain::OperationDomain, linear::LinearSystem},
+    problem::{domain::OperationDomain, operation::LinearSystem},
 };
 
 impl Bitwise for OperationDomain {

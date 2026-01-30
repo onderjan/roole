@@ -6,10 +6,9 @@ use crate::{
         traits::Join,
     },
     problem::{
-        LinearOperation,
         domain::OperationDomain,
         formula::FormulaId,
-        linear::{LinearCombination, LinearSystem},
+        operation::{LinearCombination, LinearOperation, LinearSystem},
     },
 };
 

@@ -10,7 +10,7 @@ mod support;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::bitvector::RBound, problem::LinearOperation};
+use crate::{domain::bitvector::RBound, problem::operation::LinearOperation};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OperationDomain {
