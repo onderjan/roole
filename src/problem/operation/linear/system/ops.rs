@@ -1,5 +1,3 @@
-use vec1::Vec1;
-
 use crate::{
     domain::{
         bitvector::concr::ConcreteBitvector,
@@ -10,11 +8,17 @@ use crate::{
 
 impl LinearSystem {
     pub fn bit_not(self) -> Result<Self, bool> {
-        // negate universality
-        let new_universal = !self.universal;
         let mut new_relations = Vec::new();
 
-        for relation in &self.relations {
+        let was_conjuction = match self {
+            LinearSystem::Single(_) => None,
+            LinearSystem::Disjunction(_) => Some(false),
+            LinearSystem::Conjunction(_) => Some(true),
+        };
+
+        matches!(self, LinearSystem::Conjunction(_));
+
+        for relation in self.into_relations_iter() {
             // consider modulus 'm', left side 'a' and right side slack 's'
             // where 0 <= a < m, 0 <= s < m
             // we can now manipulate inequalities without regard to modularity
@@ -32,14 +36,19 @@ impl LinearSystem {
             let bit_not_slack = relation.slack().bit_not();
             if bit_not_slack.is_zero() {
                 // the relation a <= s was a tautology as s was the highest possible value
-                // the negated relation will be a contradiction
-                if new_universal {
-                    // the new system is a conjunction of relations, becomes a contradiction
-                    return Err(false);
-                }
 
-                // the new system is a disjunction of relations, skip the relation
-                continue;
+                match was_conjuction {
+                    None | Some(false) => {
+                        // this was a single tautology or a disjunction with tautology
+                        // therefore, it was tautological and the negation is a contradiction
+                        return Err(false);
+                    }
+                    Some(true) => {
+                        // this was a conjunction of multiple relations
+                        // skip this relation, but still consider the others
+                        continue;
+                    }
+                }
             }
 
             // we now know 0 <= (!a) < m and 0 <= (!s)-1 < m-1
@@ -52,16 +61,26 @@ impl LinearSystem {
             new_relations.push(LinearRelation::new(combination, slack));
         }
 
-        let Ok(new_relations) = Vec1::try_from_vec(new_relations) else {
-            // no relations retained, the system is an empty disjunction of relations
-            assert!(!new_universal);
-            return Err(true);
+        if new_relations.is_empty() {
+            // no relations retained
+            // this means all relations were tautological and their negation is a contradiction
+            return Err(false);
         };
 
-        Ok(LinearSystem {
-            universal: new_universal,
-            relations: new_relations,
-        })
+        let mut system = match <[_; 1]>::try_from(new_relations) {
+            Ok([new_relation]) => LinearSystem::Single(new_relation),
+            Err(new_relations) => match was_conjuction {
+                Some(false) => LinearSystem::Conjunction(new_relations),
+                Some(true) => LinearSystem::Disjunction(new_relations),
+                None => {
+                    panic!("Bit-not should not turn a single equation into multiple ones")
+                }
+            },
+        };
+
+        system.normalize();
+
+        Ok(system)
     }
 
     pub fn and(self, rhs: LinearSystem) -> Option<Self> {
@@ -72,17 +91,36 @@ impl LinearSystem {
         self.combine(rhs, false)
     }
 
-    fn combine(mut self, rhs: LinearSystem, universal: bool) -> Option<Self> {
-        let lhs_compatible = self.relations.len() == 1 || self.universal == universal;
-        let rhs_compatible = rhs.relations.len() == 1 || rhs.universal == universal;
+    fn combine(self, rhs: LinearSystem, universal: bool) -> Option<Self> {
+        let lhs_compatible = matches!(self, LinearSystem::Single(_))
+            || universal == matches!(self, LinearSystem::Conjunction(_));
+        let rhs_compatible = matches!(rhs, LinearSystem::Single(_))
+            || universal == matches!(rhs, LinearSystem::Conjunction(_));
 
         if !lhs_compatible || !rhs_compatible {
             return None;
         }
 
-        self.relations.extend(rhs.relations);
-        self.normalize();
+        let new_relations: Vec<LinearRelation> = self
+            .into_relations_iter()
+            .chain(rhs.into_relations_iter())
+            .collect();
 
-        Some(self)
+        assert!(!new_relations.is_empty());
+
+        let mut system = match <[_; 1]>::try_from(new_relations) {
+            Ok([new_relation]) => LinearSystem::Single(new_relation),
+            Err(new_relations) => {
+                if universal {
+                    LinearSystem::Conjunction(new_relations)
+                } else {
+                    LinearSystem::Disjunction(new_relations)
+                }
+            }
+        };
+
+        system.normalize();
+
+        Some(system)
     }
 }

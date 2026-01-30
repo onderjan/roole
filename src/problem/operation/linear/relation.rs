@@ -4,7 +4,7 @@ use std::fmt::Debug;
 
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
-    problem::{formula::FormulaId, operation::LinearCombination},
+    problem::{eval::EvaluableDomain, formula::FormulaId, operation::LinearCombination},
 };
 
 /// A linear relation `combination` <= `slack`.
@@ -19,6 +19,14 @@ pub struct LinearRelation {
 impl LinearRelation {
     pub(super) fn new(combination: LinearCombination, slack: ConcreteBitvector<RBound>) -> Self {
         Self { combination, slack }
+    }
+
+    pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
+        let value = self.combination.evaluate(&fetch);
+        let slack = D::single_value(*self.slack());
+
+        // we are determining value <= slack
+        value.ule(slack)
     }
 
     pub(super) fn combination(&self) -> &LinearCombination {
