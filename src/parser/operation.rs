@@ -6,8 +6,11 @@ use aws_smt_ir::smt2parser::{
 };
 use itertools::Itertools;
 
-use crate::problem::formula::{
-    BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, FormulaId, IteOp, Operation, UniOp, UniOperator,
+use crate::problem::{
+    formula::FormulaId,
+    operation::{
+        BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, IteOp, Operation, UniOp, UniOperator,
+    },
 };
 
 impl super::Parser {

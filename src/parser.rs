@@ -14,7 +14,8 @@ use crate::{
     SolverMode,
     problem::{
         Problem,
-        formula::{BiOp, BiOperator, FormulaId, Operation, OperationId, Variable, VariableId},
+        formula::{FormulaId, Variable, VariableId},
+        operation::{BiOp, BiOperator, Operation, OperationId},
     },
     solver::{self},
 };

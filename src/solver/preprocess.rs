@@ -4,7 +4,8 @@ use bimap::BiBTreeMap;
 
 use crate::problem::{
     Evaluator, OperationDomain, Problem,
-    formula::{FormulaId, Operation, OperationId, VariableId},
+    formula::{FormulaId, VariableId},
+    operation::{Operation, OperationId},
 };
 
 pub fn preprocess(problem: &Problem) -> Problem {

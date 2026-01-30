@@ -5,11 +5,14 @@ use crate::{
         RBound,
         abstr::{BitvectorDomain, RBitvector},
     },
-    problem::formula::{OperationId, Variable, VariableId},
+    problem::{
+        formula::{FormulaId, Variable, VariableId},
+        operation::{Operation, OperationId},
+    },
 };
-use formula::{FormulaId, Operation};
 
 pub mod formula;
+pub mod operation;
 pub mod solution;
 
 mod assignment;

@@ -3,7 +3,6 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use super::formula::{BiOp, BiOperator, ExtOp, FormulaId, IteOp, Operation, UniOp, UniOperator};
 use crate::{
     domain::{
         bitvector::{
@@ -17,8 +16,9 @@ use crate::{
         Problem,
         assignment::Assignment,
         domain::OperationDomain,
-        formula::{OperationId, VariableId},
+        formula::{FormulaId, VariableId},
         linear::LinearCombination,
+        operation::{BiOp, BiOperator, ExtOp, IteOp, Operation, OperationId, UniOp, UniOperator},
     },
 };
 
