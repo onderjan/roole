@@ -5,17 +5,17 @@ use crate::{
         bitvector::{RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::HwArith,
     },
-    problem::domain::{LinearBitvector, LinearCombination},
+    problem::domain::{LinearCombination, OperationDomain},
 };
 
-impl HwArith for LinearBitvector {
+impl HwArith for OperationDomain {
     fn arith_neg(self) -> Self {
-        let LinearBitvector::Combination(combination) = self else {
+        let OperationDomain::Combination(combination) = self else {
             // return top value
             return Self::top(self.bound());
         };
 
-        LinearBitvector::Combination(combination.arith_neg())
+        OperationDomain::Combination(combination.arith_neg())
     }
     fn add(self, rhs: Self) -> Self {
         self.linear_combine(rhs, |a, b| a.add(b))
@@ -29,7 +29,7 @@ impl HwArith for LinearBitvector {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (LinearBitvector::Combination(lhs), LinearBitvector::Combination(rhs)) = (self, rhs)
+        let (OperationDomain::Combination(lhs), OperationDomain::Combination(rhs)) = (self, rhs)
         else {
             // return top value
             return Self::top(bound);
@@ -66,23 +66,23 @@ impl HwArith for LinearBitvector {
     }
 }
 
-impl LinearBitvector {
+impl OperationDomain {
     fn linear_combine(
         self,
-        rhs: LinearBitvector,
+        rhs: OperationDomain,
         op: fn(LinearCombination, LinearCombination) -> LinearCombination,
     ) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (LinearBitvector::Combination(lhs), LinearBitvector::Combination(rhs)) = (self, rhs)
+        let (OperationDomain::Combination(lhs), OperationDomain::Combination(rhs)) = (self, rhs)
         else {
-            return LinearBitvector::top(bound);
+            return OperationDomain::top(bound);
         };
 
         let combination = op(lhs, rhs);
 
-        LinearBitvector::Combination(combination)
+        OperationDomain::Combination(combination)
     }
 }
 
@@ -149,28 +149,28 @@ mod tests {
     #[test]
     fn test_addsub() {
         let bound = RBound::new(32);
-        let a = LinearBitvector::Combination(LinearCombination {
+        let a = OperationDomain::Combination(LinearCombination {
             constant: ConcreteBitvector::new(38, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(12, bound),
             )]),
         });
-        let b = LinearBitvector::Combination(LinearCombination {
+        let b = OperationDomain::Combination(LinearCombination {
             constant: ConcreteBitvector::new(17, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(7, bound),
             )]),
         });
-        let add_result = LinearBitvector::Combination(LinearCombination {
+        let add_result = OperationDomain::Combination(LinearCombination {
             constant: ConcreteBitvector::new(55, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(19, bound),
             )]),
         });
-        let sub_result = LinearBitvector::Combination(LinearCombination {
+        let sub_result = OperationDomain::Combination(LinearCombination {
             constant: ConcreteBitvector::new(21, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),

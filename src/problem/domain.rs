@@ -44,7 +44,7 @@ pub struct LinearSystem {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum LinearBitvector {
+pub enum OperationDomain {
     Top(RBound),
     Combination(LinearCombination),
     System(LinearSystem),

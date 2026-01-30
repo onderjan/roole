@@ -1,10 +1,10 @@
 use crate::{
     domain::{bitvector::RBound, traits::forward::BExt},
-    problem::domain::LinearBitvector,
+    problem::domain::OperationDomain,
 };
 
-impl BExt<RBound> for LinearBitvector {
-    type Output = LinearBitvector;
+impl BExt<RBound> for OperationDomain {
+    type Output = OperationDomain;
 
     fn uext(self, new_bound: RBound) -> Self::Output {
         // TODO: bit extension

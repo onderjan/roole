@@ -3,12 +3,12 @@ use std::collections::BTreeMap;
 use bimap::BiBTreeMap;
 
 use crate::problem::{
-    Evaluator, LinearBitvector, Problem,
+    Evaluator, OperationDomain, Problem,
     formula::{FormulaId, Operation, OperationId, VariableId},
 };
 
 pub fn preprocess(problem: &Problem) -> Problem {
-    let mut evaluator = Evaluator::<LinearBitvector>::new(problem);
+    let mut evaluator = Evaluator::<OperationDomain>::new(problem);
     evaluator.evaluate(&problem.linear_assignment());
 
     eprintln!("Preprocessing evaluator: {:#?}", evaluator);
@@ -23,8 +23,8 @@ pub fn preprocess(problem: &Problem) -> Problem {
 
 fn used_operations<'a>(
     problem: &Problem,
-    evaluator: &'a Evaluator<'a, LinearBitvector>,
-) -> BTreeMap<FormulaId, Option<&'a LinearBitvector>> {
+    evaluator: &'a Evaluator<'a, OperationDomain>,
+) -> BTreeMap<FormulaId, Option<&'a OperationDomain>> {
     let mut used_operations = BTreeMap::new();
     let mut stack = vec![problem.assertion()];
 
@@ -69,7 +69,7 @@ fn used_operations<'a>(
 
 fn create_preprocessed(
     problem: &Problem,
-    used_operations: BTreeMap<FormulaId, Option<&LinearBitvector>>,
+    used_operations: BTreeMap<FormulaId, Option<&OperationDomain>>,
 ) -> Problem {
     let mut old_to_new = BiBTreeMap::new();
 
@@ -86,15 +86,15 @@ fn create_preprocessed(
             FormulaId::Operation(operation_id) => {
                 let operation = if let Some(new_operation) = new_operation {
                     match &new_operation {
-                        LinearBitvector::Top(_) => {
+                        OperationDomain::Top(_) => {
                             problem.operation(operation_id).remapped(&old_to_new)
                         }
-                        LinearBitvector::Combination(linear_combination) => {
+                        OperationDomain::Combination(linear_combination) => {
                             Operation::LinearCombination(
                                 linear_combination.clone().remap(&old_to_new),
                             )
                         }
-                        LinearBitvector::System(linear_system) => {
+                        OperationDomain::System(linear_system) => {
                             Operation::LinearSystem(linear_system.clone().remap(&old_to_new))
                         }
                     }

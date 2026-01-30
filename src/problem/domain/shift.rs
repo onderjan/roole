@@ -1,9 +1,9 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwShift},
-    problem::domain::LinearBitvector,
+    problem::domain::OperationDomain,
 };
 
-impl HwShift for LinearBitvector {
+impl HwShift for OperationDomain {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {

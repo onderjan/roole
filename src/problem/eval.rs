@@ -16,7 +16,7 @@ use crate::{
     problem::{
         Problem,
         assignment::Assignment,
-        domain::{LinearBitvector, LinearCombination, LinearSystem},
+        domain::{OperationDomain, LinearCombination, LinearSystem},
         formula::{OperationId, VariableId},
     },
 };
@@ -308,11 +308,11 @@ impl EvaluableDomain for AbstractBitvector<RBound> {
     }
 }
 
-impl EvaluableDomain for LinearBitvector {
+impl EvaluableDomain for OperationDomain {
     fn formula(bound: RBound, formula: FormulaId) -> Self {
         let mut monomials = BTreeMap::new();
         monomials.insert(formula, ConcreteBitvector::one(bound));
-        LinearBitvector::Combination(LinearCombination {
+        OperationDomain::Combination(LinearCombination {
             constant: ConcreteBitvector::zero(bound),
             monomials,
         })

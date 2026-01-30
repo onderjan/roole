@@ -5,19 +5,19 @@ use crate::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, HwArith},
     },
-    problem::domain::{LinearBitvector, LinearCombination, LinearRelation, LinearSystem},
+    problem::domain::{OperationDomain, LinearCombination, LinearRelation, LinearSystem},
 };
 
-impl Bitwise for LinearBitvector {
+impl Bitwise for OperationDomain {
     fn bit_not(self) -> Self {
         match self {
-            LinearBitvector::Top(_) => self,
-            LinearBitvector::Combination(combination) => {
+            OperationDomain::Top(_) => self,
+            OperationDomain::Combination(combination) => {
                 // bit_not(x) = arith_neg(x) - 1
 
-                LinearBitvector::Combination(combination.bit_not())
+                OperationDomain::Combination(combination.bit_not())
             }
-            LinearBitvector::System(system) => LinearBitvector::negate_system(system),
+            OperationDomain::System(system) => OperationDomain::negate_system(system),
         }
     }
 
@@ -26,10 +26,10 @@ impl Bitwise for LinearBitvector {
         assert_eq!(bound, rhs.bound());
 
         match (self, rhs) {
-            (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => lhs
+            (OperationDomain::System(lhs), OperationDomain::System(rhs)) => lhs
                 .combine(rhs, true)
-                .map(LinearBitvector::System)
-                .unwrap_or_else(|| LinearBitvector::Top(RBound::single_bit_bound())),
+                .map(OperationDomain::System)
+                .unwrap_or_else(|| OperationDomain::Top(RBound::single_bit_bound())),
             _ => Self::top(bound),
         }
     }
@@ -38,10 +38,10 @@ impl Bitwise for LinearBitvector {
         assert_eq!(bound, rhs.bound());
 
         match (self, rhs) {
-            (LinearBitvector::System(lhs), LinearBitvector::System(rhs)) => lhs
+            (OperationDomain::System(lhs), OperationDomain::System(rhs)) => lhs
                 .combine(rhs, false)
-                .map(LinearBitvector::System)
-                .unwrap_or_else(|| LinearBitvector::Top(RBound::single_bit_bound())),
+                .map(OperationDomain::System)
+                .unwrap_or_else(|| OperationDomain::Top(RBound::single_bit_bound())),
             _ => Self::top(bound),
         }
     }
@@ -50,7 +50,7 @@ impl Bitwise for LinearBitvector {
         assert_eq!(bound, rhs.bound());
         // TODO: handle masking situations
 
-        LinearBitvector::top(bound)
+        OperationDomain::top(bound)
     }
 }
 
@@ -63,7 +63,7 @@ impl LinearCombination {
     }
 }
 
-impl LinearBitvector {
+impl OperationDomain {
     fn negate_system(system: LinearSystem) -> Self {
         // negate universality
         let new_universal = !system.universal;
@@ -90,7 +90,7 @@ impl LinearBitvector {
                 // the negated relation will be a contradiction
                 if new_universal {
                     // the new system is a conjunction of relations, becomes a contradiction
-                    return LinearBitvector::Combination(LinearCombination::single_bit(false));
+                    return OperationDomain::Combination(LinearCombination::single_bit(false));
                 }
 
                 // the new system is a disjunction of relations, skip the relation
@@ -110,10 +110,10 @@ impl LinearBitvector {
         let Ok(new_relations) = Vec1::try_from_vec(new_relations) else {
             // no relations retained, the system is an empty disjunction of relations
             assert!(!new_universal);
-            return LinearBitvector::Combination(LinearCombination::single_bit(true));
+            return OperationDomain::Combination(LinearCombination::single_bit(true));
         };
 
-        LinearBitvector::System(LinearSystem {
+        OperationDomain::System(LinearSystem {
             universal: new_universal,
             relations: new_relations,
         })

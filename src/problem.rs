@@ -19,7 +19,7 @@ mod eval;
 
 pub use assignment::Assignment;
 pub use decision::Decision;
-pub use domain::LinearBitvector;
+pub use domain::OperationDomain;
 pub use eval::Evaluator;
 
 /// A satisfiability problem.
@@ -75,11 +75,11 @@ impl Problem {
         assignment
     }
 
-    pub fn linear_assignment(&self) -> Assignment<LinearBitvector> {
+    pub fn linear_assignment(&self) -> Assignment<OperationDomain> {
         let mut assignment = Assignment { values: Vec::new() };
         for (variable_id, variable) in self.variables.iter().enumerate() {
             let bound = RBound::new(variable.width);
-            assignment.values.push(LinearBitvector::for_formula_id(
+            assignment.values.push(OperationDomain::for_formula_id(
                 FormulaId::Variable(VariableId(variable_id)),
                 bound,
             ));

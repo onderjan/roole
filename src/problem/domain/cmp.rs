@@ -1,10 +1,10 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::TypedCmp},
-    problem::domain::LinearBitvector,
+    problem::domain::OperationDomain,
 };
 
-impl TypedCmp for LinearBitvector {
-    type Output = LinearBitvector;
+impl TypedCmp for OperationDomain {
+    type Output = OperationDomain;
 
     fn ult(self, rhs: Self) -> Self::Output {
         let bound = self.bound();

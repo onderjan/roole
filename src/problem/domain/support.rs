@@ -8,17 +8,17 @@ use crate::{
         traits::{Join, forward::HwArith},
     },
     problem::{
-        domain::{LinearBitvector, LinearCombination, LinearRelation, LinearSystem},
+        domain::{LinearCombination, LinearRelation, LinearSystem, OperationDomain},
         formula::FormulaId,
     },
 };
 
-impl LinearBitvector {
+impl OperationDomain {
     pub fn for_formula_id(formula_id: FormulaId, bound: RBound) -> Self {
         let constant = ConcreteBitvector::zero(bound);
         let monomials = BTreeMap::from_iter([(formula_id, ConcreteBitvector::one(bound))]);
 
-        LinearBitvector::Combination(LinearCombination {
+        OperationDomain::Combination(LinearCombination {
             constant,
             monomials,
         })
@@ -26,9 +26,9 @@ impl LinearBitvector {
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
         match &self {
-            LinearBitvector::Top(_) => vec![],
-            LinearBitvector::Combination(combination) => combination.used_ids(),
-            LinearBitvector::System(system) => system.used_ids(),
+            OperationDomain::Top(_) => vec![],
+            OperationDomain::Combination(combination) => combination.used_ids(),
+            OperationDomain::System(system) => system.used_ids(),
         }
     }
 }
@@ -136,7 +136,7 @@ impl LinearSystem {
     }
 }
 
-impl Join for LinearBitvector {
+impl Join for OperationDomain {
     fn join(self, other: &Self) -> Self {
         assert_eq!(self.bound(), other.bound());
 
@@ -149,12 +149,12 @@ impl Join for LinearBitvector {
     }
 }
 
-impl Debug for LinearBitvector {
+impl Debug for OperationDomain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
-            LinearBitvector::Top(bound) => write!(f, "⊤({})", bound.width()),
-            LinearBitvector::Combination(combination) => Debug::fmt(combination, f),
-            LinearBitvector::System(system) => Debug::fmt(system, f),
+            OperationDomain::Top(bound) => write!(f, "⊤({})", bound.width()),
+            OperationDomain::Combination(combination) => Debug::fmt(combination, f),
+            OperationDomain::System(system) => Debug::fmt(system, f),
         }
     }
 }

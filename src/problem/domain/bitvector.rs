@@ -2,29 +2,29 @@ use std::collections::BTreeMap;
 
 use crate::{
     domain::bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
-    problem::domain::{LinearBitvector, LinearCombination},
+    problem::domain::{OperationDomain, LinearCombination},
 };
 
-impl BitvectorDomain for LinearBitvector {
+impl BitvectorDomain for OperationDomain {
     type Bound = RBound;
 
     fn bound(&self) -> RBound {
         match &self {
-            LinearBitvector::Top(bound) => *bound,
-            LinearBitvector::Combination(combination) => combination.bound(),
-            LinearBitvector::System(_) => RBound::single_bit_bound(),
+            OperationDomain::Top(bound) => *bound,
+            OperationDomain::Combination(combination) => combination.bound(),
+            OperationDomain::System(_) => RBound::single_bit_bound(),
         }
     }
 
     fn single_value(value: ConcreteBitvector<RBound>) -> Self {
-        LinearBitvector::Combination(LinearCombination {
+        OperationDomain::Combination(LinearCombination {
             constant: value,
             monomials: BTreeMap::new(),
         })
     }
 
     fn top(bound: RBound) -> Self {
-        LinearBitvector::Top(bound)
+        OperationDomain::Top(bound)
     }
 
     fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>> {

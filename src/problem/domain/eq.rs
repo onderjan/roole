@@ -5,17 +5,17 @@ use crate::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{Bitwise, TypedEq},
     },
-    problem::domain::{LinearBitvector, LinearRelation, LinearSystem},
+    problem::domain::{OperationDomain, LinearRelation, LinearSystem},
 };
 
-impl TypedEq for LinearBitvector {
-    type Output = LinearBitvector;
+impl TypedEq for OperationDomain {
+    type Output = OperationDomain;
     fn eq(self, rhs: Self) -> Self::Output {
         assert_eq!(self.bound(), rhs.bound());
 
-        let (LinearBitvector::Combination(lhs), LinearBitvector::Combination(rhs)) = (self, rhs)
+        let (OperationDomain::Combination(lhs), OperationDomain::Combination(rhs)) = (self, rhs)
         else {
-            return LinearBitvector::top(RBound::single_bit_bound());
+            return OperationDomain::top(RBound::single_bit_bound());
         };
 
         // if both are combinations, make into an equality
@@ -27,7 +27,7 @@ impl TypedEq for LinearBitvector {
             universal: true,
             relations: vec1![LinearRelation { combination, slack }],
         };
-        LinearBitvector::System(system)
+        OperationDomain::System(system)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {
