@@ -167,14 +167,8 @@ impl Operation {
             }
             Operation::ConcatOp(concat_op) => vec![concat_op.left, concat_op.right],
             Operation::ExtractOp(extract_op) => vec![extract_op.inner],
-            Operation::LinearCombination(combination) => {
-                combination.coefficients.keys().copied().collect()
-            }
-            Operation::LinearSystem(system) => system
-                .relations
-                .iter()
-                .flat_map(|relation| relation.combination.coefficients.keys().copied())
-                .collect(),
+            Operation::LinearCombination(combination) => combination.used_ids(),
+            Operation::LinearSystem(system) => system.used_ids(),
         }
     }
 

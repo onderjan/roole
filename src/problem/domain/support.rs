@@ -16,38 +16,42 @@ use crate::{
 impl LinearBitvector {
     pub fn for_formula_id(formula_id: FormulaId, bound: RBound) -> Self {
         let constant = ConcreteBitvector::zero(bound);
-        let mut coefficients = BTreeMap::new();
-        coefficients.insert(formula_id, ConcreteBitvector::one(bound));
+        let monomials = BTreeMap::from_iter([(formula_id, ConcreteBitvector::one(bound))]);
 
         LinearBitvector::Combination(LinearCombination {
             constant,
-            coefficients,
+            monomials,
         })
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
         match &self {
             LinearBitvector::Top(_) => vec![],
-            LinearBitvector::Combination(combination) => {
-                combination.coefficients.keys().copied().collect()
-            }
-            LinearBitvector::System(system) => system
-                .relations
-                .iter()
-                .flat_map(|relation| relation.combination.coefficients.keys().copied())
-                .collect(),
+            LinearBitvector::Combination(combination) => combination.used_ids(),
+            LinearBitvector::System(system) => system.used_ids(),
         }
     }
 }
 
 impl LinearCombination {
+    pub fn from_constant(constant: ConcreteBitvector<RBound>) -> Self {
+        Self {
+            constant,
+            monomials: BTreeMap::new(),
+        }
+    }
+
+    pub fn used_ids(&self) -> Vec<FormulaId> {
+        self.monomials.keys().copied().collect()
+    }
+
     pub fn bound(&self) -> RBound {
         self.constant.bound()
     }
 
     pub(super) fn normalize(&mut self) {
         // eliminate zero coefficients
-        self.coefficients.retain(|_, coeff| !coeff.is_zero());
+        self.monomials.retain(|_, coeff| !coeff.is_zero());
     }
 
     pub fn remap(self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
@@ -60,8 +64,8 @@ impl LinearCombination {
 
         LinearCombination {
             constant: self.constant,
-            coefficients: BTreeMap::from_iter(
-                self.coefficients
+            monomials: BTreeMap::from_iter(
+                self.monomials
                     .iter()
                     .map(|(formula_id, coeff)| (remap(*formula_id), *coeff)),
             ),
@@ -74,8 +78,8 @@ impl LinearCombination {
 
         self.constant = self.constant.mul(fixed);
 
-        for coeff in self.coefficients.values_mut() {
-            *coeff = coeff.mul(fixed);
+        for coefficient in self.monomials.values_mut() {
+            *coefficient = coefficient.mul(fixed);
         }
     }
 
@@ -87,10 +91,7 @@ impl LinearCombination {
             ConcreteBitvector::zero(bound)
         };
 
-        LinearCombination {
-            constant,
-            coefficients: BTreeMap::new(),
-        }
+        LinearCombination::from_constant(constant)
     }
 }
 
@@ -126,6 +127,13 @@ impl LinearSystem {
 
         self
     }
+
+    pub fn used_ids(&self) -> Vec<FormulaId> {
+        self.relations
+            .iter()
+            .flat_map(|relation| relation.combination.monomials.keys().copied())
+            .collect()
+    }
 }
 
 impl Join for LinearBitvector {
@@ -158,7 +166,7 @@ impl Debug for LinearCombination {
         write!(f, "(")?;
 
         // write the linear combinations of formulas with coefficients
-        for (formula_id, coefficient) in &self.coefficients {
+        for (formula_id, coefficient) in &self.monomials {
             if is_first {
                 is_first = false;
             } else {

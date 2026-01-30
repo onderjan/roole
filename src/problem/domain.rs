@@ -18,10 +18,11 @@ use crate::{
     problem::formula::FormulaId,
 };
 
+/// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearCombination {
     pub constant: ConcreteBitvector<RBound>,
-    pub coefficients: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
+    pub monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
 }
 
 /// A linear relation `combination` <= `slack`.

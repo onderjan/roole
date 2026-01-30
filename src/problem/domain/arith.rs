@@ -35,9 +35,9 @@ impl HwArith for LinearBitvector {
             return Self::top(bound);
         };
 
-        let (constant, mut combination) = if lhs.coefficients.is_empty() {
+        let (constant, mut combination) = if lhs.monomials.is_empty() {
             (lhs.constant, rhs)
-        } else if rhs.coefficients.is_empty() {
+        } else if rhs.monomials.is_empty() {
             (rhs.constant, lhs)
         } else {
             // return top value
@@ -89,8 +89,8 @@ impl LinearBitvector {
 impl LinearCombination {
     pub(super) fn arith_neg(mut self) -> LinearCombination {
         self.constant = self.constant.arith_neg();
-        for coeff in self.coefficients.values_mut() {
-            *coeff = (*coeff).arith_neg();
+        for coefficient in self.monomials.values_mut() {
+            *coefficient = (*coefficient).arith_neg();
         }
 
         self.normalize();
@@ -112,27 +112,27 @@ impl LinearCombination {
         op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
     ) -> LinearCombination {
         let constant = op(self.constant, rhs.constant);
-        let mut coefficients = BTreeMap::new();
+        let mut monomials = BTreeMap::new();
 
-        for (formula, left_coeff) in self.coefficients {
-            let coeff = if let Some(right_coeff) = rhs.coefficients.remove(&formula) {
+        for (formula, left_coeff) in self.monomials {
+            let coeff = if let Some(right_coeff) = rhs.monomials.remove(&formula) {
                 op(left_coeff, right_coeff)
             } else {
                 let zero = ConcreteBitvector::zero(left_coeff.bound());
                 op(left_coeff, zero)
             };
-            coefficients.insert(formula, coeff);
+            monomials.insert(formula, coeff);
         }
 
-        for (formula, right_coeff) in rhs.coefficients {
+        for (formula, right_coeff) in rhs.monomials {
             let zero = ConcreteBitvector::zero(right_coeff.bound());
             let coeff = op(zero, right_coeff);
-            coefficients.insert(formula, coeff);
+            monomials.insert(formula, coeff);
         }
 
         let mut combination = LinearCombination {
             constant,
-            coefficients,
+            monomials,
         };
         combination.normalize();
 
@@ -151,28 +151,28 @@ mod tests {
         let bound = RBound::new(32);
         let a = LinearBitvector::Combination(LinearCombination {
             constant: ConcreteBitvector::new(38, bound),
-            coefficients: BTreeMap::from_iter([(
+            monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(12, bound),
             )]),
         });
         let b = LinearBitvector::Combination(LinearCombination {
             constant: ConcreteBitvector::new(17, bound),
-            coefficients: BTreeMap::from_iter([(
+            monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(7, bound),
             )]),
         });
         let add_result = LinearBitvector::Combination(LinearCombination {
             constant: ConcreteBitvector::new(55, bound),
-            coefficients: BTreeMap::from_iter([(
+            monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(19, bound),
             )]),
         });
         let sub_result = LinearBitvector::Combination(LinearCombination {
             constant: ConcreteBitvector::new(21, bound),
-            coefficients: BTreeMap::from_iter([(
+            monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(5, bound),
             )]),

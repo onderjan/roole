@@ -19,7 +19,7 @@ impl BitvectorDomain for LinearBitvector {
     fn single_value(value: ConcreteBitvector<RBound>) -> Self {
         LinearBitvector::Combination(LinearCombination {
             constant: value,
-            coefficients: BTreeMap::new(),
+            monomials: BTreeMap::new(),
         })
     }
 

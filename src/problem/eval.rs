@@ -251,9 +251,9 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         combination: &LinearCombination,
     ) -> D {
         let mut value = D::single_value(combination.constant);
-        for (formula_id, coeff) in &combination.coefficients {
+        for (formula_id, coefficient) in &combination.monomials {
             let formula_value = self.fetch_result(assignment, *formula_id);
-            let term_value = formula_value.mul(D::single_value(*coeff));
+            let term_value = formula_value.mul(D::single_value(*coefficient));
             value = value.add(term_value);
         }
 
@@ -310,11 +310,11 @@ impl EvaluableDomain for AbstractBitvector<RBound> {
 
 impl EvaluableDomain for LinearBitvector {
     fn formula(bound: RBound, formula: FormulaId) -> Self {
-        let mut coefficients = BTreeMap::new();
-        coefficients.insert(formula, ConcreteBitvector::one(bound));
+        let mut monomials = BTreeMap::new();
+        monomials.insert(formula, ConcreteBitvector::one(bound));
         LinearBitvector::Combination(LinearCombination {
             constant: ConcreteBitvector::zero(bound),
-            coefficients,
+            monomials,
         })
     }
 }
