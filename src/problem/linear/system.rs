@@ -5,6 +5,8 @@ use vec1::Vec1;
 
 use crate::problem::{formula::FormulaId, linear::LinearRelation};
 
+mod ops;
+
 /// A system of linear relations.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {

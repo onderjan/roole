@@ -10,14 +10,10 @@ mod support;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::bitvector::RBound,
-    problem::linear::{LinearCombination, LinearSystem},
-};
+use crate::{domain::bitvector::RBound, problem::LinearOperation};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OperationDomain {
     Top(RBound),
-    Combination(LinearCombination),
-    System(LinearSystem),
+    Linear(LinearOperation),
 }

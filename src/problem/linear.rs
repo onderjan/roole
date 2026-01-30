@@ -4,7 +4,10 @@ mod system;
 
 use std::fmt::Debug;
 
-use crate::{domain::bitvector::BitvectorBound, problem::formula::FormulaId};
+use crate::{
+    domain::bitvector::{BitvectorBound, RBound},
+    problem::formula::FormulaId,
+};
 use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +20,13 @@ pub enum LinearOperation {
 }
 
 impl LinearOperation {
+    pub fn result_bound(&self) -> RBound {
+        match self {
+            LinearOperation::Combination(combination) => combination.constant.bound(),
+            LinearOperation::System(_) => RBound::single_bit_bound(),
+        }
+    }
+
     pub fn result_width(&self) -> u32 {
         match self {
             LinearOperation::Combination(combination) => combination.constant.bound().width(),
@@ -35,6 +45,20 @@ impl LinearOperation {
         match self {
             LinearOperation::Combination(combination) => combination.remap(old_to_new),
             LinearOperation::System(system) => system.remap(old_to_new),
+        }
+    }
+
+    pub fn bit_not(self) -> Self {
+        match self {
+            LinearOperation::Combination(combination) => {
+                LinearOperation::Combination(combination.bit_not())
+            }
+            LinearOperation::System(system) => match system.bit_not() {
+                Ok(system) => LinearOperation::System(system),
+                Err(constant) => {
+                    LinearOperation::Combination(LinearCombination::single_bit(constant))
+                }
+            },
         }
     }
 }

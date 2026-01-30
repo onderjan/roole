@@ -16,8 +16,7 @@ impl TypedEq for OperationDomain {
     fn eq(self, rhs: Self) -> Self::Output {
         assert_eq!(self.bound(), rhs.bound());
 
-        let (OperationDomain::Combination(lhs), OperationDomain::Combination(rhs)) = (self, rhs)
-        else {
+        let (Ok(lhs), Ok(rhs)) = (self.try_combination(), rhs.try_combination()) else {
             return OperationDomain::top(RBound::single_bit_bound());
         };
 
@@ -30,7 +29,7 @@ impl TypedEq for OperationDomain {
             universal: true,
             relations: vec1![LinearRelation { combination, slack }],
         };
-        OperationDomain::System(system)
+        OperationDomain::from_system(system)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {

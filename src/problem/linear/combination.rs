@@ -58,20 +58,20 @@ impl LinearCombination {
         }
     }
 
-    pub fn apply_fixed_mult(&mut self, fixed: ConcreteBitvector<RBound>) {
+    pub fn scale(&mut self, scaler: ConcreteBitvector<RBound>) {
         let bound = self.bound();
-        assert_eq!(bound, fixed.bound());
+        assert_eq!(bound, scaler.bound());
 
-        self.constant = self.constant.mul(fixed);
+        self.constant = self.constant.mul(scaler);
 
         for coefficient in self.monomials.values_mut() {
-            *coefficient = coefficient.mul(fixed);
+            *coefficient = coefficient.mul(scaler);
         }
     }
 
-    pub fn single_bit(is_one: bool) -> LinearCombination {
+    pub fn single_bit(constant: bool) -> LinearCombination {
         let bound = RBound::single_bit_bound();
-        let constant = if is_one {
+        let constant = if constant {
             ConcreteBitvector::one(bound)
         } else {
             ConcreteBitvector::zero(bound)

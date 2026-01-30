@@ -319,7 +319,7 @@ impl EvaluableDomain for OperationDomain {
     fn formula(bound: RBound, formula: FormulaId) -> Self {
         let mut monomials = BTreeMap::new();
         monomials.insert(formula, ConcreteBitvector::one(bound));
-        OperationDomain::Combination(LinearCombination {
+        OperationDomain::from_combination(LinearCombination {
             constant: ConcreteBitvector::zero(bound),
             monomials,
         })

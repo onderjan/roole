@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use bimap::BiBTreeMap;
 
 use crate::problem::{
-    Evaluator, LinearOperation, OperationDomain, Problem,
+    Evaluator, OperationDomain, Problem,
     formula::{FormulaId, Operation, OperationId, VariableId},
 };
 
@@ -87,12 +87,7 @@ fn create_preprocessed(
                 let operation = if let Some(new_operation) = new_operation {
                     match &new_operation {
                         OperationDomain::Top(_) => problem.operation(operation_id),
-                        OperationDomain::Combination(combination) => {
-                            &Operation::Linear(LinearOperation::Combination(combination.clone()))
-                        }
-                        OperationDomain::System(linear_system) => {
-                            &Operation::Linear(LinearOperation::System(linear_system.clone()))
-                        }
+                        OperationDomain::Linear(linear) => &Operation::Linear(linear.clone()),
                     }
                 } else {
                     problem.operation(operation_id)

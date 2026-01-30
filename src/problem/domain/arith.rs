@@ -5,12 +5,12 @@ use crate::{
 
 impl HwArith for OperationDomain {
     fn arith_neg(self) -> Self {
-        let OperationDomain::Combination(combination) = self else {
-            // return top value
-            return Self::top(self.bound());
+        let combination = match self.try_combination() {
+            Ok(ok) => ok,
+            Err(err) => return err,
         };
 
-        OperationDomain::Combination(combination.arith_neg())
+        Self::from_combination(combination.arith_neg())
     }
     fn add(self, rhs: Self) -> Self {
         self.linear_combine(rhs, |a, b| a.add(b))
@@ -24,8 +24,7 @@ impl HwArith for OperationDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (OperationDomain::Combination(lhs), OperationDomain::Combination(rhs)) = (self, rhs)
-        else {
+        let (Ok(lhs), Ok(rhs)) = (self.try_combination(), rhs.try_combination()) else {
             // return top value
             return Self::top(bound);
         };
@@ -40,8 +39,8 @@ impl HwArith for OperationDomain {
         };
 
         // multiply combination by constant
-        combination.apply_fixed_mult(constant);
-        Self::Combination(combination)
+        combination.scale(constant);
+        Self::from_combination(combination)
     }
 
     fn udiv(self, _rhs: Self) -> Self {
@@ -70,14 +69,12 @@ impl OperationDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (OperationDomain::Combination(lhs), OperationDomain::Combination(rhs)) = (self, rhs)
-        else {
+        let (Ok(lhs), Ok(rhs)) = (self.try_combination(), rhs.try_combination()) else {
             return OperationDomain::top(bound);
         };
 
         let combination = op(lhs, rhs);
-
-        OperationDomain::Combination(combination)
+        OperationDomain::from_combination(combination)
     }
 }
 
@@ -95,28 +92,28 @@ mod tests {
     #[test]
     fn test_addsub() {
         let bound = RBound::new(32);
-        let a = OperationDomain::Combination(LinearCombination {
+        let a = OperationDomain::from_combination(LinearCombination {
             constant: ConcreteBitvector::new(38, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(12, bound),
             )]),
         });
-        let b = OperationDomain::Combination(LinearCombination {
+        let b = OperationDomain::from_combination(LinearCombination {
             constant: ConcreteBitvector::new(17, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(7, bound),
             )]),
         });
-        let add_result = OperationDomain::Combination(LinearCombination {
+        let add_result = OperationDomain::from_combination(LinearCombination {
             constant: ConcreteBitvector::new(55, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),
                 ConcreteBitvector::new(19, bound),
             )]),
         });
-        let sub_result = OperationDomain::Combination(LinearCombination {
+        let sub_result = OperationDomain::from_combination(LinearCombination {
             constant: ConcreteBitvector::new(21, bound),
             monomials: BTreeMap::from_iter([(
                 FormulaId::Variable(VariableId(0)),

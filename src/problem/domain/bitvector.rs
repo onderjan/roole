@@ -1,5 +1,5 @@
 use crate::{
-    domain::bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+    domain::bitvector::{RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
     problem::{domain::OperationDomain, linear::LinearCombination},
 };
 
@@ -9,13 +9,12 @@ impl BitvectorDomain for OperationDomain {
     fn bound(&self) -> RBound {
         match &self {
             OperationDomain::Top(bound) => *bound,
-            OperationDomain::Combination(combination) => combination.bound(),
-            OperationDomain::System(_) => RBound::single_bit_bound(),
+            OperationDomain::Linear(linear) => linear.result_bound(),
         }
     }
 
     fn single_value(value: ConcreteBitvector<RBound>) -> Self {
-        OperationDomain::Combination(LinearCombination::from_constant(value))
+        OperationDomain::from_combination(LinearCombination::from_constant(value))
     }
 
     fn top(bound: RBound) -> Self {
