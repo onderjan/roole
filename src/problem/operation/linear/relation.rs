@@ -1,6 +1,5 @@
-use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
@@ -37,7 +36,7 @@ impl LinearRelation {
         &self.slack
     }
 
-    pub(super) fn remap(&mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) {
+    pub(super) fn remap(&mut self, old_to_new: &BTreeMap<FormulaId, FormulaId>) {
         self.combination.remap(old_to_new);
     }
 

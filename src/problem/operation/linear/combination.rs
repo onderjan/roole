@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
-use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -65,9 +64,9 @@ impl LinearCombination {
         self.monomials.retain(|_, coeff| !coeff.is_zero());
     }
 
-    pub fn remap(&mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) {
+    pub fn remap(&mut self, old_to_new: &BTreeMap<FormulaId, FormulaId>) {
         let remap = |formula_id| {
-            let Some(new_id) = old_to_new.get_by_left(&formula_id) else {
+            let Some(new_id) = old_to_new.get(&formula_id) else {
                 panic!("Used formula id {:?} should be remappable", formula_id);
             };
             *new_id

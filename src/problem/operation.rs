@@ -1,6 +1,5 @@
-use std::{fmt::Debug, num::NonZeroU32};
+use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU32};
 
-use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -207,9 +206,9 @@ impl Operation {
         }
     }
 
-    pub fn remapped(&self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) -> Self {
+    pub fn remapped(&self, old_to_new: &BTreeMap<FormulaId, FormulaId>) -> Self {
         let remap = |formula_id| {
-            let Some(new_id) = old_to_new.get_by_left(&formula_id) else {
+            let Some(new_id) = old_to_new.get(&formula_id) else {
                 panic!("Used formula id {:?} should be remappable", formula_id);
             };
             *new_id

@@ -2,13 +2,12 @@ mod combination;
 mod relation;
 mod system;
 
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
     domain::bitvector::{BitvectorBound, RBound},
     problem::{eval::EvaluableDomain, formula::FormulaId},
 };
-use bimap::BiBTreeMap;
 use serde::{Deserialize, Serialize};
 
 pub use {combination::LinearCombination, relation::LinearRelation, system::LinearSystem};
@@ -41,7 +40,7 @@ impl LinearOperation {
         }
     }
 
-    pub fn remap(&mut self, old_to_new: &BiBTreeMap<FormulaId, FormulaId>) {
+    pub fn remap(&mut self, old_to_new: &BTreeMap<FormulaId, FormulaId>) {
         match self {
             LinearOperation::Combination(combination) => combination.remap(old_to_new),
             LinearOperation::System(system) => system.remap(old_to_new),

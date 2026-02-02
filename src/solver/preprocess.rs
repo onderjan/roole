@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use bimap::BiBTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::problem::{
     Evaluator, OperationDomain, Problem,
@@ -15,7 +13,10 @@ pub fn preprocess(problem: &Problem) -> Problem {
     eprintln!("Preprocessing evaluator: {:#?}", evaluator);
 
     let used_operations = used_operations(problem, &evaluator);
-    let preprocessed = create_preprocessed(problem, used_operations);
+
+    let redirects = unique_redirects(&used_operations);
+
+    let preprocessed = create_preprocessed(problem, used_operations, redirects);
 
     eprintln!("Preprocessed problem: {:#?}", preprocessed);
 
@@ -71,13 +72,34 @@ fn used_operations<'a>(
 fn create_preprocessed(
     problem: &Problem,
     used_operations: BTreeMap<FormulaId, Option<&OperationDomain>>,
+    redirects: BTreeMap<FormulaId, FormulaId>,
 ) -> Problem {
-    let mut old_to_new = BiBTreeMap::new();
+    let mut old_to_new = BTreeMap::<FormulaId, FormulaId>::new();
 
     let mut new_variables = Vec::new();
     let mut new_operations = Vec::new();
 
-    for (old_id, new_operation) in used_operations {
+    for old_id in used_operations.keys().copied() {
+        // go through all redirects first
+        let mut redirected_id = old_id;
+        while let Some(redirect) = redirects.get(&redirected_id) {
+            redirected_id = *redirect;
+        }
+
+        if redirected_id != old_id {
+            // if redirected, just put this into old-to-new map
+            let new_id = *old_to_new
+                .get(&redirected_id)
+                .expect("Redirected id should be in old-to-new map");
+
+            old_to_new.insert(old_id, new_id);
+            continue;
+        }
+
+        let new_operation = used_operations
+            .get(&old_id)
+            .expect("Redirected id should be used");
+
         let new_id = match old_id {
             FormulaId::Variable(variable_id) => {
                 let variable = problem.variable(variable_id);
@@ -104,8 +126,27 @@ fn create_preprocessed(
     }
 
     let new_assertion = *old_to_new
-        .get_by_left(&problem.assertion())
+        .get(&problem.assertion())
         .expect("Assertion should be within new operations");
 
     Problem::new(new_variables, new_operations, new_assertion)
+}
+
+fn unique_redirects(
+    used_operations: &BTreeMap<FormulaId, Option<&OperationDomain>>,
+) -> BTreeMap<FormulaId, FormulaId> {
+    let mut redirects = BTreeMap::new();
+    let mut unique_operations = HashMap::new();
+    for (formula_id, operation) in used_operations.iter() {
+        let Some(operation) = *operation else {
+            continue;
+        };
+        if let Some(unique_id) = unique_operations.get(operation).copied() {
+            redirects.insert(*formula_id, unique_id);
+        } else {
+            unique_operations.insert(operation.clone(), *formula_id);
+        }
+    }
+
+    redirects
 }
