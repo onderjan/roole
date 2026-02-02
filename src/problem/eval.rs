@@ -169,31 +169,29 @@ impl<D: EvaluableDomain> Debug for Evaluator<'_, D> {
         let mut franz = f.debug_struct("Evaluator");
 
         struct FieldStr<'a>(&'a str);
-
         impl Debug for FieldStr<'_> {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 Display::fmt(&self.0, f)
             }
         }
 
-        for (variable_id, width) in self.problem.variables.iter().enumerate() {
+        for (variable_id, variable) in self.problem.variables.iter().enumerate() {
             let variable_id = VariableId(variable_id);
-            franz.field(
-                format!("{:?}", variable_id).as_str(),
-                &FieldStr(&format!("Bitvec_{:?}", width)),
-            );
+            franz.field(format!("{:?}", variable_id).as_str(), &variable);
         }
 
         for (operation_id, operation) in self.problem.operations.iter().enumerate() {
             let result = &self.results[operation_id];
             let operation_id = OperationId(operation_id);
-            let name = format!("{:?} = {:?}", operation_id, operation);
+            let name = format!("{:?}", operation_id);
 
-            if let Some(result) = result {
-                franz.field(&name, result);
+            let value = if let Some(result) = result {
+                format!("{:?} -> {:?}", operation, result)
             } else {
-                franz.field(&name, &FieldStr("⊥"));
-            }
+                format!("{:?}", operation)
+            };
+
+            franz.field(&name, &FieldStr(&value));
         }
 
         franz.finish()

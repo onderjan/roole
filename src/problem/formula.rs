@@ -16,7 +16,7 @@ pub enum FormulaId {
 pub struct VariableId(pub usize);
 
 /// Bitvector variable.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Variable {
     pub width: u32,
 }
@@ -24,5 +24,11 @@ pub struct Variable {
 impl Debug for VariableId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "#{}", self.0)
+    }
+}
+
+impl Debug for Variable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Bitvector({})", self.width)
     }
 }

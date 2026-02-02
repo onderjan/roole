@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 use crate::{
     domain::bitvector::{
@@ -26,7 +26,6 @@ pub use domain::OperationDomain;
 pub use eval::Evaluator;
 
 /// A satisfiability problem.
-#[derive(Debug)]
 pub struct Problem {
     /// Universally-quantified bitvector variables.
     variables: Vec<Variable>,
@@ -89,5 +88,33 @@ impl Problem {
         }
 
         assignment
+    }
+}
+
+impl Debug for Problem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut franz = f.debug_struct("Problem");
+
+        struct FieldStr<'a>(&'a str);
+        impl Debug for FieldStr<'_> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                Display::fmt(&self.0, f)
+            }
+        }
+
+        for (variable_id, variable) in self.variables.iter().enumerate() {
+            let variable_id = VariableId(variable_id);
+            franz.field(format!("{:?}", variable_id).as_str(), &variable);
+        }
+
+        for (operation_id, operation) in self.operations.iter().enumerate() {
+            let operation_id = OperationId(operation_id);
+            let name = format!("{:?}", operation_id);
+            let value = format!("{:?}", operation);
+
+            franz.field(&name, &FieldStr(&value));
+        }
+
+        franz.finish()
     }
 }
