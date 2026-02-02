@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     fmt::{Debug, Display},
     ops::ControlFlow,
 };
@@ -9,7 +8,6 @@ use crate::{
         bitvector::{
             RBound,
             abstr::{AbstractBitvector, BitvectorDomain},
-            concr::ConcreteBitvector,
         },
         traits::forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     },
@@ -104,7 +102,7 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
             let bound = evaluated.bound();
             // replace top with formula
             let evaluated = if evaluated == D::top(bound) {
-                D::formula(bound, formula_id)
+                D::formula(formula_id, bound)
             } else {
                 evaluated
             };
@@ -143,24 +141,19 @@ pub trait EvaluableDomain:
     + BExt<RBound, Output = Self>
     + Debug
 {
-    fn formula(bound: RBound, formula: FormulaId) -> Self;
+    fn formula(formula: FormulaId, bound: RBound) -> Self;
 }
 
 impl EvaluableDomain for AbstractBitvector<RBound> {
-    fn formula(bound: RBound, formula: FormulaId) -> Self {
+    fn formula(formula: FormulaId, bound: RBound) -> Self {
         let _ = formula;
         Self::top(bound)
     }
 }
 
 impl EvaluableDomain for OperationDomain {
-    fn formula(bound: RBound, formula: FormulaId) -> Self {
-        let mut monomials = BTreeMap::new();
-        monomials.insert(formula, ConcreteBitvector::one(bound));
-        OperationDomain::from_combination(LinearCombination::new(
-            ConcreteBitvector::zero(bound),
-            monomials,
-        ))
+    fn formula(formula_id: FormulaId, bound: RBound) -> Self {
+        OperationDomain::from_combination(LinearCombination::from_formula(formula_id, bound))
     }
 }
 

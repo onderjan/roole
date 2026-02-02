@@ -1,8 +1,8 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+        bitvector::{BitvectorBound, abstr::BitvectorDomain},
         traits::Join,
     },
     problem::{
@@ -13,13 +13,6 @@ use crate::{
 };
 
 impl OperationDomain {
-    pub fn for_formula_id(formula_id: FormulaId, bound: RBound) -> Self {
-        let constant = ConcreteBitvector::zero(bound);
-        let monomials = BTreeMap::from_iter([(formula_id, ConcreteBitvector::one(bound))]);
-
-        OperationDomain::from_combination(LinearCombination::new(constant, monomials))
-    }
-
     pub fn used_ids(&self) -> Vec<FormulaId> {
         match &self {
             OperationDomain::Top(_) => vec![],

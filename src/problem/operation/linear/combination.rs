@@ -3,6 +3,7 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
+use crate::problem::operation::linear::slice::LinearSlice;
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
@@ -17,13 +18,13 @@ mod ops;
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearCombination {
     constant: ConcreteBitvector<RBound>,
-    monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
+    monomials: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
 }
 
 impl LinearCombination {
     pub fn new(
         constant: ConcreteBitvector<RBound>,
-        monomials: BTreeMap<FormulaId, ConcreteBitvector<RBound>>,
+        monomials: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
     ) -> Self {
         let mut result = Self {
             constant,
@@ -40,8 +41,21 @@ impl LinearCombination {
         }
     }
 
+    pub fn from_formula(formula_id: FormulaId, bound: RBound) -> Self {
+        let mut monomials = BTreeMap::new();
+
+        if let Some(slice) = LinearSlice::from_bounded(formula_id, bound) {
+            monomials.insert(slice, ConcreteBitvector::one(bound));
+        }
+
+        LinearCombination::new(ConcreteBitvector::zero(bound), monomials)
+    }
+
     pub fn used_ids(&self) -> Vec<FormulaId> {
-        self.monomials.keys().copied().collect()
+        self.monomials
+            .keys()
+            .map(|slice| slice.formula_id)
+            .collect()
     }
 
     pub fn bound(&self) -> RBound {
@@ -50,8 +64,25 @@ impl LinearCombination {
 
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
         let mut value = D::single_value(self.constant);
-        for (formula_id, coefficient) in &self.monomials {
-            let formula_value = (fetch)(*formula_id);
+        for (slice, coefficient) in &self.monomials {
+            let mut formula_value = (fetch)(slice.formula_id);
+            let bound = formula_value.bound();
+            // slice
+            // first, unsigned shift right to lsb if nonzero
+            if slice.lsb != 0 {
+                let lsb = ConcreteBitvector::new(slice.lsb.into(), bound);
+                formula_value = formula_value.logic_shr(D::single_value(lsb));
+            }
+
+            // unless slice lsb is equal to zero and slice bound width is equal to width,
+            // perform unsigned extension
+            let slice_width = slice.width.get();
+            if slice.lsb != 0 || slice_width != bound.width() {
+                let new_bound = RBound::new(slice_width);
+                formula_value = formula_value.uext(new_bound);
+            }
+
+            // then, multiply by the coefficient
             let term_value = formula_value.mul(D::single_value(*coefficient));
             value = value.add(term_value);
         }
@@ -65,11 +96,18 @@ impl LinearCombination {
     }
 
     pub fn remap(&mut self, old_to_new: &BTreeMap<FormulaId, FormulaId>) {
-        let remap = |formula_id| {
-            let Some(new_id) = old_to_new.get(&formula_id) else {
-                panic!("Used formula id {:?} should be remappable", formula_id);
+        let remap = |slice: LinearSlice| {
+            let Some(new_id) = old_to_new.get(&slice.formula_id) else {
+                panic!(
+                    "Used formula id {:?} should be remappable",
+                    slice.formula_id
+                );
             };
-            *new_id
+            LinearSlice {
+                formula_id: *new_id,
+                lsb: slice.lsb,
+                width: slice.width,
+            }
         };
 
         let mut old_monomials = BTreeMap::new();
@@ -118,7 +156,7 @@ impl Debug for LinearCombination {
         write!(f, "(")?;
 
         // write the linear combinations of formulas with coefficients
-        for (formula_id, coefficient) in &self.monomials {
+        for (slice, coefficient) in &self.monomials {
             if is_first {
                 is_first = false;
             } else {
@@ -131,7 +169,7 @@ impl Debug for LinearCombination {
                 write!(f, "{}*", coefficient)?;
             }
 
-            write!(f, "{:?}", formula_id)?;
+            write!(f, "{:?}", slice)?;
         }
 
         if is_first {
@@ -145,7 +183,7 @@ impl Debug for LinearCombination {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, num::NonZero};
 
     use crate::{
         domain::bitvector::{RBound, concr::ConcreteBitvector},
@@ -157,33 +195,26 @@ mod tests {
     #[test]
     fn test_addsub() {
         let bound = RBound::new(32);
+        let slice = LinearSlice {
+            formula_id: FormulaId::Variable(VariableId(0)),
+            lsb: 0,
+            width: NonZero::new(32).unwrap(),
+        };
         let a = LinearCombination {
             constant: ConcreteBitvector::new(38, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(12, bound),
-            )]),
+            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(12, bound))]),
         };
         let b = LinearCombination {
             constant: ConcreteBitvector::new(17, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(7, bound),
-            )]),
+            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(7, bound))]),
         };
         let add_result = LinearCombination {
             constant: ConcreteBitvector::new(55, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(19, bound),
-            )]),
+            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(19, bound))]),
         };
         let sub_result = LinearCombination {
             constant: ConcreteBitvector::new(21, bound),
-            monomials: BTreeMap::from_iter([(
-                FormulaId::Variable(VariableId(0)),
-                ConcreteBitvector::new(5, bound),
-            )]),
+            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(5, bound))]),
         };
         assert_eq!(a.clone().add(b.clone()), add_result);
         assert_eq!(a.sub(b), sub_result);

@@ -6,6 +6,7 @@ use crate::{
         abstr::{BitvectorDomain, RBitvector},
     },
     problem::{
+        eval::EvaluableDomain,
         formula::{FormulaId, Variable, VariableId},
         operation::{Operation, OperationId},
     },
@@ -81,7 +82,8 @@ impl Problem {
         let mut assignment = Assignment { values: Vec::new() };
         for (variable_id, variable) in self.variables.iter().enumerate() {
             let bound = RBound::new(variable.width);
-            assignment.values.push(OperationDomain::for_formula_id(
+
+            assignment.values.push(OperationDomain::formula(
                 FormulaId::Variable(VariableId(variable_id)),
                 bound,
             ));

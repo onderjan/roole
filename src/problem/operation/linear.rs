@@ -1,5 +1,6 @@
 mod combination;
 mod relation;
+mod slice;
 mod system;
 
 use std::{collections::BTreeMap, fmt::Debug};
