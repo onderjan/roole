@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::problem::operation::linear::slice::LinearSlice;
@@ -146,6 +147,28 @@ impl LinearCombination {
         } else {
             None
         }
+    }
+
+    pub fn might_overflow(&self) -> bool {
+        if self.monomials.is_empty() {
+            // only constant, definitely cannot overflow
+            return false;
+        }
+
+        // TODO: determine if the combination might overflow more finely
+
+        if self.constant.is_zero()
+            && let Ok((slice, factor)) = self.monomials.iter().exactly_one()
+        {
+            let emplaced_slice_width = slice.lsb + slice.width.get();
+            let slice_fits = emplaced_slice_width <= self.bound().width();
+            if factor.is_one() && slice_fits {
+                // only one monomial that fits, definitely cannot overflow
+                return false;
+            }
+        }
+        // if we are unsure, return true
+        true
     }
 }
 
