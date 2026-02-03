@@ -21,27 +21,33 @@ impl OperationDomain {
     }
 
     pub(super) fn try_combination(self) -> Result<LinearCombination, OperationDomain> {
-        if let OperationDomain::Linear(LinearOperation::Combination(combination)) = self {
-            Ok(combination)
-        } else {
-            Err(self)
+        let OperationDomain::Linear(linear) = self else {
+            return Err(self);
+        };
+
+        match linear.try_into_combination() {
+            Ok(combination) => Ok(combination),
+            Err(linear) => Err(Self::Linear(linear)),
         }
     }
 
     pub(super) fn try_system(self) -> Result<LinearSystem, OperationDomain> {
-        if let OperationDomain::Linear(LinearOperation::System(system)) = self {
-            Ok(system)
-        } else {
-            Err(self)
+        let OperationDomain::Linear(linear) = self else {
+            return Err(self);
+        };
+
+        match linear.try_into_system() {
+            Ok(system) => Ok(system),
+            Err(linear) => Err(Self::Linear(linear)),
         }
     }
 
     pub fn from_combination(combination: LinearCombination) -> Self {
-        Self::Linear(LinearOperation::Combination(combination))
+        Self::Linear(LinearOperation::from_combination(combination))
     }
 
     pub(super) fn from_system(system: LinearSystem) -> Self {
-        Self::Linear(LinearOperation::System(system))
+        Self::Linear(LinearOperation::from_system(system))
     }
 }
 

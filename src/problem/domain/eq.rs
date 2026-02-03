@@ -27,6 +27,11 @@ impl TypedEq for OperationDomain {
         let bound = then_branch.bound();
         assert_eq!(bound, else_branch.bound());
 
+        eprintln!(
+            "ITE, condition: {:?}, then: {:?}, else: {:?}",
+            condition, then_branch, else_branch
+        );
+
         // TODO: simplify if-then-else
         OperationDomain::Top(bound)
     }
