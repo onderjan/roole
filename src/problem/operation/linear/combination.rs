@@ -13,7 +13,8 @@ use crate::{
     problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 
-mod ops;
+mod arith;
+mod ext;
 
 /// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

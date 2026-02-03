@@ -11,7 +11,7 @@ impl BExt<RBound> for OperationDomain {
             return Self::Top(new_bound);
         };
 
-        match combination.unsigned_extend(new_bound) {
+        match combination.uext(new_bound) {
             Ok(ok) => Self::from_combination(ok),
             Err(_) => Self::Top(new_bound),
         }
@@ -22,7 +22,7 @@ impl BExt<RBound> for OperationDomain {
             return Self::Top(new_bound);
         };
 
-        match combination.signed_extend(new_bound) {
+        match combination.sext(new_bound) {
             Ok(ok) => Self::from_combination(ok),
             Err(_) => Self::Top(new_bound),
         }
