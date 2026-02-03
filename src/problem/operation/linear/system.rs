@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
-    domain::bitvector::{RBound, concr::ConcreteBitvector},
+    domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
     problem::{
         eval::EvaluableDomain,
         formula::FormulaId,
@@ -104,6 +104,40 @@ impl LinearSystem {
             LinearSystem::Single(relation) => Box::new(std::iter::once(relation)),
             LinearSystem::Conjunction(relations) => Box::new(relations.into_iter()),
             LinearSystem::Disjunction(relations) => Box::new(relations.into_iter()),
+        }
+    }
+
+    pub fn try_into_combination(self) -> Result<LinearCombination, Self> {
+        let LinearSystem::Single(relation) = self else {
+            return Err(self);
+        };
+
+        let bound = relation.combination().bound();
+
+        match bound.width() {
+            0 => {
+                // can convert into empty combination
+                Ok(LinearCombination::empty(bound))
+            }
+            1 => {
+                // can convert into Boolean
+                if relation.slack().is_nonzero() {
+                    // this is always true
+                    return Ok(LinearCombination::single_bit(true));
+                }
+
+                // the relation is left <= 0, i.e. left == 0
+                // we must bit-not to obtain (!left) == (!1)
+                // i.e. !left == 1, which can be converted to combination !left
+
+                let bit_not_combination = relation.into_combination().bit_not();
+
+                Ok(bit_not_combination)
+            }
+            _ => {
+                // cannot convert
+                Err(LinearSystem::Single(relation))
+            }
         }
     }
 }

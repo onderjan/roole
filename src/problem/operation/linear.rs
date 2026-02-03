@@ -35,7 +35,11 @@ impl LinearOperation {
     }
 
     pub fn from_system(system: LinearSystem) -> Self {
-        Self(LinearOperationType::System(system))
+        // try to convert to combination
+        match system.try_into_combination() {
+            Ok(combination) => Self::from_combination(combination),
+            Err(system) => Self(LinearOperationType::System(system)),
+        }
     }
 
     pub fn try_into_combination(self) -> Result<LinearCombination, LinearOperation> {

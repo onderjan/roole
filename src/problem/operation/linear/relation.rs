@@ -32,6 +32,10 @@ impl LinearRelation {
         &self.combination
     }
 
+    pub(super) fn into_combination(self) -> LinearCombination {
+        self.combination
+    }
+
     pub(super) fn slack(&self) -> &ConcreteBitvector<RBound> {
         &self.slack
     }
