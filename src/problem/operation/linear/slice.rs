@@ -31,12 +31,16 @@ impl LinearSlice {
 
 impl Debug for LinearSlice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{:?}[{}..{}]",
-            self.formula_id,
-            self.lsb,
-            self.lsb + self.width.get()
-        )
+        if self.width.get() == 1 {
+            write!(f, "{:?}[{}]", self.formula_id, self.lsb,)
+        } else {
+            write!(
+                f,
+                "{:?}[{}..{}]",
+                self.formula_id,
+                self.lsb,
+                self.lsb + self.width.get()
+            )
+        }
     }
 }
