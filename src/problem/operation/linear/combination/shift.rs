@@ -8,9 +8,26 @@ use crate::{
 };
 
 impl LinearCombination {
-    pub fn logic_shl(self, _amount: Self) -> Result<Self, ()> {
-        // TODO: logical shift left
-        Err(())
+    pub fn logic_shl(mut self, amount: Self) -> Result<Self, ()> {
+        let bound = self.bound();
+        assert_eq!(self.bound(), amount.bound());
+
+        let Some(amount) = amount.constant_value() else {
+            return Err(());
+        };
+
+        // TODO: consider whether to mask amounts or not, this masks them
+
+        // logical shift left with a constant value is just scaling
+        // by the given power of 2
+
+        let amount = amount.to_u64();
+        let multiplier = 1u64 << amount;
+        let multiplier = ConcreteBitvector::from_masked_u64(multiplier, bound);
+
+        self.scale(multiplier);
+
+        Ok(self)
     }
 
     pub fn logic_shr(mut self, amount: Self) -> Result<Self, ()> {
@@ -50,6 +67,8 @@ impl LinearCombination {
         eprintln!("{:?} >> {:?}", slice, amount);
 
         // our combination only contains the slice
+
+        // TODO: consider whether to mask amounts or not, this does not mask them
 
         if amount < slice.width.get() {
             // we will drop the lowest bits by increasing lsb
