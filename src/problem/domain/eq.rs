@@ -1,9 +1,12 @@
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
-        traits::forward::{Bitwise, TypedEq},
+        traits::forward::{BExt, Bitwise, TypedEq},
     },
-    problem::{domain::OperationDomain, operation::LinearSystem},
+    problem::{
+        domain::OperationDomain,
+        operation::{LinearCombination, LinearSystem},
+    },
 };
 
 impl TypedEq for OperationDomain {
@@ -27,12 +30,97 @@ impl TypedEq for OperationDomain {
         let bound = then_branch.bound();
         assert_eq!(bound, else_branch.bound());
 
-        eprintln!(
-            "ITE, condition: {:?}, then: {:?}, else: {:?}",
-            condition, then_branch, else_branch
-        );
+        if bound.width() == 0 {
+            // replace with empty
+            return OperationDomain::from_combination(LinearCombination::empty(bound));
+        }
 
-        // TODO: simplify if-then-else
+        let condition = match condition.try_combination() {
+            Ok(condition) => {
+                if let Some(condition_value) = condition.constant_value() {
+                    // constant condition value, select the branch
+                    if condition_value.is_nonzero() {
+                        return then_branch;
+                    } else {
+                        return else_branch;
+                    }
+                }
+                // go back
+                OperationDomain::from_combination(condition)
+            }
+            Err(condition) => condition,
+        };
+
+        // try to simplify with combination branches
+        let (Ok(then_branch), Ok(else_branch)) =
+            (then_branch.try_combination(), else_branch.try_combination())
+        else {
+            return OperationDomain::Top(bound);
+        };
+
+        // collapse to condition if the width is a single bit
+        if bound.width() == 1
+            && let (Some(then_branch), Some(else_branch)) =
+                (then_branch.constant_value(), else_branch.constant_value())
+        {
+            return simplify_ite_boolean_branches(
+                condition,
+                then_branch.is_nonzero(),
+                else_branch.is_nonzero(),
+            );
+        }
+
+        let Ok(condition) = condition.try_combination() else {
+            return OperationDomain::Top(bound);
+        };
+
+        // we can represent ite as condition * (then - else) + else
+        // set truth = then - else
+        // then, if either condition or truth is a constant,
+        // we can simplify ite to a combination
+
+        let mut truth = then_branch.sub(else_branch.clone());
+
+        if let Some(truth) = truth.constant_value() {
+            let Ok(mut conditional_truth) = condition.uext(bound) else {
+                // could not extend the condition
+                return OperationDomain::Top(bound);
+            };
+
+            // truth is constant, scale condition by it and add else branch
+            conditional_truth.scale(truth);
+
+            let result = OperationDomain::from_combination(conditional_truth.add(else_branch));
+
+            return result;
+        };
+
+        if let Some(condition) = condition.constant_value() {
+            // condition is constant, scale truth by it (zero-extended) and add else branch
+            truth.scale(condition.uext(bound));
+
+            let result = OperationDomain::from_combination(truth.add(else_branch));
+
+            return result;
+        }
+
         OperationDomain::Top(bound)
+    }
+}
+
+fn simplify_ite_boolean_branches(
+    condition: OperationDomain,
+    then_branch: bool,
+    else_branch: bool,
+) -> OperationDomain {
+    if then_branch == else_branch {
+        // tautology (both true) or contradiction (both false)
+        OperationDomain::from_combination(LinearCombination::single_bit(then_branch))
+    } else if then_branch {
+        // identity (take then if true, take else if false)
+        condition
+    } else {
+        // bitwise not (take then if false, take else if true)
+        condition.bit_not()
     }
 }
