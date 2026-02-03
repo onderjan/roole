@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{BExt, Bitwise, TypedEq},
     },
     problem::{
@@ -12,11 +12,44 @@ use crate::{
 impl TypedEq for OperationDomain {
     type Output = OperationDomain;
     fn eq(self, rhs: Self) -> Self::Output {
-        assert_eq!(self.bound(), rhs.bound());
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
 
-        let (Ok(lhs), Ok(rhs)) = (self.try_combination(), rhs.try_combination()) else {
-            return OperationDomain::top(RBound::single_bit_bound());
+        let (lhs, rhs) = match (self.try_combination(), rhs.try_combination()) {
+            (Err(_), Err(_)) => {
+                // cannot combine
+                return OperationDomain::top(RBound::single_bit_bound());
+            }
+            (Ok(combination), Err(other)) | (Err(other), Ok(combination)) => {
+                // we can simplify if we are working with Booleans and combination is a constant
+                if bound.width() == 1
+                    && let Some(constant) = combination.constant_value()
+                {
+                    if constant.is_nonzero() {
+                        // equality of form 1 == other
+                        // just return the other
+                        return other;
+                    } else {
+                        // equality of form 0 == other
+                        // bit-not other
+                        return other.bit_not();
+                    }
+                };
+
+                // cannot combine
+                return OperationDomain::top(RBound::single_bit_bound());
+            }
+            (Ok(lhs), Ok(rhs)) => (lhs, rhs),
         };
+
+        if bound.width() == 1 {
+            // no need to go to a system
+            // in Booleans, lhs == rhs is true when (lhs + rhs) mod 2 = 1
+            // i.e. we can represent this by (lhs + rhs + 1) mod 2 = 0
+
+            let one = LinearCombination::from_constant(ConcreteBitvector::one(bound));
+            return OperationDomain::from_combination(lhs.add(rhs).add(one));
+        }
 
         OperationDomain::from_system(LinearSystem::from_eq(lhs, rhs))
     }
