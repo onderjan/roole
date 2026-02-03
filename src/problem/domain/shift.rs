@@ -1,29 +1,38 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwShift},
-    problem::domain::OperationDomain,
+    problem::{domain::OperationDomain, operation::LinearCombination},
 };
 
 impl HwShift for OperationDomain {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {
-        let bound = self.bound();
-        assert_eq!(bound, amount.bound());
-        // TODO: shifts
-        Self::Top(bound)
+        perform_shift(self, amount, |lhs, amount| lhs.logic_shl(amount))
     }
 
     fn logic_shr(self, amount: Self) -> Self {
-        let bound = self.bound();
-        assert_eq!(bound, amount.bound());
-        // TODO: shifts
-        Self::Top(bound)
+        perform_shift(self, amount, |lhs, amount| lhs.logic_shr(amount))
     }
 
     fn arith_shr(self, amount: Self) -> Self {
-        let bound = self.bound();
-        assert_eq!(bound, amount.bound());
-        // TODO: shifts
-        Self::Top(bound)
+        perform_shift(self, amount, |lhs, amount| lhs.arith_shr(amount))
+    }
+}
+
+fn perform_shift(
+    lhs: OperationDomain,
+    amount: OperationDomain,
+    combination_func: fn(LinearCombination, LinearCombination) -> Result<LinearCombination, ()>,
+) -> OperationDomain {
+    let bound = amount.bound();
+    assert_eq!(bound, amount.bound());
+
+    let (Ok(lhs), Ok(amount)) = (lhs.try_combination(), amount.try_combination()) else {
+        return OperationDomain::top(bound);
+    };
+
+    match (combination_func)(lhs, amount) {
+        Ok(result) => OperationDomain::from_combination(result),
+        Err(()) => OperationDomain::top(bound),
     }
 }

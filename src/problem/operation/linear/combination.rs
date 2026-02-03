@@ -15,6 +15,7 @@ use crate::{
 
 mod arith;
 mod ext;
+mod shift;
 
 /// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -34,6 +35,13 @@ impl LinearCombination {
         };
         result.normalize();
         result
+    }
+
+    pub fn empty(bound: RBound) -> Self {
+        Self {
+            constant: ConcreteBitvector::zero(bound),
+            monomials: BTreeMap::new(),
+        }
     }
 
     pub fn from_constant(constant: ConcreteBitvector<RBound>) -> Self {
@@ -66,6 +74,9 @@ impl LinearCombination {
 
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
         let mut value = D::single_value(self.constant);
+        let combination_bound = value.bound();
+        let combination_width = combination_bound.width();
+
         for (slice, coefficient) in &self.monomials {
             let mut formula_value = (fetch)(slice.formula_id);
             let bound = formula_value.bound();
@@ -78,10 +89,8 @@ impl LinearCombination {
 
             // unless slice lsb is equal to zero and slice bound width is equal to width,
             // perform unsigned extension
-            let slice_width = slice.width.get();
-            if slice.lsb != 0 || slice_width != bound.width() {
-                let new_bound = RBound::new(slice_width);
-                formula_value = formula_value.uext(new_bound);
+            if slice.lsb != 0 || slice.width.get() != combination_width {
+                formula_value = formula_value.uext(combination_bound);
             }
 
             // then, multiply by the coefficient
