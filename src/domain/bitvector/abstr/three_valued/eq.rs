@@ -1,6 +1,10 @@
 use crate::domain::{
     bitvector::BitvectorBound,
-    traits::forward::{Bitwise, TypedEq},
+    traits::{
+        Join,
+        forward::{Bitwise, TypedEq},
+    },
+    value::ThreeValued,
 };
 
 use super::ThreeValuedBitvector;
@@ -23,5 +27,13 @@ impl<B: BitvectorBound> TypedEq for ThreeValuedBitvector<B> {
 
     fn ne(self, rhs: Self) -> Self::Output {
         self.eq(rhs).bit_not()
+    }
+
+    fn ite(condition: Self::Output, then_branch: Self, else_branch: Self) -> Self {
+        match condition.three_valued_from_bit(0) {
+            ThreeValued::False => else_branch,
+            ThreeValued::True => then_branch,
+            ThreeValued::Unknown => then_branch.join(&else_branch),
+        }
     }
 }

@@ -16,4 +16,12 @@ impl<B: BitvectorBound> TypedEq for ConcreteBitvector<B> {
         let result = self.value != rhs.value;
         Self::Output::new(result as u64, B::single_bit_bound())
     }
+
+    fn ite(condition: Self::Output, then_branch: Self, else_branch: Self) -> Self {
+        if condition.is_nonzero() {
+            then_branch
+        } else {
+            else_branch
+        }
+    }
 }

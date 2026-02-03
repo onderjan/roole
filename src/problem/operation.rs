@@ -120,22 +120,10 @@ impl Operation {
                 formula_else,
             }) => {
                 let condition = (fetch)(*condition);
-                assert_eq!(condition.bound().width(), 1);
+                let then_branch = (fetch)(*formula_then);
+                let else_branch = (fetch)(*formula_else);
 
-                if let Some(condition_value) = condition.concrete_value() {
-                    if condition_value.is_nonzero() {
-                        // only then taken
-                        (fetch)(*formula_then)
-                    } else {
-                        // only else taken
-                        (fetch)(*formula_else)
-                    }
-                } else {
-                    // both can be taken, join them
-                    let value_then = (fetch)(*formula_then);
-                    let value_else = (fetch)(*formula_else);
-                    value_then.join(&value_else)
-                }
+                D::ite(condition, then_branch, else_branch)
             }
             Operation::ConcatOp(concat_op) => {
                 let left = (fetch)(concat_op.left);

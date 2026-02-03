@@ -21,4 +21,13 @@ impl TypedEq for OperationDomain {
     fn ne(self, rhs: Self) -> Self::Output {
         self.eq(rhs).bit_not()
     }
+
+    fn ite(condition: Self::Output, then_branch: Self, else_branch: Self) -> Self {
+        assert_eq!(condition.bound().width(), 1);
+        let bound = then_branch.bound();
+        assert_eq!(bound, else_branch.bound());
+
+        // TODO: simplify if-then-else
+        OperationDomain::Top(bound)
+    }
 }

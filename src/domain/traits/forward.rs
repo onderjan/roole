@@ -8,6 +8,8 @@ pub trait TypedEq {
 
     #[must_use]
     fn ne(self, rhs: Self) -> Self::Output;
+
+    fn ite(condition: Self::Output, then_branch: Self, else_branch: Self) -> Self;
 }
 
 pub trait TypedCmp {
