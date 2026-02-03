@@ -64,8 +64,6 @@ impl LinearCombination {
             return Ok(Self::empty(bound));
         };
 
-        eprintln!("{:?} >> {:?}", slice, amount);
-
         // our combination only contains the slice
 
         // TODO: consider whether to mask amounts or not, this does not mask them
@@ -76,8 +74,6 @@ impl LinearCombination {
             slice.lsb += amount;
             slice.width = NonZero::new(slice.width.get() - amount)
                 .expect("Slice width should be nonzero after logical shift right");
-
-            eprintln!("New slice: {:?}", slice);
 
             Ok(Self::new(
                 ConcreteBitvector::zero(bound),
