@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
-    domain::bitvector::{RBound, concr::ConcreteBitvector},
+    domain::{
+        bitvector::{RBound, concr::ConcreteBitvector},
+        traits::forward::HwArith,
+    },
     problem::{eval::EvaluableDomain, formula::FormulaId, operation::LinearCombination},
 };
 
@@ -51,10 +54,22 @@ impl LinearRelation {
 
 impl Debug for LinearRelation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.combination, f)?;
+        let one = ConcreteBitvector::one(self.combination.bound());
+        if self.slack.add(one).is_full_mask() {
+            // better to add 1 to the combination and print as non-equality
+            let nonequality_combination = self
+                .combination
+                .clone()
+                .add(LinearCombination::from_constant(one));
+            Debug::fmt(&nonequality_combination, f)?;
 
-        let op = if self.slack.is_zero() { "==" } else { "<=" };
+            write!(f, " != 0")
+        } else {
+            Debug::fmt(&self.combination, f)?;
 
-        write!(f, " {} {}", op, self.slack)
+            let op = if self.slack.is_zero() { "==" } else { "<=" };
+
+            write!(f, " {} {}", op, self.slack)
+        }
     }
 }
