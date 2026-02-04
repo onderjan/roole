@@ -15,6 +15,7 @@ mod linear;
 
 pub use bi::{BiOp, BiOperator};
 
+pub(crate) use linear::LinearOperationType;
 pub use linear::{LinearCombination, LinearOperation, LinearSystem};
 
 /// Operation id.

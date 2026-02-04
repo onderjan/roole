@@ -39,17 +39,6 @@ impl OperationDomain {
         linear.constant_value()
     }
 
-    pub(super) fn try_system(self) -> Result<LinearSystem, OperationDomain> {
-        let OperationDomain::Linear(linear) = self else {
-            return Err(self);
-        };
-
-        match linear.try_into_system() {
-            Ok(system) => Ok(system),
-            Err(linear) => Err(Self::Linear(linear)),
-        }
-    }
-
     pub fn from_combination(combination: LinearCombination) -> Self {
         Self::Linear(LinearOperation::from_combination(combination))
     }

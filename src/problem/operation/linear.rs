@@ -17,7 +17,7 @@ pub use {combination::LinearCombination, relation::LinearRelation, system::Linea
 pub struct LinearOperation(LinearOperationType);
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-enum LinearOperationType {
+pub(crate) enum LinearOperationType {
     Combination(LinearCombination),
     System(LinearSystem),
 }
@@ -56,11 +56,8 @@ impl LinearOperation {
         }
     }
 
-    pub fn try_into_system(self) -> Result<LinearSystem, LinearOperation> {
-        match self.0 {
-            LinearOperationType::System(system) => Ok(system),
-            ty => Err(Self(ty)),
-        }
+    pub(crate) fn into_type(self) -> LinearOperationType {
+        self.0
     }
 
     pub fn result_bound(&self) -> RBound {

@@ -5,7 +5,7 @@ use crate::{
     },
     problem::{
         domain::OperationDomain,
-        operation::{LinearCombination, LinearSystem},
+        operation::{LinearCombination, LinearOperationType},
     },
 };
 
@@ -20,23 +20,9 @@ impl Bitwise for OperationDomain {
     }
 
     fn bit_and(self, rhs: Self) -> Self {
-        eprintln!(
-            "Bitwise AND (width {:?}): {:?}, {:?}",
-            self.bound().width(),
-            self,
-            rhs
-        );
-
         self.bit_linear(rhs, true)
     }
     fn bit_or(self, rhs: Self) -> Self {
-        eprintln!(
-            "Bitwise OR (width {:?}): {:?}, {:?}",
-            self.bound().width(),
-            self,
-            rhs
-        );
-
         self.bit_linear(rhs, false)
     }
     fn bit_xor(self, rhs: Self) -> Self {
@@ -74,20 +60,28 @@ impl OperationDomain {
             }
         }
 
-        let (Ok(lhs), Ok(rhs)) = (self.try_system(), rhs.try_system()) else {
+        let (OperationDomain::Linear(lhs), OperationDomain::Linear(rhs)) = (self, rhs) else {
             return Self::top(bound);
         };
 
-        let op = if conjunction {
-            |a: LinearSystem, b: LinearSystem| a.and(b)
-        } else {
-            |a: LinearSystem, b: LinearSystem| a.or(b)
-        };
-
-        let Some(system) = (op)(lhs, rhs) else {
-            return Self::top(bound);
-        };
-
-        OperationDomain::from_system(system)
+        match (lhs.into_type(), rhs.into_type()) {
+            (LinearOperationType::Combination(lhs), LinearOperationType::Combination(rhs)) => {
+                if let Ok(combination) = lhs.bitwise_combine(rhs, conjunction) {
+                    return Self::from_combination(combination);
+                }
+            }
+            (LinearOperationType::System(lhs), LinearOperationType::System(rhs)) => {
+                let system = if conjunction {
+                    lhs.and(rhs)
+                } else {
+                    lhs.or(rhs)
+                };
+                if let Some(system) = system {
+                    return Self::from_system(system);
+                }
+            }
+            _ => {}
+        }
+        Self::top(bound)
     }
 }
