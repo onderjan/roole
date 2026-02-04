@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, abstr::BitvectorDomain},
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::Join,
     },
     problem::{
@@ -29,6 +29,14 @@ impl OperationDomain {
             Ok(combination) => Ok(combination),
             Err(linear) => Err(Self::Linear(linear)),
         }
+    }
+
+    pub(super) fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
+        let OperationDomain::Linear(linear) = self else {
+            return None;
+        };
+
+        linear.constant_value()
     }
 
     pub(super) fn try_system(self) -> Result<LinearSystem, OperationDomain> {

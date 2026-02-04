@@ -6,7 +6,7 @@ mod system;
 use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
-    domain::bitvector::{BitvectorBound, RBound},
+    domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
     problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 use serde::{Deserialize, Serialize};
@@ -46,6 +46,13 @@ impl LinearOperation {
         match self.0 {
             LinearOperationType::Combination(combination) => Ok(combination),
             ty => Err(Self(ty)),
+        }
+    }
+
+    pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
+        match &self.0 {
+            LinearOperationType::Combination(combination) => combination.constant_value(),
+            _ => None,
         }
     }
 
