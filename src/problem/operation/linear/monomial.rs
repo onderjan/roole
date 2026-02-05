@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::bitvector::{RBound, concr::ConcreteBitvector},
+    domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
     problem::operation::linear::slice::LinearSlice,
 };
 
@@ -14,5 +14,22 @@ pub struct LinearMonomial {
 impl LinearMonomial {
     pub(super) fn new(coefficient: ConcreteBitvector<RBound>, slice: LinearSlice) -> Self {
         Self { coefficient, slice }
+    }
+
+    pub fn might_overflow(&self) -> bool {
+        let coefficient = self.coefficient.to_u64();
+        let slice_width = self.slice.width.get();
+
+        let Some(above_max_value) = coefficient.checked_shl(slice_width) else {
+            return true;
+        };
+
+        let Some(max_value) = above_max_value.checked_sub(1) else {
+            return true;
+        };
+
+        let max_value_allowed = self.coefficient.bound().allowed(max_value);
+
+        !max_value_allowed
     }
 }

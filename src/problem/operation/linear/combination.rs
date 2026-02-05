@@ -185,18 +185,22 @@ impl LinearCombination {
 
         // TODO: determine if the combination might overflow more finely
 
-        if self.constant.is_zero()
-            && let Ok((slice, factor)) = self.monomials.iter().exactly_one()
-        {
-            let emplaced_slice_width = slice.lsb + slice.width.get();
-            let slice_fits = emplaced_slice_width <= self.bound().width();
-            if factor.is_one() && slice_fits {
-                // only one monomial that fits, definitely cannot overflow
-                return false;
-            }
+        let Some((monomial, constant)) = self.monomial_and_constant_value() else {
+            // we are unsure, return true
+            return true;
+        };
+
+        let Some(monomial) = monomial else {
+            // just a constant, definitely cannot overflow
+            return false;
+        };
+
+        if constant.is_nonzero() {
+            // we are unsure, return true
+            return true;
         }
-        // if we are unsure, return true
-        true
+
+        monomial.might_overflow()
     }
 }
 
