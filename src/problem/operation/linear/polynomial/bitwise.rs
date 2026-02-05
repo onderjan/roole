@@ -1,10 +1,13 @@
-use std::{collections::BTreeMap, num::NonZero};
+use std::num::NonZero;
 
 use itertools::Itertools;
 
 use crate::{
     domain::{bitvector::concr::ConcreteBitvector, traits::forward::Bitwise},
-    problem::operation::{LinearPolynomial, linear::slice::LinearSlice},
+    problem::operation::{
+        LinearPolynomial,
+        linear::{monomial::LinearMonomial, slice::LinearSlice},
+    },
 };
 
 impl LinearPolynomial {
@@ -31,11 +34,11 @@ impl LinearPolynomial {
 
         // TODO: this is just written offhand and maybe wrong in some cases
 
-        if !other.constant.is_zero() {
+        if !other.constant_term.is_zero() {
             return Err(());
         }
 
-        let Ok((slice, coefficient)) = other.monomials.into_iter().exactly_one() else {
+        let Ok((slice, coefficient)) = other.linear_terms.into_iter().exactly_one() else {
             return Err(());
         };
 
@@ -101,9 +104,8 @@ impl LinearPolynomial {
         let new_constant = ConcreteBitvector::new(new_constant, bound);
         let new_coefficient = ConcreteBitvector::new(new_coefficient, bound);
 
-        let monomials = BTreeMap::from_iter([(new_slice, new_coefficient)]);
-
-        let result = LinearPolynomial::new(new_constant, monomials);
+        let new_monomial = LinearMonomial::new(new_coefficient, new_slice);
+        let result = LinearPolynomial::from_monomial_and_constant(new_monomial, new_constant);
 
         Ok(result)
     }

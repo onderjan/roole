@@ -23,9 +23,9 @@ impl LinearPolynomial {
         // we know that we can extend the bounds
         // without breaking old overflow as it never happens
 
-        polynomial.constant = polynomial.constant.uext(new_bound);
+        polynomial.constant_term = polynomial.constant_term.uext(new_bound);
 
-        for coeff in polynomial.monomials.values_mut() {
+        for coeff in polynomial.linear_terms.values_mut() {
             *coeff = coeff.uext(new_bound);
         }
 
@@ -62,9 +62,9 @@ impl LinearPolynomial {
 
         // change constant term and coeff bounds
 
-        self.constant = self.constant.uext(new_bound);
+        self.constant_term = self.constant_term.uext(new_bound);
 
-        for coeff in self.monomials.values_mut() {
+        for coeff in self.linear_terms.values_mut() {
             *coeff = coeff.uext(new_bound);
         }
 

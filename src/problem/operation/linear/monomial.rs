@@ -16,6 +16,10 @@ impl LinearMonomial {
         Self { coefficient, slice }
     }
 
+    pub fn bound(&self) -> RBound {
+        self.coefficient.bound()
+    }
+
     pub fn might_overflow(&self) -> bool {
         let coefficient = self.coefficient.to_u64();
         let slice_width = self.slice.width.get();

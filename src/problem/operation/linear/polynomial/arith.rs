@@ -11,14 +11,16 @@ use crate::{
 impl LinearPolynomial {
     pub fn bit_not(self) -> Self {
         let mut result = self.arith_neg();
-        result.constant = result.constant.sub(ConcreteBitvector::one(result.bound()));
+        result.constant_term = result
+            .constant_term
+            .sub(ConcreteBitvector::one(result.bound()));
         result.normalize();
         result
     }
 
     pub fn arith_neg(mut self) -> LinearPolynomial {
-        self.constant = self.constant.arith_neg();
-        for coefficient in self.monomials.values_mut() {
+        self.constant_term = self.constant_term.arith_neg();
+        for coefficient in self.linear_terms.values_mut() {
             *coefficient = (*coefficient).arith_neg();
         }
 
@@ -40,11 +42,11 @@ impl LinearPolynomial {
         mut rhs: LinearPolynomial,
         op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
     ) -> LinearPolynomial {
-        let constant = op(self.constant, rhs.constant);
+        let constant = op(self.constant_term, rhs.constant_term);
         let mut monomials = BTreeMap::new();
 
-        for (formula, left_coeff) in self.monomials {
-            let coeff = if let Some(right_coeff) = rhs.monomials.remove(&formula) {
+        for (formula, left_coeff) in self.linear_terms {
+            let coeff = if let Some(right_coeff) = rhs.linear_terms.remove(&formula) {
                 op(left_coeff, right_coeff)
             } else {
                 let zero = ConcreteBitvector::zero(left_coeff.bound());
@@ -53,15 +55,15 @@ impl LinearPolynomial {
             monomials.insert(formula, coeff);
         }
 
-        for (formula, right_coeff) in rhs.monomials {
+        for (formula, right_coeff) in rhs.linear_terms {
             let zero = ConcreteBitvector::zero(right_coeff.bound());
             let coeff = op(zero, right_coeff);
             monomials.insert(formula, coeff);
         }
 
         let mut polynomial = LinearPolynomial {
-            constant,
-            monomials,
+            constant_term: constant,
+            linear_terms: monomials,
         };
         polynomial.normalize();
 

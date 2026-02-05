@@ -22,18 +22,18 @@ mod shift;
 /// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearPolynomial {
-    constant: ConcreteBitvector<RBound>,
-    monomials: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
+    linear_terms: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
+    constant_term: ConcreteBitvector<RBound>,
 }
 
 impl LinearPolynomial {
     pub fn new(
-        constant: ConcreteBitvector<RBound>,
-        monomials: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
+        linear_terms: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
+        constant_term: ConcreteBitvector<RBound>,
     ) -> Self {
         let mut result = Self {
-            constant,
-            monomials,
+            constant_term,
+            linear_terms,
         };
         result.normalize();
         result
@@ -41,45 +41,61 @@ impl LinearPolynomial {
 
     pub fn empty(bound: RBound) -> Self {
         Self {
-            constant: ConcreteBitvector::zero(bound),
-            monomials: BTreeMap::new(),
+            linear_terms: BTreeMap::new(),
+            constant_term: ConcreteBitvector::zero(bound),
         }
+    }
+
+    pub fn from_monomial_and_constant(
+        monomial: LinearMonomial,
+        constant_term: ConcreteBitvector<RBound>,
+    ) -> Self {
+        Self::new(
+            BTreeMap::from_iter([(monomial.slice, monomial.coefficient)]),
+            constant_term,
+        )
+    }
+
+    pub fn from_monomial(monomial: LinearMonomial) -> Self {
+        Self::new(
+            BTreeMap::from_iter([(monomial.slice, monomial.coefficient)]),
+            ConcreteBitvector::zero(monomial.bound()),
+        )
     }
 
     pub fn from_constant(constant: ConcreteBitvector<RBound>) -> Self {
         Self {
-            constant,
-            monomials: BTreeMap::new(),
+            linear_terms: BTreeMap::new(),
+            constant_term: constant,
         }
     }
 
     pub fn from_formula(formula_id: FormulaId, bound: RBound) -> Self {
-        let mut monomials = BTreeMap::new();
-
         if let Some(slice) = LinearSlice::from_bounded(formula_id, bound) {
-            monomials.insert(slice, ConcreteBitvector::one(bound));
+            let coefficient = ConcreteBitvector::one(bound);
+            LinearPolynomial::from_monomial(LinearMonomial::new(coefficient, slice))
+        } else {
+            LinearPolynomial::empty(bound)
         }
-
-        LinearPolynomial::new(ConcreteBitvector::zero(bound), monomials)
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
-        self.monomials
+        self.linear_terms
             .keys()
             .map(|slice| slice.formula_id)
             .collect()
     }
 
     pub fn bound(&self) -> RBound {
-        self.constant.bound()
+        self.constant_term.bound()
     }
 
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
-        let mut value = D::single_value(self.constant);
+        let mut value = D::single_value(self.constant_term);
         let polynomial_bound = value.bound();
         let polynomial_width = polynomial_bound.width();
 
-        for (slice, coefficient) in &self.monomials {
+        for (slice, coefficient) in &self.linear_terms {
             let mut formula_value = (fetch)(slice.formula_id);
             let bound = formula_value.bound();
             // slice
@@ -105,7 +121,7 @@ impl LinearPolynomial {
 
     pub(super) fn normalize(&mut self) {
         // eliminate zero coefficients
-        self.monomials.retain(|_, coeff| !coeff.is_zero());
+        self.linear_terms.retain(|_, coeff| !coeff.is_zero());
     }
 
     pub fn remap(&mut self, old_to_new: &BTreeMap<FormulaId, FormulaId>) {
@@ -124,10 +140,10 @@ impl LinearPolynomial {
         };
 
         let mut old_monomials = BTreeMap::new();
-        std::mem::swap(&mut self.monomials, &mut old_monomials);
+        std::mem::swap(&mut self.linear_terms, &mut old_monomials);
 
         for (formula_id, coefficient) in old_monomials {
-            self.monomials.insert(remap(formula_id), coefficient);
+            self.linear_terms.insert(remap(formula_id), coefficient);
         }
     }
 
@@ -135,9 +151,9 @@ impl LinearPolynomial {
         let bound = self.bound();
         assert_eq!(bound, scaler.bound());
 
-        self.constant = self.constant.mul(scaler);
+        self.constant_term = self.constant_term.mul(scaler);
 
-        for coefficient in self.monomials.values_mut() {
+        for coefficient in self.linear_terms.values_mut() {
             *coefficient = coefficient.mul(scaler);
         }
     }
@@ -154,8 +170,8 @@ impl LinearPolynomial {
     }
 
     pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
-        if self.monomials.is_empty() {
-            Some(self.constant)
+        if self.linear_terms.is_empty() {
+            Some(self.constant_term)
         } else {
             None
         }
@@ -164,21 +180,21 @@ impl LinearPolynomial {
     pub fn monomial_and_constant_value(
         &self,
     ) -> Option<(Option<LinearMonomial>, ConcreteBitvector<RBound>)> {
-        if self.monomials.is_empty() {
-            return Some((None, self.constant));
+        if self.linear_terms.is_empty() {
+            return Some((None, self.constant_term));
         }
-        let Ok((slice, coefficient)) = self.monomials.iter().exactly_one() else {
+        let Ok((slice, coefficient)) = self.linear_terms.iter().exactly_one() else {
             return None;
         };
 
         Some((
             Some(LinearMonomial::new(*coefficient, *slice)),
-            self.constant,
+            self.constant_term,
         ))
     }
 
     pub fn might_overflow(&self) -> bool {
-        if self.monomials.is_empty() {
+        if self.linear_terms.is_empty() {
             // only constant, definitely cannot overflow
             return false;
         }
@@ -211,7 +227,7 @@ impl Debug for LinearPolynomial {
         write!(f, "(")?;
 
         // write the linear monomials
-        for (slice, coefficient) in &self.monomials {
+        for (slice, coefficient) in &self.linear_terms {
             if is_first {
                 is_first = false;
             } else {
@@ -228,11 +244,11 @@ impl Debug for LinearPolynomial {
         }
 
         if is_first {
-            write!(f, "{}", self.constant)?;
-        } else if self.constant.is_nonzero() {
-            write!(f, " + {}", self.constant)?;
+            write!(f, "{}", self.constant_term)?;
+        } else if self.constant_term.is_nonzero() {
+            write!(f, " + {}", self.constant_term)?;
         }
-        write!(f, ") mod {}", 1u128 << self.constant.bound().width())
+        write!(f, ") mod {}", 1u128 << self.constant_term.bound().width())
     }
 }
 
@@ -256,20 +272,20 @@ mod tests {
             width: NonZero::new(32).unwrap(),
         };
         let a = LinearPolynomial {
-            constant: ConcreteBitvector::new(38, bound),
-            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(12, bound))]),
+            constant_term: ConcreteBitvector::new(38, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(12, bound))]),
         };
         let b = LinearPolynomial {
-            constant: ConcreteBitvector::new(17, bound),
-            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(7, bound))]),
+            constant_term: ConcreteBitvector::new(17, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(7, bound))]),
         };
         let add_result = LinearPolynomial {
-            constant: ConcreteBitvector::new(55, bound),
-            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(19, bound))]),
+            constant_term: ConcreteBitvector::new(55, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(19, bound))]),
         };
         let sub_result = LinearPolynomial {
-            constant: ConcreteBitvector::new(21, bound),
-            monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(5, bound))]),
+            constant_term: ConcreteBitvector::new(21, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(5, bound))]),
         };
         assert_eq!(a.clone().add(b.clone()), add_result);
         assert_eq!(a.sub(b), sub_result);

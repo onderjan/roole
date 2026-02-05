@@ -9,7 +9,10 @@ use crate::{
     problem::{
         eval::EvaluableDomain,
         formula::FormulaId,
-        operation::{LinearPolynomial, linear::LinearRelation},
+        operation::{
+            LinearPolynomial,
+            linear::{LinearRelation, monomial::LinearMonomial},
+        },
     },
 };
 
@@ -170,9 +173,9 @@ impl LinearSystem {
 
                     let single_bit_bound = RBound::single_bit_bound();
 
-                    let polynomial = LinearPolynomial::new(
+                    let polynomial = LinearPolynomial::from_monomial_and_constant(
+                        LinearMonomial::new(ConcreteBitvector::one(single_bit_bound), slice),
                         constant,
-                        BTreeMap::from_iter([(slice, ConcreteBitvector::one(single_bit_bound))]),
                     );
 
                     Ok(polynomial)

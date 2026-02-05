@@ -43,13 +43,13 @@ impl LinearPolynomial {
         }
 
         // amount is constant and the polynomial cannot overflow
-        if self.monomials.is_empty() {
+        if self.linear_terms.is_empty() {
             // we can simply shift the constant right by the amount
-            self.constant = self.constant.logic_shr(amount);
+            self.constant_term = self.constant_term.logic_shr(amount);
             return Ok(self);
         }
 
-        let Ok((mut slice, factor)) = self.monomials.into_iter().exactly_one() else {
+        let Ok((mut slice, factor)) = self.linear_terms.into_iter().exactly_one() else {
             return Err(());
         };
 
@@ -76,8 +76,8 @@ impl LinearPolynomial {
                 .expect("Slice width should be nonzero after logical shift right");
 
             Ok(Self::new(
-                ConcreteBitvector::zero(bound),
                 BTreeMap::from_iter([(slice, factor)]),
+                ConcreteBitvector::zero(bound),
             ))
         } else {
             // all bits will be dropped
