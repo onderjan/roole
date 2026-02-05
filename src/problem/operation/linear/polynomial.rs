@@ -222,6 +222,22 @@ impl LinearPolynomial {
 
 impl Debug for LinearPolynomial {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.bound().width() == 1 && self.linear_terms.len() == 1 {
+            // simplify printing Boolean polynomials with a single term
+            let Some((slice, coefficient)) = self.linear_terms.iter().next() else {
+                panic!("There should be a linear term");
+            };
+
+            if slice.width.get() == 1 && coefficient.is_one() {
+                // only a single linear term with single-bit slice and coefficient one
+                // just print the slice, negated if the constant term is nonzero (i.e. one)
+                if self.constant_term.is_nonzero() {
+                    write!(f, "!")?;
+                }
+                return write!(f, "{:?}", slice);
+            }
+        }
+
         let mut is_first = true;
 
         write!(f, "(")?;
@@ -234,9 +250,7 @@ impl Debug for LinearPolynomial {
                 write!(f, " + ")?;
             }
 
-            let one = ConcreteBitvector::<RBound>::one(coefficient.bound());
-
-            if coefficient != &one {
+            if !coefficient.is_one() {
                 write!(f, "{}*", coefficient)?;
             }
 
