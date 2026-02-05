@@ -1,16 +1,16 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwArith},
-    problem::{domain::OperationDomain, operation::LinearCombination},
+    problem::{domain::OperationDomain, operation::LinearPolynomial},
 };
 
 impl HwArith for OperationDomain {
     fn arith_neg(self) -> Self {
-        let combination = match self.try_combination() {
+        let polynomial = match self.try_polynomial() {
             Ok(ok) => ok,
             Err(err) => return err,
         };
 
-        Self::from_combination(combination.arith_neg())
+        Self::from_polynomial(polynomial.arith_neg())
     }
     fn add(self, rhs: Self) -> Self {
         self.linear_combine(rhs, |a, b| a.add(b))
@@ -24,12 +24,12 @@ impl HwArith for OperationDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (Ok(lhs), Ok(rhs)) = (self.try_combination(), rhs.try_combination()) else {
+        let (Ok(lhs), Ok(rhs)) = (self.try_polynomial(), rhs.try_polynomial()) else {
             // return top value
             return Self::top(bound);
         };
 
-        let (constant, mut combination) = if let Some(constant) = lhs.constant_value() {
+        let (constant, mut polynomial) = if let Some(constant) = lhs.constant_value() {
             (constant, rhs)
         } else if let Some(constant) = rhs.constant_value() {
             (constant, lhs)
@@ -38,9 +38,9 @@ impl HwArith for OperationDomain {
             return Self::top(bound);
         };
 
-        // multiply combination by constant
-        combination.scale(constant);
-        Self::from_combination(combination)
+        // multiply polynomial by constant
+        polynomial.scale(constant);
+        Self::from_polynomial(polynomial)
     }
 
     fn udiv(self, _rhs: Self) -> Self {
@@ -64,16 +64,16 @@ impl OperationDomain {
     fn linear_combine(
         self,
         rhs: OperationDomain,
-        op: fn(LinearCombination, LinearCombination) -> LinearCombination,
+        op: fn(LinearPolynomial, LinearPolynomial) -> LinearPolynomial,
     ) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (Ok(lhs), Ok(rhs)) = (self.try_combination(), rhs.try_combination()) else {
+        let (Ok(lhs), Ok(rhs)) = (self.try_polynomial(), rhs.try_polynomial()) else {
             return OperationDomain::top(bound);
         };
 
-        let combination = op(lhs, rhs);
-        OperationDomain::from_combination(combination)
+        let polynomial = op(lhs, rhs);
+        OperationDomain::from_polynomial(polynomial)
     }
 }

@@ -4,10 +4,10 @@ use itertools::Itertools;
 
 use crate::{
     domain::{bitvector::concr::ConcreteBitvector, traits::forward::HwShift},
-    problem::operation::LinearCombination,
+    problem::operation::LinearPolynomial,
 };
 
-impl LinearCombination {
+impl LinearPolynomial {
     pub fn logic_shl(mut self, amount: Self) -> Result<Self, ()> {
         let bound = self.bound();
         assert_eq!(self.bound(), amount.bound());
@@ -42,7 +42,7 @@ impl LinearCombination {
             return Err(());
         }
 
-        // amount is constant and the linear combination cannot overflow
+        // amount is constant and the polynomial cannot overflow
         if self.monomials.is_empty() {
             // we can simply shift the constant right by the amount
             self.constant = self.constant.logic_shr(amount);
@@ -60,11 +60,11 @@ impl LinearCombination {
 
         let Ok(amount) = u32::try_from(amount.to_u64()) else {
             // the shift amount is greater than maximum representable width
-            // this will clearly make the combination empty
+            // this will clearly make the polynomial empty
             return Ok(Self::empty(bound));
         };
 
-        // our combination only contains the slice
+        // our polynomial only contains the slice
 
         // TODO: consider whether to mask amounts or not, this does not mask them
 

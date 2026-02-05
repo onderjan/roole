@@ -21,12 +21,12 @@ mod shift;
 
 /// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct LinearCombination {
+pub struct LinearPolynomial {
     constant: ConcreteBitvector<RBound>,
     monomials: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
 }
 
-impl LinearCombination {
+impl LinearPolynomial {
     pub fn new(
         constant: ConcreteBitvector<RBound>,
         monomials: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
@@ -60,7 +60,7 @@ impl LinearCombination {
             monomials.insert(slice, ConcreteBitvector::one(bound));
         }
 
-        LinearCombination::new(ConcreteBitvector::zero(bound), monomials)
+        LinearPolynomial::new(ConcreteBitvector::zero(bound), monomials)
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
@@ -76,8 +76,8 @@ impl LinearCombination {
 
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
         let mut value = D::single_value(self.constant);
-        let combination_bound = value.bound();
-        let combination_width = combination_bound.width();
+        let polynomial_bound = value.bound();
+        let polynomial_width = polynomial_bound.width();
 
         for (slice, coefficient) in &self.monomials {
             let mut formula_value = (fetch)(slice.formula_id);
@@ -89,10 +89,10 @@ impl LinearCombination {
                 formula_value = formula_value.logic_shr(D::single_value(lsb));
             }
 
-            // unless slice lsb is equal to zero and formula value width is equal to combination width,
+            // unless slice lsb is equal to zero and formula value width is equal to polynomial width,
             // perform unsigned extension
-            if slice.lsb != 0 || formula_value.bound().width() != combination_width {
-                formula_value = formula_value.uext(combination_bound);
+            if slice.lsb != 0 || formula_value.bound().width() != polynomial_width {
+                formula_value = formula_value.uext(polynomial_bound);
             }
 
             // then, multiply by the coefficient
@@ -142,7 +142,7 @@ impl LinearCombination {
         }
     }
 
-    pub fn single_bit(constant: bool) -> LinearCombination {
+    pub fn single_bit(constant: bool) -> LinearPolynomial {
         let bound = RBound::single_bit_bound();
         let constant = if constant {
             ConcreteBitvector::one(bound)
@@ -150,7 +150,7 @@ impl LinearCombination {
             ConcreteBitvector::zero(bound)
         };
 
-        LinearCombination::from_constant(constant)
+        LinearPolynomial::from_constant(constant)
     }
 
     pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
@@ -183,7 +183,7 @@ impl LinearCombination {
             return false;
         }
 
-        // TODO: determine if the combination might overflow more finely
+        // TODO: determine if the polynomial might overflow more finely
 
         let Some((monomial, constant)) = self.monomial_and_constant_value() else {
             // we are unsure, return true
@@ -204,13 +204,13 @@ impl LinearCombination {
     }
 }
 
-impl Debug for LinearCombination {
+impl Debug for LinearPolynomial {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut is_first = true;
 
         write!(f, "(")?;
 
-        // write the linear combinations of formulas with coefficients
+        // write the linear monomials
         for (slice, coefficient) in &self.monomials {
             if is_first {
                 is_first = false;
@@ -255,19 +255,19 @@ mod tests {
             lsb: 0,
             width: NonZero::new(32).unwrap(),
         };
-        let a = LinearCombination {
+        let a = LinearPolynomial {
             constant: ConcreteBitvector::new(38, bound),
             monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(12, bound))]),
         };
-        let b = LinearCombination {
+        let b = LinearPolynomial {
             constant: ConcreteBitvector::new(17, bound),
             monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(7, bound))]),
         };
-        let add_result = LinearCombination {
+        let add_result = LinearPolynomial {
             constant: ConcreteBitvector::new(55, bound),
             monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(19, bound))]),
         };
-        let sub_result = LinearCombination {
+        let sub_result = LinearPolynomial {
             constant: ConcreteBitvector::new(21, bound),
             monomials: BTreeMap::from_iter([(slice, ConcreteBitvector::new(5, bound))]),
         };

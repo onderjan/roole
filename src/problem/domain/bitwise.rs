@@ -5,7 +5,7 @@ use crate::{
     },
     problem::{
         domain::OperationDomain,
-        operation::{LinearCombination, LinearOperationType},
+        operation::{LinearOperationType, LinearPolynomial},
     },
 };
 
@@ -55,7 +55,7 @@ impl OperationDomain {
                 } else {
                     // for conjunction, return 0 as the constant is 0
                     // for disjunction, return 1 as the constant is 1
-                    return Self::from_combination(LinearCombination::single_bit(constant));
+                    return Self::from_polynomial(LinearPolynomial::single_bit(constant));
                 }
             }
         }
@@ -65,9 +65,9 @@ impl OperationDomain {
         };
 
         match (lhs.into_type(), rhs.into_type()) {
-            (LinearOperationType::Combination(lhs), LinearOperationType::Combination(rhs)) => {
-                if let Ok(combination) = lhs.bitwise_combine(rhs, conjunction) {
-                    return Self::from_combination(combination);
+            (LinearOperationType::Polynomial(lhs), LinearOperationType::Polynomial(rhs)) => {
+                if let Ok(polynomial) = lhs.bitwise_combine(rhs, conjunction) {
+                    return Self::from_polynomial(polynomial);
                 }
             }
             (LinearOperationType::System(lhs), LinearOperationType::System(rhs)) => {

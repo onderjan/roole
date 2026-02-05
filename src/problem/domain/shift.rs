@@ -1,6 +1,6 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwShift},
-    problem::{domain::OperationDomain, operation::LinearCombination},
+    problem::{domain::OperationDomain, operation::LinearPolynomial},
 };
 
 impl HwShift for OperationDomain {
@@ -22,17 +22,17 @@ impl HwShift for OperationDomain {
 fn perform_shift(
     lhs: OperationDomain,
     amount: OperationDomain,
-    combination_func: fn(LinearCombination, LinearCombination) -> Result<LinearCombination, ()>,
+    polynomial_func: fn(LinearPolynomial, LinearPolynomial) -> Result<LinearPolynomial, ()>,
 ) -> OperationDomain {
     let bound = amount.bound();
     assert_eq!(bound, amount.bound());
 
-    let (Ok(lhs), Ok(amount)) = (lhs.try_combination(), amount.try_combination()) else {
+    let (Ok(lhs), Ok(amount)) = (lhs.try_polynomial(), amount.try_polynomial()) else {
         return OperationDomain::top(bound);
     };
 
-    match (combination_func)(lhs, amount) {
-        Ok(result) => OperationDomain::from_combination(result),
+    match (polynomial_func)(lhs, amount) {
+        Ok(result) => OperationDomain::from_polynomial(result),
         Err(()) => OperationDomain::top(bound),
     }
 }

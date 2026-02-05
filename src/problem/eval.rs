@@ -16,7 +16,7 @@ use crate::{
         assignment::Assignment,
         domain::OperationDomain,
         formula::{FormulaId, VariableId},
-        operation::{LinearCombination, OperationId},
+        operation::{LinearPolynomial, OperationId},
     },
 };
 
@@ -153,7 +153,7 @@ impl EvaluableDomain for AbstractBitvector<RBound> {
 
 impl EvaluableDomain for OperationDomain {
     fn formula(formula_id: FormulaId, bound: RBound) -> Self {
-        OperationDomain::from_combination(LinearCombination::from_formula(formula_id, bound))
+        OperationDomain::from_polynomial(LinearPolynomial::from_formula(formula_id, bound))
     }
 }
 

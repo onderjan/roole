@@ -8,7 +8,7 @@ use crate::{
     problem::{
         domain::OperationDomain,
         formula::FormulaId,
-        operation::{LinearCombination, LinearOperation, LinearSystem},
+        operation::{LinearOperation, LinearPolynomial, LinearSystem},
     },
 };
 
@@ -20,13 +20,13 @@ impl OperationDomain {
         }
     }
 
-    pub(super) fn try_combination(self) -> Result<LinearCombination, OperationDomain> {
+    pub(super) fn try_polynomial(self) -> Result<LinearPolynomial, OperationDomain> {
         let OperationDomain::Linear(linear) = self else {
             return Err(self);
         };
 
-        match linear.try_into_combination() {
-            Ok(combination) => Ok(combination),
+        match linear.try_into_polynomial() {
+            Ok(polynomial) => Ok(polynomial),
             Err(linear) => Err(Self::Linear(linear)),
         }
     }
@@ -39,8 +39,8 @@ impl OperationDomain {
         linear.constant_value()
     }
 
-    pub fn from_combination(combination: LinearCombination) -> Self {
-        Self::Linear(LinearOperation::from_combination(combination))
+    pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
+        Self::Linear(LinearOperation::from_polynomial(polynomial))
     }
 
     pub(super) fn from_system(system: LinearSystem) -> Self {

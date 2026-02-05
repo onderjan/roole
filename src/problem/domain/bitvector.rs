@@ -1,6 +1,6 @@
 use crate::{
     domain::bitvector::{RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
-    problem::{domain::OperationDomain, operation::LinearCombination},
+    problem::{domain::OperationDomain, operation::LinearPolynomial},
 };
 
 impl BitvectorDomain for OperationDomain {
@@ -14,7 +14,7 @@ impl BitvectorDomain for OperationDomain {
     }
 
     fn single_value(value: ConcreteBitvector<RBound>) -> Self {
-        OperationDomain::from_combination(LinearCombination::from_constant(value))
+        OperationDomain::from_polynomial(LinearPolynomial::from_constant(value))
     }
 
     fn top(bound: RBound) -> Self {

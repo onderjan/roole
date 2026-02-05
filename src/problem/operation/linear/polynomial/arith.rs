@@ -5,10 +5,10 @@ use crate::{
         bitvector::{RBound, concr::ConcreteBitvector},
         traits::forward::HwArith,
     },
-    problem::operation::LinearCombination,
+    problem::operation::LinearPolynomial,
 };
 
-impl LinearCombination {
+impl LinearPolynomial {
     pub fn bit_not(self) -> Self {
         let mut result = self.arith_neg();
         result.constant = result.constant.sub(ConcreteBitvector::one(result.bound()));
@@ -16,7 +16,7 @@ impl LinearCombination {
         result
     }
 
-    pub fn arith_neg(mut self) -> LinearCombination {
+    pub fn arith_neg(mut self) -> LinearPolynomial {
         self.constant = self.constant.arith_neg();
         for coefficient in self.monomials.values_mut() {
             *coefficient = (*coefficient).arith_neg();
@@ -27,19 +27,19 @@ impl LinearCombination {
         self
     }
 
-    pub fn add(self, rhs: LinearCombination) -> LinearCombination {
+    pub fn add(self, rhs: LinearPolynomial) -> LinearPolynomial {
         self.linear_combine(rhs, |a, b| a.add(b))
     }
 
-    pub fn sub(self, rhs: LinearCombination) -> LinearCombination {
+    pub fn sub(self, rhs: LinearPolynomial) -> LinearPolynomial {
         self.linear_combine(rhs, |a, b| a.sub(b))
     }
 
     fn linear_combine(
         self,
-        mut rhs: LinearCombination,
+        mut rhs: LinearPolynomial,
         op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
-    ) -> LinearCombination {
+    ) -> LinearPolynomial {
         let constant = op(self.constant, rhs.constant);
         let mut monomials = BTreeMap::new();
 
@@ -59,12 +59,12 @@ impl LinearCombination {
             monomials.insert(formula, coeff);
         }
 
-        let mut combination = LinearCombination {
+        let mut polynomial = LinearPolynomial {
             constant,
             monomials,
         };
-        combination.normalize();
+        polynomial.normalize();
 
-        combination
+        polynomial
     }
 }

@@ -55,10 +55,10 @@ impl LinearSystem {
             // as such, we can construct the relation -a <= (!s-1)
             // as the negation of a <= s
 
-            let combination = relation.combination().clone().bit_not();
+            let polynomial = relation.polynomial().clone().bit_not();
             let slack = bit_not_slack.sub(ConcreteBitvector::one(relation.slack().bound()));
 
-            new_relations.push(LinearRelation::new(combination, slack));
+            new_relations.push(LinearRelation::new(polynomial, slack));
         }
 
         if new_relations.is_empty() {

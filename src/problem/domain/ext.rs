@@ -7,23 +7,23 @@ impl BExt<RBound> for OperationDomain {
     type Output = OperationDomain;
 
     fn uext(self, new_bound: RBound) -> Self::Output {
-        let Ok(combination) = self.try_combination() else {
+        let Ok(polynomial) = self.try_polynomial() else {
             return Self::Top(new_bound);
         };
 
-        match combination.uext(new_bound) {
-            Ok(ok) => Self::from_combination(ok),
+        match polynomial.uext(new_bound) {
+            Ok(ok) => Self::from_polynomial(ok),
             Err(_) => Self::Top(new_bound),
         }
     }
 
     fn sext(self, new_bound: RBound) -> Self::Output {
-        let Ok(combination) = self.try_combination() else {
+        let Ok(polynomial) = self.try_polynomial() else {
             return Self::Top(new_bound);
         };
 
-        match combination.sext(new_bound) {
-            Ok(ok) => Self::from_combination(ok),
+        match polynomial.sext(new_bound) {
+            Ok(ok) => Self::from_polynomial(ok),
             Err(_) => Self::Top(new_bound),
         }
     }

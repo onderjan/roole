@@ -8,10 +8,11 @@ use super::bound::{CBound, RBound};
 use std::fmt::Display;
 use std::hash::Hash;
 
-/*pub mod combination;
+/*
 pub mod combined;
 pub mod dual_interval;
-pub mod eq_domain;*/
+pub mod eq_domain;
+*/
 pub mod three_valued;
 
 pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {

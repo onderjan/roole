@@ -9,7 +9,7 @@ use crate::{
     problem::{
         eval::EvaluableDomain,
         formula::FormulaId,
-        operation::{LinearCombination, linear::LinearRelation},
+        operation::{LinearPolynomial, linear::LinearRelation},
     },
 };
 
@@ -24,12 +24,12 @@ pub enum LinearSystem {
 }
 
 impl LinearSystem {
-    pub fn from_eq(lhs: LinearCombination, rhs: LinearCombination) -> Self {
-        // if both are combinations, make into an equality
+    pub fn from_eq(lhs: LinearPolynomial, rhs: LinearPolynomial) -> Self {
+        // if both are polynomials, make into an equality
 
-        let combination = lhs.sub(rhs);
-        let slack = ConcreteBitvector::zero(combination.bound());
-        LinearSystem::Single(LinearRelation::new(combination, slack))
+        let polynomial = lhs.sub(rhs);
+        let slack = ConcreteBitvector::zero(polynomial.bound());
+        LinearSystem::Single(LinearRelation::new(polynomial, slack))
     }
 
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
@@ -110,38 +110,38 @@ impl LinearSystem {
         }
     }
 
-    pub fn try_into_combination(self) -> Result<LinearCombination, Self> {
+    pub fn try_into_polynomial(self) -> Result<LinearPolynomial, Self> {
         let LinearSystem::Single(relation) = self else {
             return Err(self);
         };
 
-        let bound = relation.combination().bound();
+        let bound = relation.polynomial().bound();
 
         match bound.width() {
             0 => {
-                // can convert into empty combination
-                Ok(LinearCombination::empty(bound))
+                // can convert into empty polynomial
+                Ok(LinearPolynomial::empty(bound))
             }
             1 => {
                 // can convert into Boolean
                 if relation.slack().is_nonzero() {
                     // this is always true
-                    return Ok(LinearCombination::single_bit(true));
+                    return Ok(LinearPolynomial::single_bit(true));
                 }
 
                 // the relation is left <= 0, i.e. left == 0
                 // we must bit-not to obtain (!left) == (!1)
-                // i.e. !left == 1, which can be converted to combination !left
+                // i.e. !left == 1, which can be converted to polynomial !left
 
-                let bit_not_combination = relation.into_combination().bit_not();
+                let bit_not_polynomial = relation.into_polynomial().bit_not();
 
-                Ok(bit_not_combination)
+                Ok(bit_not_polynomial)
             }
             _ => {
                 let slack = *relation.slack();
 
                 let Some((monomial, constant)) =
-                    relation.combination().monomial_and_constant_value()
+                    relation.polynomial().monomial_and_constant_value()
                 else {
                     // cannot convert
                     return Err(LinearSystem::Single(relation));
@@ -161,7 +161,7 @@ impl LinearSystem {
 
                     if result_if_zero == result_if_one {
                         // tautology / contradiction
-                        return Ok(LinearCombination::from_constant(result_if_one));
+                        return Ok(LinearPolynomial::from_constant(result_if_one));
                     }
 
                     // if result_if_zero is 0 and result_if_one is 1, we want to construct single_bit
@@ -170,15 +170,15 @@ impl LinearSystem {
 
                     let single_bit_bound = RBound::single_bit_bound();
 
-                    let combination = LinearCombination::new(
+                    let polynomial = LinearPolynomial::new(
                         constant,
                         BTreeMap::from_iter([(slice, ConcreteBitvector::one(single_bit_bound))]),
                     );
 
-                    Ok(combination)
+                    Ok(polynomial)
                 } else {
                     // the result is whether constant <= slack
-                    Ok(LinearCombination::from_constant(constant.ule(slack)))
+                    Ok(LinearPolynomial::from_constant(constant.ule(slack)))
                 }
             }
         }

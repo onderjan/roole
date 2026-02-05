@@ -5,7 +5,7 @@ use crate::{
     },
     problem::{
         domain::OperationDomain,
-        operation::{LinearCombination, LinearSystem},
+        operation::{LinearPolynomial, LinearSystem},
     },
 };
 
@@ -15,15 +15,15 @@ impl TypedEq for OperationDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (lhs, rhs) = match (self.try_combination(), rhs.try_combination()) {
+        let (lhs, rhs) = match (self.try_polynomial(), rhs.try_polynomial()) {
             (Err(_), Err(_)) => {
                 // cannot combine
                 return OperationDomain::top(RBound::single_bit_bound());
             }
-            (Ok(combination), Err(other)) | (Err(other), Ok(combination)) => {
-                // we can simplify if we are working with Booleans and combination is a constant
+            (Ok(polynomial), Err(other)) | (Err(other), Ok(polynomial)) => {
+                // we can simplify if we are working with Booleans and polynomial is a constant
                 if bound.width() == 1
-                    && let Some(constant) = combination.constant_value()
+                    && let Some(constant) = polynomial.constant_value()
                 {
                     if constant.is_nonzero() {
                         // equality of form 1 == other
@@ -47,8 +47,8 @@ impl TypedEq for OperationDomain {
             // in Booleans, lhs == rhs is true when (lhs + rhs) mod 2 = 1
             // i.e. we can represent this by (lhs + rhs + 1) mod 2 = 0
 
-            let one = LinearCombination::from_constant(ConcreteBitvector::one(bound));
-            return OperationDomain::from_combination(lhs.add(rhs).add(one));
+            let one = LinearPolynomial::from_constant(ConcreteBitvector::one(bound));
+            return OperationDomain::from_polynomial(lhs.add(rhs).add(one));
         }
 
         OperationDomain::from_system(LinearSystem::from_eq(lhs, rhs))
@@ -65,10 +65,10 @@ impl TypedEq for OperationDomain {
 
         if bound.width() == 0 {
             // replace with empty
-            return OperationDomain::from_combination(LinearCombination::empty(bound));
+            return OperationDomain::from_polynomial(LinearPolynomial::empty(bound));
         }
 
-        let condition = match condition.try_combination() {
+        let condition = match condition.try_polynomial() {
             Ok(condition) => {
                 if let Some(condition_value) = condition.constant_value() {
                     // constant condition value, select the branch
@@ -79,14 +79,14 @@ impl TypedEq for OperationDomain {
                     }
                 }
                 // go back
-                OperationDomain::from_combination(condition)
+                OperationDomain::from_polynomial(condition)
             }
             Err(condition) => condition,
         };
 
-        // try to simplify with combination branches
+        // try to simplify with polynomial branches
         let (Ok(then_branch), Ok(else_branch)) =
-            (then_branch.try_combination(), else_branch.try_combination())
+            (then_branch.try_polynomial(), else_branch.try_polynomial())
         else {
             return OperationDomain::Top(bound);
         };
@@ -103,14 +103,14 @@ impl TypedEq for OperationDomain {
             );
         }
 
-        let Ok(condition) = condition.try_combination() else {
+        let Ok(condition) = condition.try_polynomial() else {
             return OperationDomain::Top(bound);
         };
 
         // we can represent ite as condition * (then - else) + else
         // set truth = then - else
         // then, if either condition or truth is a constant,
-        // we can simplify ite to a combination
+        // we can simplify ite to a polynomial
 
         let mut truth = then_branch.sub(else_branch.clone());
 
@@ -123,7 +123,7 @@ impl TypedEq for OperationDomain {
             // truth is constant, scale condition by it and add else branch
             conditional_truth.scale(truth);
 
-            let result = OperationDomain::from_combination(conditional_truth.add(else_branch));
+            let result = OperationDomain::from_polynomial(conditional_truth.add(else_branch));
 
             return result;
         };
@@ -132,7 +132,7 @@ impl TypedEq for OperationDomain {
             // condition is constant, scale truth by it (zero-extended) and add else branch
             truth.scale(condition.uext(bound));
 
-            let result = OperationDomain::from_combination(truth.add(else_branch));
+            let result = OperationDomain::from_polynomial(truth.add(else_branch));
 
             return result;
         }
@@ -148,7 +148,7 @@ fn simplify_ite_boolean_branches(
 ) -> OperationDomain {
     if then_branch == else_branch {
         // tautology (both true) or contradiction (both false)
-        OperationDomain::from_combination(LinearCombination::single_bit(then_branch))
+        OperationDomain::from_polynomial(LinearPolynomial::single_bit(then_branch))
     } else if then_branch {
         // identity (take then if true, take else if false)
         condition

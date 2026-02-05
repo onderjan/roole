@@ -16,7 +16,7 @@ mod linear;
 pub use bi::{BiOp, BiOperator};
 
 pub(crate) use linear::LinearOperationType;
-pub use linear::{LinearCombination, LinearOperation, LinearSystem};
+pub use linear::{LinearOperation, LinearPolynomial, LinearSystem};
 
 /// Operation id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

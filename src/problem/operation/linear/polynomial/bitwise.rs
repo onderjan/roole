@@ -4,15 +4,15 @@ use itertools::Itertools;
 
 use crate::{
     domain::{bitvector::concr::ConcreteBitvector, traits::forward::Bitwise},
-    problem::operation::{LinearCombination, linear::slice::LinearSlice},
+    problem::operation::{LinearPolynomial, linear::slice::LinearSlice},
 };
 
-impl LinearCombination {
+impl LinearPolynomial {
     pub fn bitwise_combine(
         self,
-        rhs: LinearCombination,
+        rhs: LinearPolynomial,
         conjunction: bool,
-    ) -> Result<LinearCombination, ()> {
+    ) -> Result<LinearPolynomial, ()> {
         let bound = self.bound();
 
         let (constant, other) = match (self.constant_value(), rhs.constant_value()) {
@@ -25,7 +25,7 @@ impl LinearCombination {
                 } else {
                     lhs.bit_or(rhs)
                 };
-                return Ok(LinearCombination::from_constant(result));
+                return Ok(LinearPolynomial::from_constant(result));
             }
         };
 
@@ -72,7 +72,7 @@ impl LinearCombination {
 
         let Some(added_lsb) = new_slice_mask.checked_ilog2() else {
             // just the constant
-            return Ok(LinearCombination::from_constant(ConcreteBitvector::new(
+            return Ok(LinearPolynomial::from_constant(ConcreteBitvector::new(
                 new_constant,
                 bound,
             )));
@@ -103,7 +103,7 @@ impl LinearCombination {
 
         let monomials = BTreeMap::from_iter([(new_slice, new_coefficient)]);
 
-        let result = LinearCombination::new(new_constant, monomials);
+        let result = LinearPolynomial::new(new_constant, monomials);
 
         Ok(result)
     }
