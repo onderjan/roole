@@ -31,12 +31,11 @@ impl LinearPolynomial {
         linear_terms: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
         constant_term: ConcreteBitvector<RBound>,
     ) -> Self {
-        let mut result = Self {
+        let result = Self {
             constant_term,
             linear_terms,
         };
-        result.normalize();
-        result
+        result.into_normal_form()
     }
 
     pub fn empty(bound: RBound) -> Self {
@@ -119,9 +118,10 @@ impl LinearPolynomial {
         value
     }
 
-    pub(super) fn normalize(&mut self) {
+    pub(super) fn into_normal_form(mut self) -> Self {
         // eliminate zero coefficients
         self.linear_terms.retain(|_, coeff| !coeff.is_zero());
+        self
     }
 
     pub fn remap(&mut self, old_to_new: &BTreeMap<FormulaId, FormulaId>) {

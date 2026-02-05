@@ -5,7 +5,7 @@ use crate::{
     },
     problem::{
         domain::OperationDomain,
-        operation::{LinearPolynomial, LinearSystem},
+        operation::{LinearPolynomial, LinearRelation, LinearSystem},
     },
 };
 
@@ -51,7 +51,9 @@ impl TypedEq for OperationDomain {
             return OperationDomain::from_polynomial(lhs.add(rhs).add(one));
         }
 
-        OperationDomain::from_system(LinearSystem::from_eq(lhs, rhs))
+        OperationDomain::Linear(LinearSystem::from_relation(LinearRelation::from_eq(
+            lhs, rhs,
+        )))
     }
 
     fn ne(self, rhs: Self) -> Self::Output {

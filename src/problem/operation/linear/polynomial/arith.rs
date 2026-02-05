@@ -14,8 +14,7 @@ impl LinearPolynomial {
         result.constant_term = result
             .constant_term
             .sub(ConcreteBitvector::one(result.bound()));
-        result.normalize();
-        result
+        result.into_normal_form()
     }
 
     pub fn arith_neg(mut self) -> LinearPolynomial {
@@ -24,9 +23,7 @@ impl LinearPolynomial {
             *coefficient = (*coefficient).arith_neg();
         }
 
-        self.normalize();
-
-        self
+        self.into_normal_form()
     }
 
     pub fn add(self, rhs: LinearPolynomial) -> LinearPolynomial {
@@ -61,12 +58,10 @@ impl LinearPolynomial {
             monomials.insert(formula, coeff);
         }
 
-        let mut polynomial = LinearPolynomial {
+        let polynomial = LinearPolynomial {
             constant_term: constant,
             linear_terms: monomials,
         };
-        polynomial.normalize();
-
-        polynomial
+        polynomial.into_normal_form()
     }
 }

@@ -8,7 +8,7 @@ use crate::{
     problem::{
         domain::OperationDomain,
         formula::FormulaId,
-        operation::{LinearOperation, LinearPolynomial, LinearSystem},
+        operation::{LinearPolynomial, LinearSystem},
     },
 };
 
@@ -40,11 +40,7 @@ impl OperationDomain {
     }
 
     pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
-        Self::Linear(LinearOperation::from_polynomial(polynomial))
-    }
-
-    pub(super) fn from_system(system: LinearSystem) -> Self {
-        Self::Linear(LinearOperation::from_system(system))
+        Self::Linear(LinearSystem::from_polynomial(polynomial))
     }
 }
 

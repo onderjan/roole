@@ -9,7 +9,7 @@ impl BitvectorDomain for OperationDomain {
     fn bound(&self) -> RBound {
         match &self {
             OperationDomain::Top(bound) => *bound,
-            OperationDomain::Linear(linear) => linear.result_bound(),
+            OperationDomain::Linear(linear) => linear.bound(),
         }
     }
 

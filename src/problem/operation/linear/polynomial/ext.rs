@@ -68,8 +68,6 @@ impl LinearPolynomial {
             *coeff = coeff.uext(new_bound);
         }
 
-        self.normalize();
-
-        self
+        self.into_normal_form()
     }
 }

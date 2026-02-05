@@ -3,10 +3,7 @@ use crate::{
         bitvector::{BitvectorBound, abstr::BitvectorDomain},
         traits::forward::Bitwise,
     },
-    problem::{
-        domain::OperationDomain,
-        operation::{LinearOperationType, LinearPolynomial},
-    },
+    problem::{domain::OperationDomain, operation::LinearPolynomial},
 };
 
 impl Bitwise for OperationDomain {
@@ -20,10 +17,10 @@ impl Bitwise for OperationDomain {
     }
 
     fn bit_and(self, rhs: Self) -> Self {
-        self.bit_linear(rhs, true)
+        self.bit_junction(rhs, true)
     }
     fn bit_or(self, rhs: Self) -> Self {
-        self.bit_linear(rhs, false)
+        self.bit_junction(rhs, false)
     }
     fn bit_xor(self, rhs: Self) -> Self {
         let bound = self.bound();
@@ -35,7 +32,7 @@ impl Bitwise for OperationDomain {
 }
 
 impl OperationDomain {
-    fn bit_linear(self, rhs: Self, conjunction: bool) -> Self {
+    fn bit_junction(self, rhs: Self, conjunction: bool) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
@@ -64,24 +61,9 @@ impl OperationDomain {
             return Self::top(bound);
         };
 
-        match (lhs.into_type(), rhs.into_type()) {
-            (LinearOperationType::Polynomial(lhs), LinearOperationType::Polynomial(rhs)) => {
-                if let Ok(polynomial) = lhs.bitwise_combine(rhs, conjunction) {
-                    return Self::from_polynomial(polynomial);
-                }
-            }
-            (LinearOperationType::System(lhs), LinearOperationType::System(rhs)) => {
-                let system = if conjunction {
-                    lhs.and(rhs)
-                } else {
-                    lhs.or(rhs)
-                };
-                if let Some(system) = system {
-                    return Self::from_system(system);
-                }
-            }
-            _ => {}
+        match lhs.bit_junction(rhs, conjunction) {
+            Ok(result) => OperationDomain::Linear(result),
+            Err(()) => OperationDomain::Top(bound),
         }
-        Self::top(bound)
     }
 }

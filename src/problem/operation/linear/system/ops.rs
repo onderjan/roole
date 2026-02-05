@@ -82,45 +82,4 @@ impl LinearSystem {
 
         Ok(system)
     }
-
-    pub fn and(self, rhs: LinearSystem) -> Option<Self> {
-        self.combine(rhs, true)
-    }
-
-    pub fn or(self, rhs: LinearSystem) -> Option<Self> {
-        self.combine(rhs, false)
-    }
-
-    fn combine(self, rhs: LinearSystem, universal: bool) -> Option<Self> {
-        let lhs_compatible = matches!(self, LinearSystem::Single(_))
-            || universal == matches!(self, LinearSystem::Conjunction(_));
-        let rhs_compatible = matches!(rhs, LinearSystem::Single(_))
-            || universal == matches!(rhs, LinearSystem::Conjunction(_));
-
-        if !lhs_compatible || !rhs_compatible {
-            return None;
-        }
-
-        let new_relations: Vec<LinearRelation> = self
-            .into_relations_iter()
-            .chain(rhs.into_relations_iter())
-            .collect();
-
-        assert!(!new_relations.is_empty());
-
-        let mut system = match <[_; 1]>::try_from(new_relations) {
-            Ok([new_relation]) => LinearSystem::Single(new_relation),
-            Err(new_relations) => {
-                if universal {
-                    LinearSystem::Conjunction(new_relations)
-                } else {
-                    LinearSystem::Disjunction(new_relations)
-                }
-            }
-        };
-
-        system.normalize();
-
-        Some(system)
-    }
 }
