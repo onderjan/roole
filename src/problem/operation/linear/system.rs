@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
-    domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
+    domain::{
+        bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
+        traits::forward::{HwArith, TypedCmp},
+    },
     problem::{
         eval::EvaluableDomain,
         formula::FormulaId,
@@ -135,8 +138,48 @@ impl LinearSystem {
                 Ok(bit_not_combination)
             }
             _ => {
-                // cannot convert
-                Err(LinearSystem::Single(relation))
+                let slack = *relation.slack();
+
+                let Some((monomial, constant)) =
+                    relation.combination().monomial_and_constant_value()
+                else {
+                    // cannot convert
+                    return Err(LinearSystem::Single(relation));
+                };
+
+                if let Some(monomial) = monomial {
+                    let slice = monomial.slice;
+                    let coefficient = monomial.coefficient;
+
+                    // if the monomial is single-bit, we will be able to simplify
+                    if slice.width.get() != 1 {
+                        return Err(LinearSystem::Single(relation));
+                    }
+
+                    let result_if_zero = constant.ule(slack);
+                    let result_if_one = coefficient.add(constant).ule(slack);
+
+                    if result_if_zero == result_if_one {
+                        // tautology / contradiction
+                        return Ok(LinearCombination::from_constant(result_if_one));
+                    }
+
+                    // if result_if_zero is 0 and result_if_one is 1, we want to construct single_bit
+                    // if result_if_zero is 1 and result_if_one is 0, we want to construct (single_bit + 1) mod 2
+                    let constant = result_if_zero;
+
+                    let single_bit_bound = RBound::single_bit_bound();
+
+                    let combination = LinearCombination::new(
+                        constant,
+                        BTreeMap::from_iter([(slice, ConcreteBitvector::one(single_bit_bound))]),
+                    );
+
+                    Ok(combination)
+                } else {
+                    // the result is whether constant <= slack
+                    Ok(LinearCombination::from_constant(constant.ule(slack)))
+                }
             }
         }
     }

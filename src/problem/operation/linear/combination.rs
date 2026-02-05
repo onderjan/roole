@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
+use crate::problem::operation::linear::monomial::LinearMonomial;
 use crate::problem::operation::linear::slice::LinearSlice;
 use crate::{
     domain::{
@@ -88,9 +89,9 @@ impl LinearCombination {
                 formula_value = formula_value.logic_shr(D::single_value(lsb));
             }
 
-            // unless slice lsb is equal to zero and slice bound width is equal to width,
+            // unless slice lsb is equal to zero and formula value width is equal to combination width,
             // perform unsigned extension
-            if slice.lsb != 0 || slice.width.get() != combination_width {
+            if slice.lsb != 0 || formula_value.bound().width() != combination_width {
                 formula_value = formula_value.uext(combination_bound);
             }
 
@@ -158,6 +159,22 @@ impl LinearCombination {
         } else {
             None
         }
+    }
+
+    pub fn monomial_and_constant_value(
+        &self,
+    ) -> Option<(Option<LinearMonomial>, ConcreteBitvector<RBound>)> {
+        if self.monomials.is_empty() {
+            return Some((None, self.constant));
+        }
+        let Ok((slice, coefficient)) = self.monomials.iter().exactly_one() else {
+            return None;
+        };
+
+        Some((
+            Some(LinearMonomial::new(*coefficient, *slice)),
+            self.constant,
+        ))
     }
 
     pub fn might_overflow(&self) -> bool {
