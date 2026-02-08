@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
         traits::forward::{BExt, Bitwise, TypedEq},
     },
     problem::{
@@ -41,15 +41,6 @@ impl TypedEq for OperationDomain {
             }
             (Ok(lhs), Ok(rhs)) => (lhs, rhs),
         };
-
-        if bound.width() == 1 {
-            // no need to go to a system
-            // in Booleans, lhs == rhs is true when (lhs + rhs) mod 2 = 1
-            // i.e. we can represent this by (lhs + rhs + 1) mod 2 = 0
-
-            let one = LinearPolynomial::from_constant(ConcreteBitvector::one(bound));
-            return OperationDomain::from_polynomial(lhs.add(rhs).add(one));
-        }
 
         OperationDomain::Linear(LinearSystem::from_relation(LinearRelation::from_eq(
             lhs, rhs,
