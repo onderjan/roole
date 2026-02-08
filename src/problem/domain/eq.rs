@@ -1,7 +1,7 @@
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
-        traits::forward::{BExt, Bitwise, TypedEq},
+        traits::forward::{Bitwise, TypedEq},
     },
     problem::{
         domain::OperationDomain,
@@ -96,39 +96,11 @@ impl TypedEq for OperationDomain {
             );
         }
 
-        let Ok(condition) = condition.try_polynomial() else {
-            return OperationDomain::Top(bound);
+        if let Ok(condition) = condition.try_polynomial()
+            && let Ok(result) = LinearPolynomial::ite(condition, then_branch, else_branch)
+        {
+            return OperationDomain::Linear(LinearSystem::from_polynomial(result));
         };
-
-        // we can represent ite as condition * (then - else) + else
-        // set truth = then - else
-        // then, if either condition or truth is a constant,
-        // we can simplify ite to a polynomial
-
-        let mut truth = then_branch.sub(else_branch.clone());
-
-        if let Some(truth) = truth.constant_value() {
-            let Ok(mut conditional_truth) = condition.uext(bound) else {
-                // could not extend the condition
-                return OperationDomain::Top(bound);
-            };
-
-            // truth is constant, scale condition by it and add else branch
-            conditional_truth.scale(truth);
-
-            let result = OperationDomain::from_polynomial(conditional_truth.add(else_branch));
-
-            return result;
-        };
-
-        if let Some(condition) = condition.constant_value() {
-            // condition is constant, scale truth by it (zero-extended) and add else branch
-            truth.scale(condition.uext(bound));
-
-            let result = OperationDomain::from_polynomial(truth.add(else_branch));
-
-            return result;
-        }
 
         OperationDomain::Top(bound)
     }

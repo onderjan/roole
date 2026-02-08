@@ -16,6 +16,7 @@ use crate::{
 
 mod arith;
 mod bitwise;
+mod eq;
 mod ext;
 mod shift;
 
