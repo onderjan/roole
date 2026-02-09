@@ -298,20 +298,20 @@ impl Debug for LinearPolynomial {
 
         // write the linear monomials
         for (slice, coefficient) in &self.linear_terms {
-            let is_sign_bit_set = coefficient.is_sign_bit_set();
+            let write_as_negative = coefficient.is_sign_bit_set() && !coefficient.is_overhalf();
 
             if is_first {
-                if is_sign_bit_set {
+                if write_as_negative {
                     write!(f, "-")?;
                 }
                 is_first = false;
-            } else if is_sign_bit_set {
+            } else if write_as_negative {
                 write!(f, " - ")?;
             } else {
                 write!(f, " + ")?;
             }
 
-            let abs_coefficient = if is_sign_bit_set {
+            let abs_coefficient = if write_as_negative {
                 coefficient.arith_neg()
             } else {
                 *coefficient
@@ -328,14 +328,15 @@ impl Debug for LinearPolynomial {
                 write!(f, "{}", self.constant_term)?;
             }
         } else {
-            let is_constant_sign_bit_set = self.constant_term.is_sign_bit_set();
-            let abs_constant_term = if is_constant_sign_bit_set {
+            let write_as_negative =
+                self.constant_term.is_sign_bit_set() && !self.constant_term.is_overhalf();
+            let abs_constant_term = if write_as_negative {
                 self.constant_term.arith_neg()
             } else {
                 self.constant_term
             };
 
-            match (is_first, is_constant_sign_bit_set) {
+            match (is_first, write_as_negative) {
                 (false, false) => {
                     write!(f, " + {}", abs_constant_term)?;
                 }

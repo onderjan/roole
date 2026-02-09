@@ -103,6 +103,10 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         }
     }
 
+    pub fn is_overhalf(&self) -> bool {
+        self.value == self.bound.sign_bit_mask()
+    }
+
     pub fn is_full_mask(&self) -> bool {
         self.value == self.bound.mask()
     }
