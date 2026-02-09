@@ -97,8 +97,11 @@ impl Partition {
     }
 
     pub fn choose_decision(&mut self, phase: bool) {
-        let decision = self.decision_order[self.decision_level as usize];
-        self.make_nonleaf(decision);
+        let decision = self
+            .decision_order
+            .get(self.decision_level as usize)
+            .expect("Should choose a decision, but all decisions chosen already");
+        self.make_nonleaf(*decision);
         self.push_decision(phase);
     }
 
