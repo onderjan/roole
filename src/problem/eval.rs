@@ -48,6 +48,14 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
     ///
     /// The assignment structure must correspond to the problem variables.
     pub fn evaluate(&mut self, assignment: &Assignment<D>) -> D {
+        self.evaluate_inner(assignment, false)
+    }
+
+    pub(crate) fn evaluate_preprocess(&mut self, assignment: &Assignment<D>) -> D {
+        self.evaluate_inner(assignment, true)
+    }
+
+    fn evaluate_inner(&mut self, assignment: &Assignment<D>, preprocess: bool) -> D {
         // must set previous results to None work with new assignment
         // keep the allocated vector for reuse
         for result in &mut self.results {
@@ -58,7 +66,7 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         let mut resolve = Vec::new();
 
         while let ControlFlow::Continue(()) =
-            self.evaluate_formula(assignment, &mut op_stack, &mut resolve)
+            self.evaluate_formula(assignment, &mut op_stack, &mut resolve, preprocess)
         {}
 
         self.fetch_result(assignment, self.problem.assertion)
@@ -69,6 +77,7 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         assignment: &Assignment<D>,
         op_stack: &mut Vec<FormulaId>,
         resolve: &mut Vec<FormulaId>,
+        preprocess: bool,
     ) -> ControlFlow<(), ()> {
         let Some(formula_id) = op_stack.pop() else {
             return ControlFlow::Break(());
@@ -100,6 +109,18 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
             let evaluated =
                 operation.evaluate(|formula_id| self.fetch_result(assignment, formula_id));
             let bound = evaluated.bound();
+
+            // for debugging, we can disqualify some operations from preprocessing
+            // this is useful for tracking bugs in preprocessing
+            let _ = preprocess;
+            /*
+            let evaluated = if preprocess && operation_id.0 > XYZ {
+                D::top(bound)
+            } else {
+                evaluated
+            };
+            */
+
             // replace top with formula
             let evaluated = if evaluated == D::top(bound) {
                 D::formula(formula_id, bound)

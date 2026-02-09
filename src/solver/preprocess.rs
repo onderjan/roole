@@ -11,7 +11,7 @@ use crate::{
 
 pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
     let mut evaluator = Evaluator::<OperationDomain>::new(problem);
-    evaluator.evaluate(&problem.linear_assignment());
+    evaluator.evaluate_preprocess(&problem.linear_assignment());
 
     eprintln!("Preprocessing evaluator: ");
     if settings.hexadecimal {
