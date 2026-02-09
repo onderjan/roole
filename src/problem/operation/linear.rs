@@ -162,8 +162,10 @@ impl Debug for LinearSystem {
         let op_symbol = if self.conjunction { "&" } else { "|" };
 
         if self.expressions.is_empty() {
-            write!(f, "({})", op_symbol)?;
+            return write!(f, "({})", op_symbol);
         }
+
+        let single_expression = self.expressions.len() == 1;
 
         let mut is_first = true;
         for expression in &self.expressions {
@@ -173,7 +175,21 @@ impl Debug for LinearSystem {
                 write!(f, " {} ", op_symbol)?;
             }
 
-            Debug::fmt(expression, f)?;
+            match expression {
+                LinearExpression::Polynomial(polynomial) => {
+                    Debug::fmt(polynomial, f)?;
+                }
+                LinearExpression::Relation(relation) => {
+                    // surround with parentheses if not single expression
+                    if !single_expression {
+                        write!(f, "(")?;
+                    }
+                    Debug::fmt(relation, f)?;
+                    if !single_expression {
+                        write!(f, ")")?;
+                    }
+                }
+            }
         }
         Ok(())
     }
