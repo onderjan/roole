@@ -166,7 +166,9 @@ impl LinearSystem {
             return write!(f, "({})", op_symbol);
         }
 
-        let single_expression = self.expressions.len() == 1;
+        if self.expressions.len() == 1 {
+            return self.expressions[0].format(f, hex);
+        }
 
         let mut is_first = true;
         for expression in &self.expressions {
@@ -177,26 +179,12 @@ impl LinearSystem {
             }
 
             match expression {
-                LinearExpression::Polynomial(polynomial) => {
-                    if hex {
-                        UpperHex::fmt(polynomial, f)?;
-                    } else {
-                        Debug::fmt(polynomial, f)?;
-                    }
-                }
+                LinearExpression::Polynomial(polynomial) => polynomial.format(f, hex)?,
                 LinearExpression::Relation(relation) => {
-                    // surround with parentheses if not single expression
-                    if !single_expression {
-                        write!(f, "(")?;
-                    }
-                    if hex {
-                        UpperHex::fmt(relation, f)?;
-                    } else {
-                        Debug::fmt(relation, f)?;
-                    }
-                    if !single_expression {
-                        write!(f, ")")?;
-                    }
+                    // surround with parentheses
+                    write!(f, "(")?;
+                    relation.format(f, hex)?;
+                    write!(f, ")")?;
                 }
             }
         }

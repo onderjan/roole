@@ -267,7 +267,7 @@ impl LinearPolynomial {
         monomial.might_overflow()
     }
 
-    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
+    pub(super) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         if self.bound().width() == 1 && self.linear_terms.len() == 1 {
             // simplify printing Boolean polynomials with a single term
             let Some((slice, coefficient)) = self.linear_terms.iter().next() else {

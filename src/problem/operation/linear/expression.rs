@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, UpperHex},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -145,13 +148,23 @@ impl LinearExpression {
             monomial, constant,
         ))
     }
+
+    pub(super) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
+        match self {
+            LinearExpression::Polynomial(polynomial) => polynomial.format(f, hex),
+            LinearExpression::Relation(relation) => relation.format(f, hex),
+        }
+    }
 }
 
 impl Debug for LinearExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            LinearExpression::Polynomial(polynomial) => Debug::fmt(polynomial, f),
-            LinearExpression::Relation(relation) => Debug::fmt(relation, f),
-        }
+        self.format(f, false)
+    }
+}
+
+impl UpperHex for LinearExpression {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }
