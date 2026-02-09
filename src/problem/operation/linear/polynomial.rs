@@ -288,7 +288,13 @@ impl Debug for LinearPolynomial {
 
         let mut is_first = true;
 
-        write!(f, "(")?;
+        let num_linear_terms = self.linear_terms.len();
+        let write_parentheses =
+            num_linear_terms > 1 || num_linear_terms == 1 && self.constant_term.is_nonzero();
+
+        if write_parentheses {
+            write!(f, "(")?;
+        }
 
         // write the linear monomials
         for (slice, coefficient) in &self.linear_terms {
@@ -345,7 +351,11 @@ impl Debug for LinearPolynomial {
             }
         }
 
-        write!(f, ") mod {}", 1u128 << self.bound().width())
+        if write_parentheses {
+            write!(f, ")")?;
+        }
+
+        write!(f, " mod {}", 1u128 << self.bound().width())
     }
 }
 
