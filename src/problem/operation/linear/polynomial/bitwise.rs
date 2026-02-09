@@ -73,13 +73,7 @@ impl LinearPolynomial {
 
         let new_slice_mask = new_placed_mask / coefficient;
 
-        let Some(added_lsb) = new_slice_mask.checked_ilog2() else {
-            // just the constant
-            return Ok(LinearPolynomial::from_constant(ConcreteBitvector::new(
-                new_constant,
-                bound,
-            )));
-        };
+        let added_lsb = new_slice_mask.trailing_zeros();
 
         let down_mask = new_slice_mask >> added_lsb;
 
