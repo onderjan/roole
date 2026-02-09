@@ -317,27 +317,34 @@ impl Debug for LinearPolynomial {
             write!(f, "{:?}", slice)?;
         }
 
-        let is_constant_sign_bit_set = self.constant_term.is_sign_bit_set();
-        let abs_constant_term = if is_constant_sign_bit_set {
-            self.constant_term.arith_neg()
+        if self.constant_term.is_zero() {
+            if is_first {
+                write!(f, "{}", self.constant_term)?;
+            }
         } else {
-            self.constant_term
-        };
+            let is_constant_sign_bit_set = self.constant_term.is_sign_bit_set();
+            let abs_constant_term = if is_constant_sign_bit_set {
+                self.constant_term.arith_neg()
+            } else {
+                self.constant_term
+            };
 
-        match (is_first, is_constant_sign_bit_set) {
-            (false, false) => {
-                write!(f, " + {}", abs_constant_term)?;
-            }
-            (false, true) => {
-                write!(f, " - {}", abs_constant_term)?;
-            }
-            (true, false) => {
-                write!(f, "{}", abs_constant_term)?;
-            }
-            (true, true) => {
-                write!(f, "-{}", abs_constant_term)?;
+            match (is_first, is_constant_sign_bit_set) {
+                (false, false) => {
+                    write!(f, " + {}", abs_constant_term)?;
+                }
+                (false, true) => {
+                    write!(f, " - {}", abs_constant_term)?;
+                }
+                (true, false) => {
+                    write!(f, "{}", abs_constant_term)?;
+                }
+                (true, true) => {
+                    write!(f, "-{}", abs_constant_term)?;
+                }
             }
         }
+
         write!(f, ") mod {}", 1u128 << self.bound().width())
     }
 }
