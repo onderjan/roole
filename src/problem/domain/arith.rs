@@ -5,7 +5,7 @@ use crate::{
 
 impl HwArith for OperationDomain {
     fn arith_neg(self) -> Self {
-        let polynomial = match self.try_polynomial() {
+        let polynomial = match self.try_into_polynomial() {
             Ok(ok) => ok,
             Err(err) => return err,
         };
@@ -24,7 +24,7 @@ impl HwArith for OperationDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (Ok(lhs), Ok(rhs)) = (self.try_polynomial(), rhs.try_polynomial()) else {
+        let (Ok(lhs), Ok(rhs)) = (self.try_into_polynomial(), rhs.try_into_polynomial()) else {
             // return top value
             return Self::top(bound);
         };
@@ -69,7 +69,7 @@ impl OperationDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (Ok(lhs), Ok(rhs)) = (self.try_polynomial(), rhs.try_polynomial()) else {
+        let (Ok(lhs), Ok(rhs)) = (self.try_into_polynomial(), rhs.try_into_polynomial()) else {
             return OperationDomain::top(bound);
         };
 

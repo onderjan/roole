@@ -15,7 +15,7 @@ impl TypedEq for OperationDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (lhs, rhs) = match (self.try_polynomial(), rhs.try_polynomial()) {
+        let (lhs, rhs) = match (self.try_into_polynomial(), rhs.try_into_polynomial()) {
             (Err(_), Err(_)) => {
                 // cannot combine
                 return OperationDomain::top(RBound::single_bit_bound());
@@ -61,7 +61,7 @@ impl TypedEq for OperationDomain {
             return OperationDomain::from_polynomial(LinearPolynomial::empty(bound));
         }
 
-        let condition = match condition.try_polynomial() {
+        let condition = match condition.try_into_polynomial() {
             Ok(condition) => {
                 if let Some(condition_value) = condition.constant_value() {
                     // constant condition value, select the branch
@@ -78,9 +78,10 @@ impl TypedEq for OperationDomain {
         };
 
         // try to simplify with polynomial branches
-        let (Ok(then_branch), Ok(else_branch)) =
-            (then_branch.try_polynomial(), else_branch.try_polynomial())
-        else {
+        let (Ok(then_branch), Ok(else_branch)) = (
+            then_branch.try_into_polynomial(),
+            else_branch.try_into_polynomial(),
+        ) else {
             return OperationDomain::Top(bound);
         };
 
@@ -96,7 +97,7 @@ impl TypedEq for OperationDomain {
             );
         }
 
-        if let Ok(condition) = condition.try_polynomial()
+        if let Ok(condition) = condition.try_into_polynomial()
             && let Ok(result) = LinearPolynomial::ite(condition, then_branch, else_branch)
         {
             return OperationDomain::Linear(LinearSystem::from_polynomial(result));

@@ -11,14 +11,12 @@ use std::{
 
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
-    problem::{
-        eval::EvaluableDomain, formula::FormulaId, operation::linear::expression::LinearExpression,
-    },
+    problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-pub use {polynomial::LinearPolynomial, relation::LinearRelation};
+pub use {expression::LinearExpression, polynomial::LinearPolynomial, relation::LinearRelation};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {
@@ -69,6 +67,19 @@ impl LinearSystem {
         }
     }
 
+    pub fn try_into_expression(self) -> Result<LinearExpression, LinearSystem> {
+        if self.expressions.len() != 1
+            || !matches!(self.expressions[0], LinearExpression::Polynomial(_))
+        {
+            return Err(self);
+        }
+
+        let Ok(expression) = self.expressions.into_iter().exactly_one() else {
+            panic!("Should be ensured to be a polynomial");
+        };
+        Ok(expression)
+    }
+
     pub fn try_into_polynomial(self) -> Result<LinearPolynomial, LinearSystem> {
         if self.expressions.len() != 1
             || !matches!(self.expressions[0], LinearExpression::Polynomial(_))
@@ -90,10 +101,7 @@ impl LinearSystem {
             return None;
         }
 
-        match &self.expressions[0] {
-            LinearExpression::Polynomial(polynomial) => polynomial.constant_value(),
-            LinearExpression::Relation(_) => None,
-        }
+        self.expressions[0].constant_value()
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {

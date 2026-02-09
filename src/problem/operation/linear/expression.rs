@@ -20,6 +20,8 @@ use crate::{
     },
 };
 
+mod cmp;
+
 /// Either a linear polynomial or a linear relation.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LinearExpression {
@@ -35,6 +37,13 @@ impl LinearExpression {
                 // relation result bound is always 1
                 RBound::single_bit_bound()
             }
+        }
+    }
+
+    pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
+        match self {
+            LinearExpression::Polynomial(polynomial) => polynomial.constant_value(),
+            LinearExpression::Relation(_) => None,
         }
     }
 

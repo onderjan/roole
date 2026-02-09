@@ -19,7 +19,7 @@ mod linear;
 
 pub use bi::{BiOp, BiOperator};
 
-pub use linear::{LinearPolynomial, LinearRelation, LinearSystem};
+pub use linear::{LinearExpression, LinearPolynomial, LinearRelation, LinearSystem};
 
 /// Operation id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

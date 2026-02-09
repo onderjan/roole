@@ -7,7 +7,7 @@ impl BExt<RBound> for OperationDomain {
     type Output = OperationDomain;
 
     fn uext(self, new_bound: RBound) -> Self::Output {
-        let Ok(polynomial) = self.try_polynomial() else {
+        let Ok(polynomial) = self.try_into_polynomial() else {
             return Self::Top(new_bound);
         };
 
@@ -18,7 +18,7 @@ impl BExt<RBound> for OperationDomain {
     }
 
     fn sext(self, new_bound: RBound) -> Self::Output {
-        let Ok(polynomial) = self.try_polynomial() else {
+        let Ok(polynomial) = self.try_into_polynomial() else {
             return Self::Top(new_bound);
         };
 

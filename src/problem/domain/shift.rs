@@ -27,7 +27,7 @@ fn perform_shift(
     let bound = amount.bound();
     assert_eq!(bound, amount.bound());
 
-    let (Ok(lhs), Ok(amount)) = (lhs.try_polynomial(), amount.try_polynomial()) else {
+    let (Ok(lhs), Ok(amount)) = (lhs.try_into_polynomial(), amount.try_into_polynomial()) else {
         return OperationDomain::top(bound);
     };
 

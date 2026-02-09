@@ -8,7 +8,7 @@ use crate::{
     problem::{
         domain::OperationDomain,
         formula::FormulaId,
-        operation::{LinearPolynomial, LinearSystem},
+        operation::{LinearExpression, LinearPolynomial, LinearSystem},
     },
 };
 
@@ -20,7 +20,7 @@ impl OperationDomain {
         }
     }
 
-    pub(super) fn try_polynomial(self) -> Result<LinearPolynomial, OperationDomain> {
+    pub(super) fn try_into_polynomial(self) -> Result<LinearPolynomial, OperationDomain> {
         let OperationDomain::Linear(linear) = self else {
             return Err(self);
         };
@@ -31,12 +31,27 @@ impl OperationDomain {
         }
     }
 
+    pub(super) fn try_into_expression(self) -> Result<LinearExpression, OperationDomain> {
+        let OperationDomain::Linear(linear) = self else {
+            return Err(self);
+        };
+
+        match linear.try_into_expression() {
+            Ok(expression) => Ok(expression),
+            Err(linear) => Err(Self::Linear(linear)),
+        }
+    }
+
     pub(super) fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
         let OperationDomain::Linear(linear) = self else {
             return None;
         };
 
         linear.constant_value()
+    }
+
+    pub fn from_expression(expression: LinearExpression) -> Self {
+        Self::Linear(LinearSystem::from_expression(expression))
     }
 
     pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
