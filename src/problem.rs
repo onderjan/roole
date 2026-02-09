@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, UpperHex};
 
 use crate::{
     domain::bitvector::{
@@ -91,10 +91,8 @@ impl Problem {
 
         assignment
     }
-}
 
-impl Debug for Problem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         let mut franz = f.debug_struct("Problem");
 
         struct FieldStr<'a>(&'a str);
@@ -112,11 +110,28 @@ impl Debug for Problem {
         for (operation_id, operation) in self.operations.iter().enumerate() {
             let operation_id = OperationId(operation_id);
             let name = format!("{:?}", operation_id);
-            let value = format!("{:?}", operation);
+
+            let value = if hex {
+                format!("{:#X}", operation)
+            } else {
+                format!("{:?}", operation)
+            };
 
             franz.field(&name, &FieldStr(&value));
         }
 
         franz.finish()
+    }
+}
+
+impl Debug for Problem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, false)
+    }
+}
+
+impl UpperHex for Problem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }

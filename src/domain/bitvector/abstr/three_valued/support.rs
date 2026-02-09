@@ -1,4 +1,4 @@
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, UpperHex};
 
 use crate::domain::{
     bitvector::{
@@ -298,6 +298,13 @@ impl<B: BitvectorBound> Debug for ThreeValuedBitvector<B> {
         let ones = self.ones.to_u64();
 
         format_zeros_ones(f, self.bound().width(), zeros, ones, true)
+    }
+}
+
+impl<B: BitvectorBound> UpperHex for ThreeValuedBitvector<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // just do the normal debug formatting
+        <Self as Debug>::fmt(self, f)
     }
 }
 

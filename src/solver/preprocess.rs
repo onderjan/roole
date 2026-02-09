@@ -1,16 +1,24 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::problem::{
-    Evaluator, OperationDomain, Problem,
-    formula::{FormulaId, VariableId},
-    operation::{Operation, OperationId},
+use crate::{
+    problem::{
+        Evaluator, OperationDomain, Problem,
+        formula::{FormulaId, VariableId},
+        operation::{Operation, OperationId},
+    },
+    solver::SolverSettings,
 };
 
-pub fn preprocess(problem: &Problem) -> Problem {
+pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
     let mut evaluator = Evaluator::<OperationDomain>::new(problem);
     evaluator.evaluate(&problem.linear_assignment());
 
-    eprintln!("Preprocessing evaluator: {:#?}", evaluator);
+    eprintln!("Preprocessing evaluator: ");
+    if settings.hexadecimal {
+        eprintln!("{:#X}", evaluator);
+    } else {
+        eprintln!("{:#?}", evaluator);
+    }
 
     let used_operations = used_operations(problem, &evaluator);
 
@@ -18,7 +26,12 @@ pub fn preprocess(problem: &Problem) -> Problem {
 
     let preprocessed = create_preprocessed(problem, used_operations, redirects);
 
-    eprintln!("Preprocessed problem: {:#?}", preprocessed);
+    eprintln!("Preprocessed problem: ");
+    if settings.hexadecimal {
+        eprintln!("{:#X}", preprocessed);
+    } else {
+        eprintln!("{:#?}", preprocessed);
+    }
 
     preprocessed
 }

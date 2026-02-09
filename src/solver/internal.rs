@@ -24,11 +24,11 @@ pub struct InternalSolver<'a, L: Learned<RBitvector>> {
 
     stats: Stats,
 
-    output_dir: Option<PathBuf>,
+    output_dir: Option<&'a PathBuf>,
 }
 
 impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
-    pub fn new(problem: &'a Problem, output_dir: Option<PathBuf>) -> Self {
+    pub fn new(problem: &'a Problem, output_dir: Option<&'a PathBuf>) -> Self {
         eprintln!("Solving SAT problem");
 
         let evaluator = Evaluator::new(problem);
@@ -56,7 +56,7 @@ impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
         self.stats.finish();
 
         if let Some(output_dir) = self.output_dir {
-            std::fs::create_dir_all(&output_dir).expect("Output directory should be created");
+            std::fs::create_dir_all(output_dir).expect("Output directory should be created");
 
             let learned_file = File::create(output_dir.join("learned.dot"))
                 .expect("Learned file should be created");

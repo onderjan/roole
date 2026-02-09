@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, UpperHex};
 
 use crate::{
     domain::{
@@ -42,6 +42,13 @@ impl OperationDomain {
     pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
         Self::Linear(LinearSystem::from_polynomial(polynomial))
     }
+
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
+        match &self {
+            OperationDomain::Top(bound) => write!(f, "⊤({})", bound.width()),
+            OperationDomain::Linear(linear) => linear.format(f, hex),
+        }
+    }
 }
 
 impl Join for OperationDomain {
@@ -59,9 +66,12 @@ impl Join for OperationDomain {
 
 impl Debug for OperationDomain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            OperationDomain::Top(bound) => write!(f, "⊤({})", bound.width()),
-            OperationDomain::Linear(linear) => Debug::fmt(linear, f),
-        }
+        self.format(f, false)
+    }
+}
+
+impl UpperHex for OperationDomain {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }

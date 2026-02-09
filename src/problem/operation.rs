@@ -1,4 +1,8 @@
-use std::{collections::BTreeMap, fmt::Debug, num::NonZeroU32};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, UpperHex},
+    num::NonZeroU32,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -241,28 +245,17 @@ impl Operation {
             }
         }
     }
-}
 
-impl Debug for FormulaId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FormulaId::Variable(variable_id) => variable_id.fmt(f),
-            FormulaId::Operation(operation_id) => operation_id.fmt(f),
-        }
-    }
-}
-
-impl Debug for OperationId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "${}", self.0)
-    }
-}
-
-impl Debug for Operation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         match self {
             Operation::Constant(value, width) => {
-                write!(f, "bv_{}({})", width, value)
+                write!(f, "bv_{}(", width)?;
+                if hex {
+                    write!(f, "{:#X}", value)?;
+                } else {
+                    write!(f, "{}", value)?;
+                }
+                write!(f, ")")
             }
             Operation::UniOp(UniOp {
                 op,
@@ -312,7 +305,40 @@ impl Debug for Operation {
             Operation::ExtractOp(ExtractOp { inner, lsb, width }) => {
                 write!(f, "extract_{}_{}({:?})", lsb + width.get() - 1, lsb, inner)
             }
-            Operation::Linear(linear) => Debug::fmt(&linear, f),
+            Operation::Linear(linear) => {
+                if hex {
+                    UpperHex::fmt(&linear, f)
+                } else {
+                    Debug::fmt(&linear, f)
+                }
+            }
         }
+    }
+}
+
+impl Debug for FormulaId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FormulaId::Variable(variable_id) => variable_id.fmt(f),
+            FormulaId::Operation(operation_id) => operation_id.fmt(f),
+        }
+    }
+}
+
+impl Debug for OperationId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "${}", self.0)
+    }
+}
+
+impl Debug for Operation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, false)
+    }
+}
+
+impl UpperHex for Operation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }

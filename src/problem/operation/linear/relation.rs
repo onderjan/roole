@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, UpperHex},
+};
 
 use crate::{
     domain::{
@@ -96,10 +99,8 @@ impl LinearRelation {
 
         Ok(LinearRelation::new(polynomial, slack))
     }
-}
 
-impl Debug for LinearRelation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         let one = ConcreteBitvector::one(self.polynomial.bound());
         if self.slack.add(one).is_full_mask() {
             // better to add 1 to the polynomial and print as non-equality
@@ -115,7 +116,25 @@ impl Debug for LinearRelation {
 
             let op = if self.slack.is_zero() { "==" } else { "<=" };
 
-            write!(f, " {} {}", op, self.slack)
+            write!(f, " {} ", op)?;
+
+            if hex {
+                write!(f, "{:#X}", self.slack)
+            } else {
+                write!(f, "{:?}", self.slack)
+            }
         }
+    }
+}
+
+impl Debug for LinearRelation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, false)
+    }
+}
+
+impl UpperHex for LinearRelation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }

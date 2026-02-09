@@ -1,5 +1,5 @@
 use std::{
-    fmt::{Debug, Display},
+    fmt::{Debug, Display, UpperHex},
     ops::ControlFlow,
 };
 
@@ -129,36 +129,8 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 .clone(),
         }
     }
-}
 
-pub trait EvaluableDomain:
-    BitvectorDomain<Bound = RBound>
-    + HwArith
-    + Bitwise
-    + TypedEq<Output = Self>
-    + TypedCmp<Output = Self>
-    + HwShift<Output = Self>
-    + BExt<RBound, Output = Self>
-    + Debug
-{
-    fn formula(formula: FormulaId, bound: RBound) -> Self;
-}
-
-impl EvaluableDomain for AbstractBitvector<RBound> {
-    fn formula(formula: FormulaId, bound: RBound) -> Self {
-        let _ = formula;
-        Self::top(bound)
-    }
-}
-
-impl EvaluableDomain for OperationDomain {
-    fn formula(formula_id: FormulaId, bound: RBound) -> Self {
-        OperationDomain::from_polynomial(LinearPolynomial::from_formula(formula_id, bound))
-    }
-}
-
-impl<D: EvaluableDomain> Debug for Evaluator<'_, D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         let mut franz = f.debug_struct("Evaluator");
 
         struct FieldStr<'a>(&'a str);
@@ -178,15 +150,62 @@ impl<D: EvaluableDomain> Debug for Evaluator<'_, D> {
             let operation_id = OperationId(operation_id);
             let name = format!("{:?}", operation_id);
 
-            let value = if let Some(result) = result {
-                format!("{:?} -> {:?}", operation, result)
+            let mut value = if hex {
+                format!("{:#X}", operation)
             } else {
                 format!("{:?}", operation)
             };
+
+            if let Some(result) = result {
+                value = if hex {
+                    format!("{} -> {:#X}", value, result)
+                } else {
+                    format!("{} -> {:?}", value, result)
+                };
+            }
 
             franz.field(&name, &FieldStr(&value));
         }
 
         franz.finish()
+    }
+}
+
+pub trait EvaluableDomain:
+    BitvectorDomain<Bound = RBound>
+    + HwArith
+    + Bitwise
+    + TypedEq<Output = Self>
+    + TypedCmp<Output = Self>
+    + HwShift<Output = Self>
+    + BExt<RBound, Output = Self>
+    + Debug
+    + UpperHex
+{
+    fn formula(formula: FormulaId, bound: RBound) -> Self;
+}
+
+impl EvaluableDomain for AbstractBitvector<RBound> {
+    fn formula(formula: FormulaId, bound: RBound) -> Self {
+        let _ = formula;
+        Self::top(bound)
+    }
+}
+
+impl EvaluableDomain for OperationDomain {
+    fn formula(formula_id: FormulaId, bound: RBound) -> Self {
+        OperationDomain::from_polynomial(LinearPolynomial::from_formula(formula_id, bound))
+    }
+}
+
+impl<D: EvaluableDomain> Debug for Evaluator<'_, D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, false)
+    }
+}
+
+impl<D: EvaluableDomain> UpperHex for Evaluator<'_, D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }

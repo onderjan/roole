@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 use std::fmt::Display;
+use std::fmt::LowerHex;
+use std::fmt::UpperHex;
 
 use crate::domain::bitvector::BitvectorBound;
 use crate::domain::bitvector::CBound;
@@ -235,6 +237,20 @@ impl<B: BitvectorBound> Debug for ConcreteBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // ignore bound
         std::fmt::Debug::fmt(&self.value, f)
+    }
+}
+
+impl<B: BitvectorBound> LowerHex for ConcreteBitvector<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // ignore bound
+        std::fmt::LowerHex::fmt(&self.value, f)
+    }
+}
+
+impl<B: BitvectorBound> UpperHex for ConcreteBitvector<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // ignore bound
+        std::fmt::UpperHex::fmt(&self.value, f)
     }
 }
 

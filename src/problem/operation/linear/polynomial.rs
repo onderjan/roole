@@ -1,5 +1,5 @@
 use std::collections::BTreeMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, UpperHex};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -266,10 +266,8 @@ impl LinearPolynomial {
 
         monomial.might_overflow()
     }
-}
 
-impl Debug for LinearPolynomial {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         if self.bound().width() == 1 && self.linear_terms.len() == 1 {
             // simplify printing Boolean polynomials with a single term
             let Some((slice, coefficient)) = self.linear_terms.iter().next() else {
@@ -298,7 +296,8 @@ impl Debug for LinearPolynomial {
 
         // write the linear monomials
         for (slice, coefficient) in &self.linear_terms {
-            let write_as_negative = coefficient.is_sign_bit_set() && !coefficient.is_overhalf();
+            let write_as_negative =
+                !hex && (coefficient.is_sign_bit_set() && !coefficient.is_overhalf());
 
             if is_first {
                 if write_as_negative {
@@ -317,19 +316,19 @@ impl Debug for LinearPolynomial {
                 *coefficient
             };
             if !abs_coefficient.is_one() {
-                write!(f, "{}*", abs_coefficient)?;
+                if hex {
+                    write!(f, "{:#X}*", abs_coefficient)?;
+                } else {
+                    write!(f, "{:?}*", abs_coefficient)?;
+                }
             }
 
             write!(f, "{:?}", slice)?;
         }
 
-        if self.constant_term.is_zero() {
-            if is_first {
-                write!(f, "{}", self.constant_term)?;
-            }
-        } else {
+        let abs_constant_term = if self.constant_term.is_nonzero() {
             let write_as_negative =
-                self.constant_term.is_sign_bit_set() && !self.constant_term.is_overhalf();
+                !hex && (self.constant_term.is_sign_bit_set() && !self.constant_term.is_overhalf());
             let abs_constant_term = if write_as_negative {
                 self.constant_term.arith_neg()
             } else {
@@ -338,17 +337,28 @@ impl Debug for LinearPolynomial {
 
             match (is_first, write_as_negative) {
                 (false, false) => {
-                    write!(f, " + {}", abs_constant_term)?;
+                    write!(f, " + ")?;
                 }
                 (false, true) => {
-                    write!(f, " - {}", abs_constant_term)?;
+                    write!(f, " - ")?;
                 }
-                (true, false) => {
-                    write!(f, "{}", abs_constant_term)?;
-                }
+                (true, false) => {}
                 (true, true) => {
-                    write!(f, "-{}", abs_constant_term)?;
+                    write!(f, "-")?;
                 }
+            }
+
+            Some(abs_constant_term)
+        } else if is_first {
+            Some(self.constant_term)
+        } else {
+            None
+        };
+        if let Some(abs_constant_term) = abs_constant_term {
+            if hex {
+                write!(f, "{:#X}", abs_constant_term)?;
+            } else {
+                write!(f, "{:?}", abs_constant_term)?;
             }
         }
 
@@ -356,7 +366,24 @@ impl Debug for LinearPolynomial {
             write!(f, ")")?;
         }
 
-        write!(f, " mod {}", 1u128 << self.bound().width())
+        write!(f, " mod ")?;
+        if hex {
+            write!(f, "{:#X}", 1u128 << self.bound().width())
+        } else {
+            write!(f, "{:?}", 1u128 << self.bound().width())
+        }
+    }
+}
+
+impl Debug for LinearPolynomial {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, false)
+    }
+}
+
+impl UpperHex for LinearPolynomial {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }
 

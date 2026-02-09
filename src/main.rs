@@ -2,6 +2,8 @@ use std::{fmt::Display, io::BufReader, path::PathBuf};
 
 use clap::{Parser, ValueEnum};
 
+use crate::solver::SolverSettings;
+
 mod domain;
 mod parser;
 mod problem;
@@ -21,6 +23,9 @@ struct Args {
 
     #[arg(short, long)]
     preprocess: bool,
+
+    #[arg(short = 'H', long)]
+    hexadecimal: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -63,12 +68,13 @@ fn main() {
 
     // evaluate the file with the parser
     eprintln!("Evaluating file {:?}", args.input_file);
-    parser::parse(
-        reader,
-        args.input_file,
-        args.output_dir,
-        args.solver,
-        args.preprocess,
-    );
+    let settings = SolverSettings {
+        output_dir: args.output_dir,
+        solver_mode: args.solver,
+        preprocess: args.preprocess,
+        hexadecimal: args.hexadecimal,
+    };
+
+    parser::parse(reader, args.input_file, settings);
     eprintln!("Finished evaluation");
 }

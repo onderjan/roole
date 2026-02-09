@@ -4,7 +4,10 @@ mod polynomial;
 mod relation;
 mod slice;
 
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::BTreeMap,
+    fmt::{Debug, UpperHex},
+};
 
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
@@ -155,10 +158,8 @@ impl LinearSystem {
             expressions,
         })
     }
-}
 
-impl Debug for LinearSystem {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    pub(crate) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         let op_symbol = if self.conjunction { "&" } else { "|" };
 
         if self.expressions.is_empty() {
@@ -177,14 +178,22 @@ impl Debug for LinearSystem {
 
             match expression {
                 LinearExpression::Polynomial(polynomial) => {
-                    Debug::fmt(polynomial, f)?;
+                    if hex {
+                        UpperHex::fmt(polynomial, f)?;
+                    } else {
+                        Debug::fmt(polynomial, f)?;
+                    }
                 }
                 LinearExpression::Relation(relation) => {
                     // surround with parentheses if not single expression
                     if !single_expression {
                         write!(f, "(")?;
                     }
-                    Debug::fmt(relation, f)?;
+                    if hex {
+                        UpperHex::fmt(relation, f)?;
+                    } else {
+                        Debug::fmt(relation, f)?;
+                    }
                     if !single_expression {
                         write!(f, ")")?;
                     }
@@ -192,5 +201,17 @@ impl Debug for LinearSystem {
             }
         }
         Ok(())
+    }
+}
+
+impl Debug for LinearSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, false)
+    }
+}
+
+impl UpperHex for LinearSystem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format(f, true)
     }
 }

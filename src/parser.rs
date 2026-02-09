@@ -11,13 +11,12 @@ use aws_smt_ir::{
 use indexmap::IndexMap;
 
 use crate::{
-    SolverMode,
     problem::{
         Problem,
         formula::{FormulaId, Variable, VariableId},
         operation::{BiOp, BiOperator, Operation, OperationId},
     },
-    solver::{self},
+    solver::{self, SolverSettings},
 };
 
 mod operation;
@@ -27,15 +26,9 @@ mod operation;
 /// Typically, the file will consist of constant and function declarations
 /// and assertions followed by the check-sat command. The SAT solver will be
 /// called then.
-pub fn parse(
-    reader: impl std::io::BufRead,
-    path: PathBuf,
-    output_dir: Option<PathBuf>,
-    solver_mode: SolverMode,
-    preprocess: bool,
-) {
+pub fn parse(reader: impl std::io::BufRead, path: PathBuf, settings: SolverSettings) {
     // construct the parser
-    let mut parser = Parser::new(output_dir, solver_mode, preprocess);
+    let mut parser = Parser::new(settings);
 
     let stream = CommandStream::new(
         reader,
@@ -72,12 +65,8 @@ struct Parser {
     /// List of assertions.
     assertions: Vec<FormulaId>,
 
-    /// Directory in which to place output artefacts.
-    output_dir: Option<PathBuf>,
-    /// Which solver mode to use.
-    solver_mode: SolverMode,
-    /// Whether preprocessing should be used.
-    preprocess: bool,
+    /// Solver settings.
+    settings: SolverSettings,
 }
 
 // Binding scope.
@@ -97,16 +86,14 @@ impl Scope {
 }
 
 impl Parser {
-    fn new(output_dir: Option<PathBuf>, solver_mode: SolverMode, preprocess: bool) -> Self {
+    fn new(settings: SolverSettings) -> Self {
         Self {
             scopes: vec![Scope::new()],
             variables: Vec::new(),
             operations: Vec::new(),
             assertions: Vec::new(),
 
-            output_dir,
-            solver_mode,
-            preprocess,
+            settings,
         }
     }
 
@@ -176,12 +163,7 @@ impl Parser {
 
         // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
-        solver::solve(
-            &problem,
-            self.output_dir.clone(),
-            self.solver_mode,
-            self.preprocess,
-        );
+        solver::solve(&problem, &self.settings);
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {
