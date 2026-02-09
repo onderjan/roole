@@ -292,20 +292,20 @@ impl Debug for LinearPolynomial {
 
         // write the linear monomials
         for (slice, coefficient) in &self.linear_terms {
-            let sign_bit_set = coefficient.is_sign_bit_set();
+            let is_sign_bit_set = coefficient.is_sign_bit_set();
 
             if is_first {
-                if sign_bit_set {
+                if is_sign_bit_set {
                     write!(f, "-")?;
                 }
                 is_first = false;
-            } else if sign_bit_set {
+            } else if is_sign_bit_set {
                 write!(f, " - ")?;
             } else {
                 write!(f, " + ")?;
             }
 
-            let abs_coefficient = if sign_bit_set {
+            let abs_coefficient = if is_sign_bit_set {
                 coefficient.arith_neg()
             } else {
                 *coefficient
@@ -317,12 +317,28 @@ impl Debug for LinearPolynomial {
             write!(f, "{:?}", slice)?;
         }
 
-        if is_first {
-            write!(f, "{}", self.constant_term)?;
-        } else if self.constant_term.is_nonzero() {
-            write!(f, " + {}", self.constant_term)?;
+        let is_constant_sign_bit_set = self.constant_term.is_sign_bit_set();
+        let abs_constant_term = if is_constant_sign_bit_set {
+            self.constant_term.arith_neg()
+        } else {
+            self.constant_term
+        };
+
+        match (is_first, is_constant_sign_bit_set) {
+            (false, false) => {
+                write!(f, " + {}", abs_constant_term)?;
+            }
+            (false, true) => {
+                write!(f, " - {}", abs_constant_term)?;
+            }
+            (true, false) => {
+                write!(f, "{}", abs_constant_term)?;
+            }
+            (true, true) => {
+                write!(f, "-{}", abs_constant_term)?;
+            }
         }
-        write!(f, ") mod {}", 1u128 << self.constant_term.bound().width())
+        write!(f, ") mod {}", 1u128 << self.bound().width())
     }
 }
 
