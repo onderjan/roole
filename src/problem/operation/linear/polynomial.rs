@@ -286,14 +286,26 @@ impl Debug for LinearPolynomial {
 
         // write the linear monomials
         for (slice, coefficient) in &self.linear_terms {
+            let sign_bit_set = coefficient.is_sign_bit_set();
+
             if is_first {
+                if sign_bit_set {
+                    write!(f, "-")?;
+                }
                 is_first = false;
+            } else if sign_bit_set {
+                write!(f, " - ")?;
             } else {
                 write!(f, " + ")?;
             }
 
-            if !coefficient.is_one() {
-                write!(f, "{}*", coefficient)?;
+            let abs_coefficient = if sign_bit_set {
+                coefficient.arith_neg()
+            } else {
+                *coefficient
+            };
+            if !abs_coefficient.is_one() {
+                write!(f, "{}*", abs_coefficient)?;
             }
 
             write!(f, "{:?}", slice)?;
