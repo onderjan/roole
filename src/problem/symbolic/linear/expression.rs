@@ -7,14 +7,15 @@ use serde::{Deserialize, Serialize};
 
 use super::{LinearPolynomial, LinearRelation};
 use crate::{
-    domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
-    problem::{eval::EvaluableDomain, formula::FormulaId},
+    domain::bitvector::{BitvectorBound, RBound},
+    problem::formula::FormulaId,
 };
 
 mod arith;
 mod bitwise;
 mod cmp;
 mod eq;
+mod eval;
 mod ext;
 mod normal;
 mod shift;
@@ -35,20 +36,6 @@ impl LinearExpression {
                 // relation result bound is always 1
                 RBound::single_bit_bound()
             }
-        }
-    }
-
-    pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
-        match self {
-            LinearExpression::Polynomial(polynomial) => polynomial.constant_value(),
-            LinearExpression::Relation(_) => None,
-        }
-    }
-
-    pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
-        match self {
-            LinearExpression::Polynomial(polynomial) => polynomial.evaluate(fetch),
-            LinearExpression::Relation(relation) => relation.evaluate(fetch),
         }
     }
 

@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate::{
-    domain::bitvector::{RBound, concr::ConcreteBitvector},
+    domain::{
+        bitvector::{RBound, concr::ConcreteBitvector},
+        traits::forward::Bitwise,
+    },
     problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 
@@ -29,11 +32,63 @@ impl LinearSystem {
     }
 
     pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
-        if self.expressions.len() != 1 {
+        let mut result = if self.conjunction {
+            // start with full mask
+            ConcreteBitvector::new_umax(self.bound)
+        } else {
+            // start with zero mask
+            ConcreteBitvector::new_umin(self.bound)
+        };
+
+        for expression in &self.expressions {
+            let Some(expression_result) = expression.constant_value() else {
+                // not a constant value
+                return None;
+            };
+            if self.conjunction {
+                result = result.bit_and(expression_result);
+            } else {
+                result = result.bit_or(expression_result);
+            }
+        }
+        Some(result)
+    }
+
+    pub fn constant_value_assuming(&self, assumption: &Self) -> Option<ConcreteBitvector<RBound>> {
+        if assumption.expressions.is_empty() {
+            return self.constant_value();
+        }
+
+        if !assumption.conjunction {
+            // disjunction, try every disjunct separately
+            for disjunct in &assumption.expressions {
+                let disjunct = LinearSystem::from_expression(disjunct.clone());
+                assert!(disjunct.conjunction);
+                if let Some(result) = self.constant_value_assuming(&disjunct) {
+                    return Some(result);
+                }
+            }
             return None;
         }
 
-        self.expressions[0].constant_value()
+        // assumption is a conjunction, start with full mask
+
+        let assumptions = &assumption.expressions;
+        let mut result = ConcreteBitvector::new_umax(self.bound);
+
+        for expression in &self.expressions {
+            let Some(expression_result) = expression.constant_value_assuming(assumptions) else {
+                // not a constant value
+                return None;
+            };
+            if self.conjunction {
+                result = result.bit_and(expression_result);
+            } else {
+                result = result.bit_or(expression_result);
+            }
+        }
+
+        Some(result)
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {

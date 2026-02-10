@@ -7,6 +7,23 @@ impl LinearSystem {
     }
 
     pub fn ite(condition: Self, then_branch: Self, else_branch: Self) -> Result<Self, ()> {
+        // try to figure out if the result of then and else branch is the same constant if the condition is true
+        // if it is, we can replace the then branch with else
+        // and in turn, the whole condition with the else branch
+
+        if can_simplify_taker(&condition, &then_branch, &else_branch) {
+            return Ok(else_branch);
+        }
+
+        // do the same thing but if the condition is false
+        // if then and else branch give the same results, we can replace the else branch with then
+        // and in turn, the whole condition with the then branch
+
+        let not_condition = condition.clone().bit_not();
+        if can_simplify_taker(&not_condition, &else_branch, &then_branch) {
+            return Ok(then_branch);
+        }
+
         // try to convert to a system if all are expressions
         let (Ok(condition), Ok(then_branch), Ok(else_branch)) = (
             condition.try_into_expression(),
@@ -18,5 +35,20 @@ impl LinearSystem {
 
         LinearExpression::ite(condition, then_branch, else_branch)
             .map(LinearSystem::from_expression)
+    }
+}
+
+fn can_simplify_taker(
+    taker: &LinearSystem,
+    taken_branch: &LinearSystem,
+    not_taken_branch: &LinearSystem,
+) -> bool {
+    let then_when_true = taken_branch.constant_value_assuming(taker);
+    let else_when_true = not_taken_branch.constant_value_assuming(taker);
+
+    if let (Some(then_when_true), Some(else_when_true)) = (then_when_true, else_when_true) {
+        then_when_true == else_when_true
+    } else {
+        false
     }
 }

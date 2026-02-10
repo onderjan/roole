@@ -27,7 +27,7 @@ impl LinearPolynomial {
         // if we can unsigned-extend condition to truth size and we can get truth constant value with it assumed
         // we can simplify ite to a polynomial
         if let Ok(mut extended_condition) = condition.clone().uext(bound)
-            && let Some(truth) = truth.constant_value_with_assumption(&condition)
+            && let Some(truth) = truth.constant_value_assuming(&condition)
         {
             // truth is constant, scale condition by it and add else branch
             extended_condition.scale(truth);
@@ -39,7 +39,7 @@ impl LinearPolynomial {
 
         let not_condition = condition.clone().bit_not();
         if let Ok(mut extended_not_condition) = not_condition.clone().uext(bound)
-            && let Some(truth) = truth.constant_value_with_assumption(&not_condition)
+            && let Some(truth) = truth.constant_value_assuming(&not_condition)
         {
             // we can represent as then + not_condition * (else - then)
             // and so as then - not_condition * (then - else)

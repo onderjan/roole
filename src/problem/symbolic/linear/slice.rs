@@ -27,6 +27,16 @@ impl LinearSlice {
     pub(super) fn from_bounded(formula_id: FormulaId, bound: RBound) -> Option<Self> {
         NonZeroU32::new(bound.width()).map(|width| Self::new(formula_id, 0, width))
     }
+
+    pub fn contains(&self, contained: &Self) -> bool {
+        if contained.lsb < self.lsb {
+            return false;
+        }
+        if contained.lsb + contained.width.get() > self.lsb + self.width.get() {
+            return false;
+        }
+        true
+    }
 }
 
 impl Debug for LinearSlice {
