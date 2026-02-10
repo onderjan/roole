@@ -29,18 +29,12 @@ impl HwArith for SymbolicDomain {
             return Self::top(bound);
         };
 
-        let (constant, mut polynomial) = if let Some(constant) = lhs.constant_value() {
-            (constant, rhs)
-        } else if let Some(constant) = rhs.constant_value() {
-            (constant, lhs)
+        if let Ok(result) = lhs.mul(rhs) {
+            Self::from_polynomial(result)
         } else {
             // return top value
-            return Self::top(bound);
-        };
-
-        // multiply polynomial by constant
-        polynomial.scale(constant);
-        Self::from_polynomial(polynomial)
+            Self::top(bound)
+        }
     }
 
     fn udiv(self, _rhs: Self) -> Self {

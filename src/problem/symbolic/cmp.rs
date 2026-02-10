@@ -1,6 +1,6 @@
 use super::{
     SymbolicDomain,
-    linear::{LinearExpression, LinearPolynomial},
+    linear::{LinearPolynomial, LinearSystem},
 };
 use crate::domain::{
     bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
@@ -32,17 +32,18 @@ impl TypedCmp for SymbolicDomain {
 fn unsigned_cmp(
     lhs: SymbolicDomain,
     rhs: SymbolicDomain,
-    func: fn(LinearExpression, LinearExpression) -> Result<LinearExpression, ()>,
+    func: fn(LinearSystem, LinearSystem) -> Result<LinearSystem, ()>,
 ) -> SymbolicDomain {
     let bound = lhs.bound();
     assert_eq!(bound, rhs.bound());
 
-    let (Ok(lhs), Ok(rhs)) = (lhs.try_into_expression(), rhs.try_into_expression()) else {
+    // hand over to linear
+    let (SymbolicDomain::Linear(lhs), SymbolicDomain::Linear(rhs)) = (lhs, rhs) else {
         return SymbolicDomain::Top(RBound::single_bit_bound());
     };
 
     if let Ok(result) = (func)(lhs, rhs) {
-        SymbolicDomain::from_expression(result)
+        SymbolicDomain::Linear(result)
     } else {
         SymbolicDomain::Top(RBound::single_bit_bound())
     }
@@ -51,17 +52,18 @@ fn unsigned_cmp(
 fn signed_cmp_by_unsigned(
     lhs: SymbolicDomain,
     rhs: SymbolicDomain,
-    unsigned_func: fn(LinearExpression, LinearExpression) -> Result<LinearExpression, ()>,
+    unsigned_func: fn(LinearSystem, LinearSystem) -> Result<LinearSystem, ()>,
 ) -> SymbolicDomain {
     let bound = lhs.bound();
     assert_eq!(bound, rhs.bound());
 
-    // to convert to signed comparison, add overhalf to both
+    // to convert to unsigned comparison, add overhalf to both
     let overhalf = ConcreteBitvector::new_overhalf(bound);
     let overhalf = SymbolicDomain::from_polynomial(LinearPolynomial::from_constant(overhalf));
 
     let lhs = lhs.add(overhalf.clone());
     let rhs = rhs.add(overhalf);
 
+    // use the corresponding unsigned comparison
     unsigned_cmp(lhs, rhs, unsigned_func)
 }

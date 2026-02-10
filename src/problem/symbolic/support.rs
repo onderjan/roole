@@ -2,7 +2,7 @@ use std::fmt::{Debug, UpperHex};
 
 use super::{
     SymbolicDomain,
-    linear::{LinearExpression, LinearPolynomial, LinearSystem},
+    linear::{LinearPolynomial, LinearSystem},
 };
 use crate::{
     domain::{
@@ -31,27 +31,12 @@ impl SymbolicDomain {
         }
     }
 
-    pub(super) fn try_into_expression(self) -> Result<LinearExpression, SymbolicDomain> {
-        let SymbolicDomain::Linear(linear) = self else {
-            return Err(self);
-        };
-
-        match linear.try_into_expression() {
-            Ok(expression) => Ok(expression),
-            Err(linear) => Err(Self::Linear(linear)),
-        }
-    }
-
     pub(super) fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
         let SymbolicDomain::Linear(linear) = self else {
             return None;
         };
 
         linear.constant_value()
-    }
-
-    pub fn from_expression(expression: LinearExpression) -> Self {
-        Self::Linear(LinearSystem::from_expression(expression))
     }
 
     pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {

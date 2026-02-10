@@ -9,12 +9,10 @@ use crate::{
 
 impl Bitwise for SymbolicDomain {
     fn bit_not(self) -> Self {
-        let linear = match self {
-            SymbolicDomain::Top(_) => return self,
-            SymbolicDomain::Linear(linear) => linear,
-        };
-
-        SymbolicDomain::Linear(linear.bit_not())
+        match self {
+            SymbolicDomain::Top(_) => self,
+            SymbolicDomain::Linear(linear) => SymbolicDomain::Linear(linear.bit_not()),
+        }
     }
 
     fn bit_and(self, rhs: Self) -> Self {
@@ -37,9 +35,9 @@ impl SymbolicDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
+        // if we work with Booleans and at least one operand is a constant,
+        // we will return tautology, contradiction, or the other value
         if bound.width() == 1 {
-            // resolve constants
-
             let mut constant = self.constant_value().map(|lhs| (lhs.is_nonzero(), false));
             if constant.is_none() {
                 constant = rhs.constant_value().map(|rhs| (rhs.is_nonzero(), true));
@@ -58,6 +56,7 @@ impl SymbolicDomain {
             }
         }
 
+        // hand over to linear
         let (SymbolicDomain::Linear(lhs), SymbolicDomain::Linear(rhs)) = (self, rhs) else {
             return Self::top(bound);
         };

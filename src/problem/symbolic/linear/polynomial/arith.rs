@@ -32,6 +32,22 @@ impl LinearPolynomial {
         self.linear_combine(rhs, |a, b| a.sub(b))
     }
 
+    pub fn mul(self, rhs: LinearPolynomial) -> Result<LinearPolynomial, ()> {
+        // we can only multiply if at least one of the polynomials is constant
+        let (constant, mut polynomial) = if let Some(constant) = self.constant_value() {
+            (constant, rhs)
+        } else if let Some(constant) = rhs.constant_value() {
+            (constant, self)
+        } else {
+            // neither is a constant
+            return Err(());
+        };
+
+        // multiply polynomial by constant
+        polynomial.scale(constant);
+        Ok(polynomial)
+    }
+
     pub fn scale(&mut self, scaler: ConcreteBitvector<RBound>) {
         let bound = self.bound();
         assert_eq!(bound, scaler.bound());
