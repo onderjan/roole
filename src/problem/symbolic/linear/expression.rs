@@ -11,9 +11,11 @@ use crate::{
     problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 
+mod arith;
 mod bitwise;
 mod cmp;
 mod normal;
+mod support;
 
 /// Either a linear polynomial or a linear relation.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

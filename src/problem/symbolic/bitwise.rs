@@ -9,10 +9,7 @@ use crate::{
 
 impl Bitwise for SymbolicDomain {
     fn bit_not(self) -> Self {
-        match self {
-            SymbolicDomain::Top(_) => self,
-            SymbolicDomain::Linear(linear) => SymbolicDomain::Linear(linear.bit_not()),
-        }
+        self.unary_op(|a| a.bit_not())
     }
 
     fn bit_and(self, rhs: Self) -> Self {
@@ -24,8 +21,7 @@ impl Bitwise for SymbolicDomain {
     fn bit_xor(self, rhs: Self) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
-        // TODO: handle masking situations
-
+        // TODO: handle XOR
         SymbolicDomain::top(bound)
     }
 }
@@ -57,13 +53,6 @@ impl SymbolicDomain {
         }
 
         // hand over to linear
-        let (SymbolicDomain::Linear(lhs), SymbolicDomain::Linear(rhs)) = (self, rhs) else {
-            return Self::top(bound);
-        };
-
-        match lhs.bit_junction(rhs, conjunction) {
-            Ok(result) => SymbolicDomain::Linear(result),
-            Err(()) => SymbolicDomain::Top(bound),
-        }
+        self.binary_op_try(rhs, |a, b| a.bit_junction(b, conjunction))
     }
 }

@@ -7,14 +7,6 @@ use crate::domain::{
 };
 
 impl LinearPolynomial {
-    pub fn bit_not(self) -> Self {
-        let mut result = self.arith_neg();
-        result.constant_term = result
-            .constant_term
-            .sub(ConcreteBitvector::one(result.bound()));
-        result.into_normal_form()
-    }
-
     pub fn arith_neg(mut self) -> LinearPolynomial {
         self.constant_term = self.constant_term.arith_neg();
         for coefficient in self.linear_terms.values_mut() {
@@ -59,7 +51,7 @@ impl LinearPolynomial {
         }
     }
 
-    fn linear_combine(
+    pub fn linear_combine(
         self,
         mut rhs: LinearPolynomial,
         op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,

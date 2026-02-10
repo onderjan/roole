@@ -47,6 +47,47 @@ impl SymbolicDomain {
         Self::from_polynomial(LinearPolynomial::from_formula(formula_id, bound))
     }
 
+    pub(super) fn unary_op(self, linear_fn: impl Fn(LinearSystem) -> LinearSystem) -> Self {
+        let bound = self.bound();
+        let SymbolicDomain::Linear(system) = self else {
+            return Self::Top(bound);
+        };
+
+        SymbolicDomain::Linear((linear_fn)(system))
+    }
+
+    pub(super) fn unary_op_try<E>(
+        self,
+        linear_fn: impl Fn(LinearSystem) -> Result<LinearSystem, E>,
+    ) -> Self {
+        let bound = self.bound();
+        let SymbolicDomain::Linear(system) = self else {
+            return Self::Top(bound);
+        };
+
+        match (linear_fn)(system) {
+            Ok(system) => Self::Linear(system),
+            Err(_) => Self::Top(bound),
+        }
+    }
+
+    pub(super) fn binary_op_try<E>(
+        self,
+        rhs: Self,
+        linear_fn: impl Fn(LinearSystem, LinearSystem) -> Result<LinearSystem, E>,
+    ) -> Self {
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+        let (SymbolicDomain::Linear(lhs), SymbolicDomain::Linear(rhs)) = (self, rhs) else {
+            return Self::Top(bound);
+        };
+
+        match (linear_fn)(lhs, rhs) {
+            Ok(system) => Self::Linear(system),
+            Err(_) => Self::Top(bound),
+        }
+    }
+
     fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         match &self {
             SymbolicDomain::Top(bound) => write!(f, "⊤({})", bound.width()),

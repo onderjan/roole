@@ -2,18 +2,12 @@ use super::LinearSystem;
 
 impl LinearSystem {
     pub fn ult(self, rhs: Self) -> Result<Self, ()> {
-        let (Ok(lhs), Ok(rhs)) = (self.try_into_expression(), rhs.try_into_expression()) else {
-            return Err(());
-        };
-        let result = lhs.ult(rhs)?;
-        Ok(Self::from_expression(result))
+        // we can only compute unsigned-less-than when the system consists of a single expression
+        self.expression_binary_op_try(rhs, |a, b| a.ult(b))
     }
 
     pub fn ule(self, rhs: Self) -> Result<Self, ()> {
-        let (Ok(lhs), Ok(rhs)) = (self.try_into_expression(), rhs.try_into_expression()) else {
-            return Err(());
-        };
-        let result = lhs.ule(rhs)?;
-        Ok(Self::from_expression(result))
+        // we can only compute unsigned-less-or-equal when the system consists of a single expression
+        self.expression_binary_op_try(rhs, |a, b| a.ule(b))
     }
 }

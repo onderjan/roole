@@ -6,9 +6,20 @@ use super::{
     super::{LinearMonomial, LinearSlice},
     LinearPolynomial,
 };
-use crate::domain::{bitvector::concr::ConcreteBitvector, traits::forward::Bitwise};
+use crate::domain::{
+    bitvector::concr::ConcreteBitvector,
+    traits::forward::{Bitwise, HwArith},
+};
 
 impl LinearPolynomial {
+    pub fn bit_not(self) -> Self {
+        let mut result = self.arith_neg();
+        result.constant_term = result
+            .constant_term
+            .sub(ConcreteBitvector::one(result.bound()));
+        result.into_normal_form()
+    }
+
     pub fn bitwise_combine(
         self,
         rhs: LinearPolynomial,
