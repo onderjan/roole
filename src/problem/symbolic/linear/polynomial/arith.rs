@@ -32,6 +32,17 @@ impl LinearPolynomial {
         self.linear_combine(rhs, |a, b| a.sub(b))
     }
 
+    pub fn scale(&mut self, scaler: ConcreteBitvector<RBound>) {
+        let bound = self.bound();
+        assert_eq!(bound, scaler.bound());
+
+        self.constant_term = self.constant_term.mul(scaler);
+
+        for coefficient in self.linear_terms.values_mut() {
+            *coefficient = coefficient.mul(scaler);
+        }
+    }
+
     fn linear_combine(
         self,
         mut rhs: LinearPolynomial,
@@ -61,5 +72,47 @@ impl LinearPolynomial {
             linear_terms: monomials,
         };
         polynomial.into_normal_form()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::BTreeMap, num::NonZero};
+
+    use crate::{
+        domain::bitvector::{RBound, concr::ConcreteBitvector},
+        problem::formula::{FormulaId, VariableId},
+    };
+
+    use super::*;
+
+    use super::super::LinearSlice;
+
+    #[test]
+    fn test_addsub() {
+        let bound = RBound::new(32);
+        let slice = LinearSlice {
+            formula_id: FormulaId::Variable(VariableId(0)),
+            lsb: 0,
+            width: NonZero::new(32).unwrap(),
+        };
+        let a = LinearPolynomial {
+            constant_term: ConcreteBitvector::new(38, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(12, bound))]),
+        };
+        let b = LinearPolynomial {
+            constant_term: ConcreteBitvector::new(17, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(7, bound))]),
+        };
+        let add_result = LinearPolynomial {
+            constant_term: ConcreteBitvector::new(55, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(19, bound))]),
+        };
+        let sub_result = LinearPolynomial {
+            constant_term: ConcreteBitvector::new(21, bound),
+            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(5, bound))]),
+        };
+        assert_eq!(a.clone().add(b.clone()), add_result);
+        assert_eq!(a.sub(b), sub_result);
     }
 }
