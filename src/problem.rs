@@ -16,13 +16,13 @@ pub mod solution;
 
 mod assignment;
 mod decision;
-mod domain;
 mod eval;
+mod symbolic;
 
 pub use assignment::Assignment;
 pub use decision::Decision;
-pub use domain::OperationDomain;
 pub use eval::Evaluator;
+pub use symbolic::SymbolicDomain;
 
 /// A satisfiability problem.
 pub struct Problem {
@@ -76,12 +76,12 @@ impl Problem {
         assignment
     }
 
-    pub fn linear_assignment(&self) -> Assignment<OperationDomain> {
+    pub fn linear_assignment(&self) -> Assignment<SymbolicDomain> {
         let mut assignment = Assignment { values: Vec::new() };
         for (variable_id, variable) in self.variables.iter().enumerate() {
             let bound = RBound::new(variable.width);
 
-            assignment.values.push(OperationDomain::formula(
+            assignment.values.push(SymbolicDomain::formula(
                 FormulaId::Variable(VariableId(variable_id)),
                 bound,
             ));

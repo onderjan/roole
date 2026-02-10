@@ -1,14 +1,14 @@
-use super::linear::{LinearPolynomial, LinearRelation, LinearSystem};
-use crate::{
-    domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
-        traits::forward::{Bitwise, TypedEq},
-    },
-    problem::domain::OperationDomain,
+use super::{
+    SymbolicDomain,
+    linear::{LinearPolynomial, LinearRelation, LinearSystem},
+};
+use crate::domain::{
+    bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
+    traits::forward::{Bitwise, TypedEq},
 };
 
-impl TypedEq for OperationDomain {
-    type Output = OperationDomain;
+impl TypedEq for SymbolicDomain {
+    type Output = SymbolicDomain;
     fn eq(self, rhs: Self) -> Self::Output {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
@@ -16,7 +16,7 @@ impl TypedEq for OperationDomain {
         let (lhs, rhs) = match (self.try_into_polynomial(), rhs.try_into_polynomial()) {
             (Err(_), Err(_)) => {
                 // cannot combine
-                return OperationDomain::top(RBound::single_bit_bound());
+                return SymbolicDomain::top(RBound::single_bit_bound());
             }
             (Ok(polynomial), Err(other)) | (Err(other), Ok(polynomial)) => {
                 // we can simplify if we are working with Booleans and polynomial is a constant
@@ -35,12 +35,12 @@ impl TypedEq for OperationDomain {
                 };
 
                 // cannot combine
-                return OperationDomain::top(RBound::single_bit_bound());
+                return SymbolicDomain::top(RBound::single_bit_bound());
             }
             (Ok(lhs), Ok(rhs)) => (lhs, rhs),
         };
 
-        OperationDomain::Linear(LinearSystem::from_relation(LinearRelation::from_eq(
+        SymbolicDomain::Linear(LinearSystem::from_relation(LinearRelation::from_eq(
             lhs, rhs,
         )))
     }
@@ -77,30 +77,30 @@ impl TypedEq for OperationDomain {
 
         // try to forward to LinearSystem
         let (
-            OperationDomain::Linear(condition),
-            OperationDomain::Linear(then_branch),
-            OperationDomain::Linear(else_branch),
+            SymbolicDomain::Linear(condition),
+            SymbolicDomain::Linear(then_branch),
+            SymbolicDomain::Linear(else_branch),
         ) = (condition, then_branch, else_branch)
         else {
-            return OperationDomain::Top(bound);
+            return SymbolicDomain::Top(bound);
         };
 
         if let Ok(result) = LinearSystem::ite(condition, then_branch, else_branch) {
-            OperationDomain::Linear(result)
+            SymbolicDomain::Linear(result)
         } else {
-            OperationDomain::Top(bound)
+            SymbolicDomain::Top(bound)
         }
     }
 }
 
 fn simplify_ite_boolean_branches(
-    condition: OperationDomain,
+    condition: SymbolicDomain,
     then_branch: bool,
     else_branch: bool,
-) -> OperationDomain {
+) -> SymbolicDomain {
     if then_branch == else_branch {
         // tautology (both true) or contradiction (both false)
-        OperationDomain::from_polynomial(LinearPolynomial::single_bit(then_branch))
+        SymbolicDomain::from_polynomial(LinearPolynomial::single_bit(then_branch))
     } else if then_branch {
         // identity (take then if true, take else if false)
         condition

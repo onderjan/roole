@@ -1,14 +1,14 @@
-use super::linear::{LinearExpression, LinearPolynomial};
-use crate::{
-    domain::{
-        bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
-        traits::forward::{HwArith, TypedCmp},
-    },
-    problem::domain::OperationDomain,
+use super::{
+    SymbolicDomain,
+    linear::{LinearExpression, LinearPolynomial},
+};
+use crate::domain::{
+    bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+    traits::forward::{HwArith, TypedCmp},
 };
 
-impl TypedCmp for OperationDomain {
-    type Output = OperationDomain;
+impl TypedCmp for SymbolicDomain {
+    type Output = SymbolicDomain;
 
     fn ult(self, rhs: Self) -> Self::Output {
         unsigned_cmp(self, rhs, |lhs, rhs| lhs.ult(rhs))
@@ -30,35 +30,35 @@ impl TypedCmp for OperationDomain {
 }
 
 fn unsigned_cmp(
-    lhs: OperationDomain,
-    rhs: OperationDomain,
+    lhs: SymbolicDomain,
+    rhs: SymbolicDomain,
     func: fn(LinearExpression, LinearExpression) -> Result<LinearExpression, ()>,
-) -> OperationDomain {
+) -> SymbolicDomain {
     let bound = lhs.bound();
     assert_eq!(bound, rhs.bound());
 
     let (Ok(lhs), Ok(rhs)) = (lhs.try_into_expression(), rhs.try_into_expression()) else {
-        return OperationDomain::Top(RBound::single_bit_bound());
+        return SymbolicDomain::Top(RBound::single_bit_bound());
     };
 
     if let Ok(result) = (func)(lhs, rhs) {
-        OperationDomain::from_expression(result)
+        SymbolicDomain::from_expression(result)
     } else {
-        OperationDomain::Top(RBound::single_bit_bound())
+        SymbolicDomain::Top(RBound::single_bit_bound())
     }
 }
 
 fn signed_cmp_by_unsigned(
-    lhs: OperationDomain,
-    rhs: OperationDomain,
+    lhs: SymbolicDomain,
+    rhs: SymbolicDomain,
     unsigned_func: fn(LinearExpression, LinearExpression) -> Result<LinearExpression, ()>,
-) -> OperationDomain {
+) -> SymbolicDomain {
     let bound = lhs.bound();
     assert_eq!(bound, rhs.bound());
 
     // to convert to signed comparison, add overhalf to both
     let overhalf = ConcreteBitvector::new_overhalf(bound);
-    let overhalf = OperationDomain::from_polynomial(LinearPolynomial::from_constant(overhalf));
+    let overhalf = SymbolicDomain::from_polynomial(LinearPolynomial::from_constant(overhalf));
 
     let lhs = lhs.add(overhalf.clone());
     let rhs = rhs.add(overhalf);

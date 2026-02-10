@@ -1,9 +1,9 @@
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwArith},
-    problem::domain::{OperationDomain, linear::LinearPolynomial},
+    problem::symbolic::{SymbolicDomain, linear::LinearPolynomial},
 };
 
-impl HwArith for OperationDomain {
+impl HwArith for SymbolicDomain {
     fn arith_neg(self) -> Self {
         let polynomial = match self.try_into_polynomial() {
             Ok(ok) => ok,
@@ -60,20 +60,20 @@ impl HwArith for OperationDomain {
     }
 }
 
-impl OperationDomain {
+impl SymbolicDomain {
     fn linear_combine(
         self,
-        rhs: OperationDomain,
+        rhs: SymbolicDomain,
         op: fn(LinearPolynomial, LinearPolynomial) -> LinearPolynomial,
     ) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
         let (Ok(lhs), Ok(rhs)) = (self.try_into_polynomial(), rhs.try_into_polynomial()) else {
-            return OperationDomain::top(bound);
+            return SymbolicDomain::top(bound);
         };
 
         let polynomial = op(lhs, rhs);
-        OperationDomain::from_polynomial(polynomial)
+        SymbolicDomain::from_polynomial(polynomial)
     }
 }

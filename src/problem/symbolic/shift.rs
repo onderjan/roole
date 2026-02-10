@@ -1,10 +1,7 @@
-use super::linear::LinearPolynomial;
-use crate::{
-    domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwShift},
-    problem::domain::OperationDomain,
-};
+use super::{SymbolicDomain, linear::LinearPolynomial};
+use crate::domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwShift};
 
-impl HwShift for OperationDomain {
+impl HwShift for SymbolicDomain {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {
@@ -21,19 +18,19 @@ impl HwShift for OperationDomain {
 }
 
 fn perform_shift(
-    lhs: OperationDomain,
-    amount: OperationDomain,
+    lhs: SymbolicDomain,
+    amount: SymbolicDomain,
     polynomial_func: fn(LinearPolynomial, LinearPolynomial) -> Result<LinearPolynomial, ()>,
-) -> OperationDomain {
+) -> SymbolicDomain {
     let bound = amount.bound();
     assert_eq!(bound, amount.bound());
 
     let (Ok(lhs), Ok(amount)) = (lhs.try_into_polynomial(), amount.try_into_polynomial()) else {
-        return OperationDomain::top(bound);
+        return SymbolicDomain::top(bound);
     };
 
     match (polynomial_func)(lhs, amount) {
-        Ok(result) => OperationDomain::from_polynomial(result),
-        Err(()) => OperationDomain::top(bound),
+        Ok(result) => SymbolicDomain::from_polynomial(result),
+        Err(()) => SymbolicDomain::top(bound),
     }
 }

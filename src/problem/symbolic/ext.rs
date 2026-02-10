@@ -1,10 +1,8 @@
-use crate::{
-    domain::{bitvector::RBound, traits::forward::BExt},
-    problem::domain::OperationDomain,
-};
+use super::SymbolicDomain;
+use crate::domain::{bitvector::RBound, traits::forward::BExt};
 
-impl BExt<RBound> for OperationDomain {
-    type Output = OperationDomain;
+impl BExt<RBound> for SymbolicDomain {
+    type Output = SymbolicDomain;
 
     fn uext(self, new_bound: RBound) -> Self::Output {
         let Ok(polynomial) = self.try_into_polynomial() else {

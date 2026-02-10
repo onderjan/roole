@@ -2,14 +2,14 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     problem::{
-        Evaluator, OperationDomain, Problem,
+        Evaluator, Problem, SymbolicDomain,
         formula::{FormulaId, OperationId, VariableId, operation::Operation},
     },
     solver::SolverSettings,
 };
 
 pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
-    let mut evaluator = Evaluator::<OperationDomain>::new(problem);
+    let mut evaluator = Evaluator::<SymbolicDomain>::new(problem);
     evaluator.evaluate_preprocess(&problem.linear_assignment());
 
     eprintln!("Preprocessing evaluator: ");
@@ -37,8 +37,8 @@ pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
 
 fn used_operations<'a>(
     problem: &Problem,
-    evaluator: &'a Evaluator<'a, OperationDomain>,
-) -> BTreeMap<FormulaId, Option<&'a OperationDomain>> {
+    evaluator: &'a Evaluator<'a, SymbolicDomain>,
+) -> BTreeMap<FormulaId, Option<&'a SymbolicDomain>> {
     let mut used_operations = BTreeMap::new();
     let mut stack = vec![problem.assertion()];
 
@@ -83,7 +83,7 @@ fn used_operations<'a>(
 
 fn create_preprocessed(
     problem: &Problem,
-    used_operations: BTreeMap<FormulaId, Option<&OperationDomain>>,
+    used_operations: BTreeMap<FormulaId, Option<&SymbolicDomain>>,
     redirects: BTreeMap<FormulaId, FormulaId>,
 ) -> Problem {
     let mut old_to_new = BTreeMap::<FormulaId, FormulaId>::new();
@@ -121,8 +121,8 @@ fn create_preprocessed(
             FormulaId::Operation(operation_id) => {
                 let operation = if let Some(new_operation) = new_operation {
                     match &new_operation {
-                        OperationDomain::Top(_) => problem.operation(operation_id),
-                        OperationDomain::Linear(linear) => &Operation::Linear(linear.clone()),
+                        SymbolicDomain::Top(_) => problem.operation(operation_id),
+                        SymbolicDomain::Linear(linear) => &Operation::Linear(linear.clone()),
                     }
                 } else {
                     problem.operation(operation_id)
@@ -145,7 +145,7 @@ fn create_preprocessed(
 }
 
 fn unique_redirects(
-    used_operations: &BTreeMap<FormulaId, Option<&OperationDomain>>,
+    used_operations: &BTreeMap<FormulaId, Option<&SymbolicDomain>>,
 ) -> BTreeMap<FormulaId, FormulaId> {
     let mut redirects = BTreeMap::new();
     let mut unique_operations = HashMap::new();

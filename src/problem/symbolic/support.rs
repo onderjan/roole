@@ -1,27 +1,27 @@
 use std::fmt::{Debug, UpperHex};
 
-use super::linear::LinearExpression;
+use super::{
+    SymbolicDomain,
+    linear::{LinearExpression, LinearPolynomial, LinearSystem},
+};
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::Join,
     },
-    problem::{
-        domain::{LinearSystem, OperationDomain, linear::LinearPolynomial},
-        formula::FormulaId,
-    },
+    problem::formula::FormulaId,
 };
 
-impl OperationDomain {
+impl SymbolicDomain {
     pub fn used_ids(&self) -> Vec<FormulaId> {
         match &self {
-            OperationDomain::Top(_) => vec![],
-            OperationDomain::Linear(linear) => linear.used_ids(),
+            SymbolicDomain::Top(_) => vec![],
+            SymbolicDomain::Linear(linear) => linear.used_ids(),
         }
     }
 
-    pub(super) fn try_into_polynomial(self) -> Result<LinearPolynomial, OperationDomain> {
-        let OperationDomain::Linear(linear) = self else {
+    pub(super) fn try_into_polynomial(self) -> Result<LinearPolynomial, SymbolicDomain> {
+        let SymbolicDomain::Linear(linear) = self else {
             return Err(self);
         };
 
@@ -31,8 +31,8 @@ impl OperationDomain {
         }
     }
 
-    pub(super) fn try_into_expression(self) -> Result<LinearExpression, OperationDomain> {
-        let OperationDomain::Linear(linear) = self else {
+    pub(super) fn try_into_expression(self) -> Result<LinearExpression, SymbolicDomain> {
+        let SymbolicDomain::Linear(linear) = self else {
             return Err(self);
         };
 
@@ -43,7 +43,7 @@ impl OperationDomain {
     }
 
     pub(super) fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
-        let OperationDomain::Linear(linear) = self else {
+        let SymbolicDomain::Linear(linear) = self else {
             return None;
         };
 
@@ -64,13 +64,13 @@ impl OperationDomain {
 
     fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         match &self {
-            OperationDomain::Top(bound) => write!(f, "⊤({})", bound.width()),
-            OperationDomain::Linear(linear) => linear.format(f, hex),
+            SymbolicDomain::Top(bound) => write!(f, "⊤({})", bound.width()),
+            SymbolicDomain::Linear(linear) => linear.format(f, hex),
         }
     }
 }
 
-impl Join for OperationDomain {
+impl Join for SymbolicDomain {
     fn join(self, other: &Self) -> Self {
         assert_eq!(self.bound(), other.bound());
 
@@ -83,13 +83,13 @@ impl Join for OperationDomain {
     }
 }
 
-impl Debug for OperationDomain {
+impl Debug for SymbolicDomain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format(f, false)
     }
 }
 
-impl UpperHex for OperationDomain {
+impl UpperHex for SymbolicDomain {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format(f, true)
     }

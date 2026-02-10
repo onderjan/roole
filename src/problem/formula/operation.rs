@@ -7,7 +7,7 @@ use std::{
 use crate::{
     domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
     domain::traits::forward::BExt,
-    problem::{domain::LinearSystem, eval::EvaluableDomain, formula::FormulaId},
+    problem::{eval::EvaluableDomain, formula::FormulaId, symbolic::linear::LinearSystem},
 };
 
 mod bi;

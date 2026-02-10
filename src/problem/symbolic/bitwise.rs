@@ -4,17 +4,17 @@ use crate::{
         bitvector::{BitvectorBound, abstr::BitvectorDomain},
         traits::forward::Bitwise,
     },
-    problem::domain::OperationDomain,
+    problem::symbolic::SymbolicDomain,
 };
 
-impl Bitwise for OperationDomain {
+impl Bitwise for SymbolicDomain {
     fn bit_not(self) -> Self {
         let linear = match self {
-            OperationDomain::Top(_) => return self,
-            OperationDomain::Linear(linear) => linear,
+            SymbolicDomain::Top(_) => return self,
+            SymbolicDomain::Linear(linear) => linear,
         };
 
-        OperationDomain::Linear(linear.bit_not())
+        SymbolicDomain::Linear(linear.bit_not())
     }
 
     fn bit_and(self, rhs: Self) -> Self {
@@ -28,11 +28,11 @@ impl Bitwise for OperationDomain {
         assert_eq!(bound, rhs.bound());
         // TODO: handle masking situations
 
-        OperationDomain::top(bound)
+        SymbolicDomain::top(bound)
     }
 }
 
-impl OperationDomain {
+impl SymbolicDomain {
     fn bit_junction(self, rhs: Self, conjunction: bool) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
@@ -58,13 +58,13 @@ impl OperationDomain {
             }
         }
 
-        let (OperationDomain::Linear(lhs), OperationDomain::Linear(rhs)) = (self, rhs) else {
+        let (SymbolicDomain::Linear(lhs), SymbolicDomain::Linear(rhs)) = (self, rhs) else {
             return Self::top(bound);
         };
 
         match lhs.bit_junction(rhs, conjunction) {
-            Ok(result) => OperationDomain::Linear(result),
-            Err(()) => OperationDomain::Top(bound),
+            Ok(result) => SymbolicDomain::Linear(result),
+            Err(()) => SymbolicDomain::Top(bound),
         }
     }
 }

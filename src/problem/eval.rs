@@ -14,8 +14,8 @@ use crate::{
     problem::{
         Problem,
         assignment::Assignment,
-        domain::OperationDomain,
         formula::{FormulaId, OperationId, VariableId},
+        symbolic::SymbolicDomain,
     },
 };
 
@@ -212,9 +212,9 @@ impl EvaluableDomain for AbstractBitvector<RBound> {
     }
 }
 
-impl EvaluableDomain for OperationDomain {
+impl EvaluableDomain for SymbolicDomain {
     fn formula(formula_id: FormulaId, bound: RBound) -> Self {
-        OperationDomain::from_formula(formula_id, bound)
+        SymbolicDomain::from_formula(formula_id, bound)
     }
 }
 
