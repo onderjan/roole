@@ -26,7 +26,7 @@ impl TypedEq for SymbolicDomain {
         }
 
         // otherwise, resolve in linear system
-        self.binary_op_try(rhs, |a, b| a.typed_eq(b))
+        self.binary_op_try(rhs, |a, b| a.typed_eq(b), true)
     }
 
     fn ne(self, rhs: Self) -> Self::Output {

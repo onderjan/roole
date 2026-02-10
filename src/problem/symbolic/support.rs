@@ -65,6 +65,7 @@ impl SymbolicDomain {
         self,
         rhs: Self,
         linear_fn: impl Fn(LinearSystem, LinearSystem) -> Result<LinearSystem, E>,
+        single_bit_result: bool,
     ) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
@@ -74,7 +75,14 @@ impl SymbolicDomain {
 
         match (linear_fn)(lhs, rhs) {
             Ok(system) => Self::Linear(system),
-            Err(_) => Self::Top(bound),
+            Err(_) => {
+                let result_bound = if single_bit_result {
+                    RBound::single_bit_bound()
+                } else {
+                    bound
+                };
+                Self::Top(result_bound)
+            }
         }
     }
 

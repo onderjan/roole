@@ -6,15 +6,15 @@ impl HwArith for SymbolicDomain {
     }
 
     fn add(self, rhs: Self) -> Self {
-        self.binary_op_try(rhs, |a, b| a.add(b))
+        self.binary_op_try(rhs, |a, b| a.add(b), false)
     }
 
     fn sub(self, rhs: Self) -> Self {
-        self.binary_op_try(rhs, |a, b| a.sub(b))
+        self.binary_op_try(rhs, |a, b| a.sub(b), false)
     }
 
     fn mul(self, rhs: Self) -> Self {
-        self.binary_op_try(rhs, |a, b| a.mul(b))
+        self.binary_op_try(rhs, |a, b| a.mul(b), false)
     }
 
     fn udiv(self, _rhs: Self) -> Self {

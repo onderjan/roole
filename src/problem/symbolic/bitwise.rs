@@ -52,6 +52,6 @@ impl SymbolicDomain {
         }
 
         // hand over to linear
-        self.binary_op_try(rhs, |a, b| a.bit_junction(b, conjunction))
+        self.binary_op_try(rhs, |a, b| a.bit_junction(b, conjunction), false)
     }
 }

@@ -8,11 +8,11 @@ impl TypedCmp for SymbolicDomain {
     type Output = SymbolicDomain;
 
     fn ult(self, rhs: Self) -> Self::Output {
-        self.binary_op_try(rhs, |lhs, rhs| lhs.ult(rhs))
+        self.binary_op_try(rhs, |lhs, rhs| lhs.ult(rhs), true)
     }
 
     fn ule(self, rhs: Self) -> Self::Output {
-        self.binary_op_try(rhs, |lhs, rhs| lhs.ule(rhs))
+        self.binary_op_try(rhs, |lhs, rhs| lhs.ule(rhs), true)
     }
 
     fn slt(self, rhs: Self) -> Self::Output {
@@ -42,5 +42,5 @@ fn signed_cmp_by_unsigned(
     let rhs = rhs.add(overhalf);
 
     // use the corresponding unsigned comparison
-    lhs.binary_op_try(rhs, unsigned_func)
+    lhs.binary_op_try(rhs, unsigned_func, true)
 }
