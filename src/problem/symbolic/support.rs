@@ -20,17 +20,6 @@ impl SymbolicDomain {
         }
     }
 
-    pub(super) fn try_into_polynomial(self) -> Result<LinearPolynomial, SymbolicDomain> {
-        let SymbolicDomain::Linear(linear) = self else {
-            return Err(self);
-        };
-
-        match linear.try_into_polynomial() {
-            Ok(polynomial) => Ok(polynomial),
-            Err(linear) => Err(Self::Linear(linear)),
-        }
-    }
-
     pub(super) fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
         let SymbolicDomain::Linear(linear) = self else {
             return None;

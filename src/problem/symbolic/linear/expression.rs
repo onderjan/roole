@@ -17,6 +17,7 @@ mod cmp;
 mod eq;
 mod ext;
 mod normal;
+mod shift;
 mod support;
 
 /// Either a linear polynomial or a linear relation.
