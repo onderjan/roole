@@ -1,9 +1,9 @@
 use super::{
     SymbolicDomain,
-    linear::{LinearPolynomial, LinearRelation, LinearSystem},
+    linear::{LinearPolynomial, LinearSystem},
 };
 use crate::domain::{
-    bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
+    bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
     traits::forward::{Bitwise, TypedEq},
 };
 
@@ -13,36 +13,25 @@ impl TypedEq for SymbolicDomain {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
 
-        let (lhs, rhs) = match (self.try_into_polynomial(), rhs.try_into_polynomial()) {
-            (Err(_), Err(_)) => {
-                // cannot combine
-                return SymbolicDomain::top(RBound::single_bit_bound());
-            }
-            (Ok(polynomial), Err(other)) | (Err(other), Ok(polynomial)) => {
-                // we can simplify if we are working with Booleans and polynomial is a constant
-                if bound.width() == 1
-                    && let Some(constant) = polynomial.constant_value()
-                {
-                    if constant.is_nonzero() {
-                        // equality of form 1 == other
-                        // just return the other
-                        return other;
-                    } else {
-                        // equality of form 0 == other
-                        // bit-not other
-                        return other.bit_not();
-                    }
-                };
+        // we can simplify if we are working with Booleans and at least one is a constant
+        if bound.width() == 1 {
+            let (lhs_value, rhs_value) = (self.constant_value(), rhs.constant_value());
 
-                // cannot combine
-                return SymbolicDomain::top(RBound::single_bit_bound());
-            }
-            (Ok(lhs), Ok(rhs)) => (lhs, rhs),
-        };
+            match (lhs_value, rhs_value) {
+                (None, None) => {}
+                (None, Some(rhs_value)) => return equality_result(rhs_value, self),
+                (Some(lhs_value), None) => return equality_result(lhs_value, rhs),
+                (Some(lhs_value), Some(rhs_value)) => {
+                    // just combine
+                    return Self::from_polynomial(LinearPolynomial::single_bit(
+                        lhs_value == rhs_value,
+                    ));
+                }
+            };
+        }
 
-        SymbolicDomain::Linear(LinearSystem::from_relation(LinearRelation::from_eq(
-            lhs, rhs,
-        )))
+        // otherwise, resolve in linear system
+        self.binary_op_try(rhs, |a, b| a.typed_eq(b))
     }
 
     fn ne(self, rhs: Self) -> Self::Output {
@@ -90,6 +79,18 @@ impl TypedEq for SymbolicDomain {
         } else {
             SymbolicDomain::Top(bound)
         }
+    }
+}
+
+fn equality_result(constant: ConcreteBitvector<RBound>, other: SymbolicDomain) -> SymbolicDomain {
+    if constant.is_nonzero() {
+        // equality of form 1 == other
+        // just return the other
+        other
+    } else {
+        // equality of form 0 == other
+        // bit-not other
+        other.bit_not()
     }
 }
 

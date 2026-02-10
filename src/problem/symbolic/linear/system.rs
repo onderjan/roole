@@ -10,11 +10,12 @@ use crate::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use super::{LinearExpression, LinearPolynomial, LinearRelation};
+use super::{LinearExpression, LinearPolynomial};
 
 mod arith;
 mod bitwise;
 mod cmp;
+mod eq;
 mod support;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -51,10 +52,6 @@ impl LinearSystem {
 
     pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
         Self::from_expression(LinearExpression::Polynomial(polynomial))
-    }
-
-    pub fn from_relation(relation: LinearRelation) -> Self {
-        Self::from_expression(LinearExpression::Relation(relation))
     }
 
     pub fn from_expression(expression: LinearExpression) -> Self {

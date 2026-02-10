@@ -3,7 +3,7 @@ use super::{
     linear::{LinearPolynomial, LinearSystem},
 };
 use crate::domain::{
-    bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+    bitvector::{abstr::BitvectorDomain, concr::ConcreteBitvector},
     traits::forward::{HwArith, TypedCmp},
 };
 
@@ -11,11 +11,11 @@ impl TypedCmp for SymbolicDomain {
     type Output = SymbolicDomain;
 
     fn ult(self, rhs: Self) -> Self::Output {
-        unsigned_cmp(self, rhs, |lhs, rhs| lhs.ult(rhs))
+        self.binary_op_try(rhs, |lhs, rhs| lhs.ult(rhs))
     }
 
     fn ule(self, rhs: Self) -> Self::Output {
-        unsigned_cmp(self, rhs, |lhs, rhs| lhs.ule(rhs))
+        self.binary_op_try(rhs, |lhs, rhs| lhs.ule(rhs))
     }
 
     fn slt(self, rhs: Self) -> Self::Output {
@@ -26,26 +26,6 @@ impl TypedCmp for SymbolicDomain {
     fn sle(self, rhs: Self) -> Self::Output {
         // convert to unsigned less-or-equal
         signed_cmp_by_unsigned(self, rhs, |lhs, rhs| lhs.ule(rhs))
-    }
-}
-
-fn unsigned_cmp(
-    lhs: SymbolicDomain,
-    rhs: SymbolicDomain,
-    func: fn(LinearSystem, LinearSystem) -> Result<LinearSystem, ()>,
-) -> SymbolicDomain {
-    let bound = lhs.bound();
-    assert_eq!(bound, rhs.bound());
-
-    // hand over to linear
-    let (SymbolicDomain::Linear(lhs), SymbolicDomain::Linear(rhs)) = (lhs, rhs) else {
-        return SymbolicDomain::Top(RBound::single_bit_bound());
-    };
-
-    if let Ok(result) = (func)(lhs, rhs) {
-        SymbolicDomain::Linear(result)
-    } else {
-        SymbolicDomain::Top(RBound::single_bit_bound())
     }
 }
 
@@ -65,5 +45,5 @@ fn signed_cmp_by_unsigned(
     let rhs = rhs.add(overhalf);
 
     // use the corresponding unsigned comparison
-    unsigned_cmp(lhs, rhs, unsigned_func)
+    lhs.binary_op_try(rhs, unsigned_func)
 }
