@@ -1,9 +1,10 @@
+use super::linear::LinearPolynomial;
 use crate::{
     domain::{
         bitvector::{BitvectorBound, abstr::BitvectorDomain},
         traits::forward::Bitwise,
     },
-    problem::{domain::OperationDomain, operation::LinearPolynomial},
+    problem::domain::OperationDomain,
 };
 
 impl Bitwise for OperationDomain {

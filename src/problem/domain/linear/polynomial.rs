@@ -4,8 +4,7 @@ use std::fmt::{Debug, UpperHex};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::problem::operation::linear::monomial::LinearMonomial;
-use crate::problem::operation::linear::slice::LinearSlice;
+use super::{LinearMonomial, LinearSlice};
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},

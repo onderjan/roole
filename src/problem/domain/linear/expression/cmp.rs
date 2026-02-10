@@ -1,9 +1,10 @@
-use crate::{
-    domain::{
-        bitvector::concr::ConcreteBitvector,
-        traits::forward::{Bitwise, HwArith},
-    },
-    problem::operation::{LinearPolynomial, LinearRelation, linear::expression::LinearExpression},
+use super::{
+    super::{LinearPolynomial, LinearRelation},
+    LinearExpression,
+};
+use crate::domain::{
+    bitvector::concr::ConcreteBitvector,
+    traits::forward::{Bitwise, HwArith},
 };
 
 impl LinearExpression {

@@ -1,7 +1,5 @@
-use crate::{
-    domain::{bitvector::BitvectorBound, traits::forward::BExt},
-    problem::operation::LinearPolynomial,
-};
+use super::LinearPolynomial;
+use crate::domain::{bitvector::BitvectorBound, traits::forward::BExt};
 
 impl LinearPolynomial {
     pub fn ite(

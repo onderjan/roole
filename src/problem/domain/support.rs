@@ -1,14 +1,14 @@
 use std::fmt::{Debug, UpperHex};
 
+use super::linear::LinearExpression;
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::Join,
     },
     problem::{
-        domain::OperationDomain,
+        domain::{LinearSystem, OperationDomain, linear::LinearPolynomial},
         formula::FormulaId,
-        operation::{LinearExpression, LinearPolynomial, LinearSystem},
     },
 };
 
@@ -56,6 +56,10 @@ impl OperationDomain {
 
     pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
         Self::Linear(LinearSystem::from_polynomial(polynomial))
+    }
+
+    pub fn from_formula(formula_id: FormulaId, bound: RBound) -> Self {
+        Self::from_polynomial(LinearPolynomial::from_formula(formula_id, bound))
     }
 
     fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {

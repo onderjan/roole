@@ -7,19 +7,14 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::{
-        bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
-        traits::forward::BExt,
-    },
-    problem::{eval::EvaluableDomain, formula::FormulaId},
+    domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
+    domain::traits::forward::BExt,
+    problem::{domain::LinearSystem, eval::EvaluableDomain, formula::FormulaId},
 };
 
 mod bi;
-mod linear;
 
 pub use bi::{BiOp, BiOperator};
-
-pub use linear::{LinearExpression, LinearPolynomial, LinearRelation, LinearSystem};
 
 /// Operation id.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

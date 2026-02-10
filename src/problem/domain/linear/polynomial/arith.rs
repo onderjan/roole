@@ -1,11 +1,9 @@
 use std::collections::BTreeMap;
 
-use crate::{
-    domain::{
-        bitvector::{RBound, concr::ConcreteBitvector},
-        traits::forward::HwArith,
-    },
-    problem::operation::LinearPolynomial,
+use super::LinearPolynomial;
+use crate::domain::{
+    bitvector::{RBound, concr::ConcreteBitvector},
+    traits::forward::HwArith,
 };
 
 impl LinearPolynomial {

@@ -5,19 +5,13 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use super::{LinearMonomial, LinearPolynomial, LinearRelation};
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
         traits::forward::{HwArith, TypedCmp},
     },
-    problem::{
-        eval::EvaluableDomain,
-        formula::FormulaId,
-        operation::{
-            LinearPolynomial,
-            linear::{LinearRelation, monomial::LinearMonomial},
-        },
-    },
+    problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 
 mod cmp;

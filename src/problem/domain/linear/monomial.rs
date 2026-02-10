@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
-    problem::operation::linear::slice::LinearSlice,
-};
+use super::LinearSlice;
+use crate::domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearMonomial {

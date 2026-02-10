@@ -16,7 +16,10 @@ use crate::{
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-pub use {expression::LinearExpression, polynomial::LinearPolynomial, relation::LinearRelation};
+pub use {
+    expression::LinearExpression, monomial::LinearMonomial, polynomial::LinearPolynomial,
+    relation::LinearRelation, slice::LinearSlice,
+};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearSystem {

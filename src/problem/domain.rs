@@ -6,11 +6,14 @@ mod ext;
 mod shift;
 
 mod bitvector;
+mod linear;
 mod support;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{domain::bitvector::RBound, problem::operation::LinearSystem};
+use crate::domain::bitvector::RBound;
+
+pub use linear::LinearSystem;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum OperationDomain {

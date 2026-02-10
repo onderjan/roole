@@ -1,6 +1,7 @@
+use super::linear::LinearPolynomial;
 use crate::{
     domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwShift},
-    problem::{domain::OperationDomain, operation::LinearPolynomial},
+    problem::domain::OperationDomain,
 };
 
 impl HwShift for OperationDomain {

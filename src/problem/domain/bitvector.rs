@@ -1,6 +1,7 @@
+use super::linear::LinearPolynomial;
 use crate::{
     domain::bitvector::{RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
-    problem::{domain::OperationDomain, operation::LinearPolynomial},
+    problem::domain::OperationDomain,
 };
 
 impl BitvectorDomain for OperationDomain {

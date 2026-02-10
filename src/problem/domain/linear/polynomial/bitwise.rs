@@ -2,13 +2,11 @@ use std::num::NonZero;
 
 use itertools::Itertools;
 
-use crate::{
-    domain::{bitvector::concr::ConcreteBitvector, traits::forward::Bitwise},
-    problem::operation::{
-        LinearPolynomial,
-        linear::{monomial::LinearMonomial, slice::LinearSlice},
-    },
+use super::{
+    super::{LinearMonomial, LinearSlice},
+    LinearPolynomial,
 };
+use crate::domain::{bitvector::concr::ConcreteBitvector, traits::forward::Bitwise};
 
 impl LinearPolynomial {
     pub fn bitwise_combine(

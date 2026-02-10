@@ -1,9 +1,7 @@
-use crate::{
-    domain::{
-        bitvector::{BitvectorBound, RBound},
-        traits::forward::BExt,
-    },
-    problem::operation::LinearPolynomial,
+use super::LinearPolynomial;
+use crate::domain::{
+    bitvector::{BitvectorBound, RBound},
+    traits::forward::BExt,
 };
 
 impl LinearPolynomial {

@@ -2,10 +2,8 @@ use std::{collections::BTreeMap, num::NonZero};
 
 use itertools::Itertools;
 
-use crate::{
-    domain::{bitvector::concr::ConcreteBitvector, traits::forward::HwShift},
-    problem::operation::LinearPolynomial,
-};
+use super::LinearPolynomial;
+use crate::domain::{bitvector::concr::ConcreteBitvector, traits::forward::HwShift};
 
 impl LinearPolynomial {
     pub fn logic_shl(mut self, amount: Self) -> Result<Self, ()> {

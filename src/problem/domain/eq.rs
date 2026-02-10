@@ -1,12 +1,10 @@
+use super::linear::{LinearPolynomial, LinearRelation, LinearSystem};
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain},
         traits::forward::{Bitwise, TypedEq},
     },
-    problem::{
-        domain::OperationDomain,
-        operation::{LinearPolynomial, LinearRelation, LinearSystem},
-    },
+    problem::domain::OperationDomain,
 };
 
 impl TypedEq for OperationDomain {

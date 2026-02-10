@@ -1,12 +1,10 @@
+use super::linear::{LinearExpression, LinearPolynomial};
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
         traits::forward::{HwArith, TypedCmp},
     },
-    problem::{
-        domain::OperationDomain,
-        operation::{LinearExpression, LinearPolynomial},
-    },
+    problem::domain::OperationDomain,
 };
 
 impl TypedCmp for OperationDomain {

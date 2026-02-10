@@ -4,12 +4,13 @@ use std::{
     fmt::{Debug, UpperHex},
 };
 
+use super::LinearPolynomial;
 use crate::{
     domain::{
         bitvector::{RBound, concr::ConcreteBitvector},
         traits::forward::{Bitwise, HwArith},
     },
-    problem::{eval::EvaluableDomain, formula::FormulaId, operation::LinearPolynomial},
+    problem::{eval::EvaluableDomain, formula::FormulaId},
 };
 
 /// A linear relation `polynomial` <= `slack`.
