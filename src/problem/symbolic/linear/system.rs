@@ -16,6 +16,7 @@ mod arith;
 mod bitwise;
 mod cmp;
 mod eq;
+mod ext;
 mod support;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

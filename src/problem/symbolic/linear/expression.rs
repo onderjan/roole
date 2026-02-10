@@ -15,6 +15,7 @@ mod arith;
 mod bitwise;
 mod cmp;
 mod eq;
+mod ext;
 mod normal;
 mod support;
 
