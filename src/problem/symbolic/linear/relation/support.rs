@@ -12,7 +12,7 @@ impl LinearRelation {
             let nonequality_polynomial = self
                 .polynomial
                 .clone()
-                .add(LinearPolynomial::from_constant(one));
+                .add(LinearPolynomial::from_concrete(one));
             Debug::fmt(&nonequality_polynomial, f)?;
 
             write!(f, " != 0")

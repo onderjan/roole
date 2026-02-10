@@ -36,7 +36,7 @@ impl LinearSystem {
         {
             // we can try to combine the polynomials
             if let Ok(result) = lhs.clone().bitwise_combine(rhs.clone(), conjunction) {
-                return Ok(Self::from_polynomial(result));
+                return Ok(Self::from_expression(LinearExpression::Polynomial(result)));
             }
         }
 

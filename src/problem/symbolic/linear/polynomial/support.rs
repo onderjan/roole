@@ -46,7 +46,7 @@ impl LinearPolynomial {
         )
     }
 
-    pub fn from_constant(constant: ConcreteBitvector<RBound>) -> Self {
+    pub fn from_concrete(constant: ConcreteBitvector<RBound>) -> Self {
         Self {
             linear_terms: BTreeMap::new(),
             constant_term: constant,
@@ -66,7 +66,7 @@ impl LinearPolynomial {
         self.constant_term.bound()
     }
 
-    pub fn single_bit(constant: bool) -> LinearPolynomial {
+    pub fn from_bool(constant: bool) -> LinearPolynomial {
         let bound = RBound::single_bit_bound();
         let constant = if constant {
             ConcreteBitvector::one(bound)
@@ -74,7 +74,7 @@ impl LinearPolynomial {
             ConcreteBitvector::zero(bound)
         };
 
-        LinearPolynomial::from_constant(constant)
+        LinearPolynomial::from_concrete(constant)
     }
 
     pub(crate) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {

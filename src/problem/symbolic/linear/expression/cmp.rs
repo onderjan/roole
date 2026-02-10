@@ -25,7 +25,7 @@ impl LinearExpression {
             let not_lhs = lhs.bit_not();
             if not_lhs.is_zero() {
                 // contradiction
-                return Ok(Self::Polynomial(LinearPolynomial::single_bit(false)));
+                return Ok(Self::Polynomial(LinearPolynomial::from_bool(false)));
             }
 
             let polynomial = rhs.bit_not();
@@ -46,7 +46,7 @@ impl LinearExpression {
 
             if rhs.is_zero() {
                 // contradiction
-                return Ok(Self::Polynomial(LinearPolynomial::single_bit(false)));
+                return Ok(Self::Polynomial(LinearPolynomial::from_bool(false)));
             }
 
             let polynomial = lhs;

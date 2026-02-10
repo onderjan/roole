@@ -1,4 +1,3 @@
-use super::linear::LinearPolynomial;
 use crate::{
     domain::{
         bitvector::{BitvectorBound, abstr::BitvectorDomain},
@@ -47,7 +46,7 @@ impl SymbolicDomain {
                 } else {
                     // for conjunction, return 0 as the constant is 0
                     // for disjunction, return 1 as the constant is 1
-                    return Self::from_polynomial(LinearPolynomial::single_bit(constant));
+                    return Self::from_bool(constant);
                 }
             }
         }

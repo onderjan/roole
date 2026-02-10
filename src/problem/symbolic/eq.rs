@@ -1,7 +1,4 @@
-use super::{
-    SymbolicDomain,
-    linear::{LinearPolynomial, LinearSystem},
-};
+use super::{SymbolicDomain, linear::LinearSystem};
 use crate::domain::{
     bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
     traits::forward::{Bitwise, TypedEq},
@@ -23,9 +20,7 @@ impl TypedEq for SymbolicDomain {
                 (Some(lhs_value), None) => return equality_result(lhs_value, rhs),
                 (Some(lhs_value), Some(rhs_value)) => {
                     // just combine
-                    return Self::from_polynomial(LinearPolynomial::single_bit(
-                        lhs_value == rhs_value,
-                    ));
+                    return Self::from_bool(lhs_value == rhs_value);
                 }
             };
         }
@@ -101,7 +96,7 @@ fn simplify_ite_boolean_branches(
 ) -> SymbolicDomain {
     if then_branch == else_branch {
         // tautology (both true) or contradiction (both false)
-        SymbolicDomain::from_polynomial(LinearPolynomial::single_bit(then_branch))
+        SymbolicDomain::from_bool(then_branch)
     } else if then_branch {
         // identity (take then if true, take else if false)
         condition

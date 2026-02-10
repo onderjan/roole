@@ -37,7 +37,7 @@ impl LinearPolynomial {
                 } else {
                     lhs.bit_or(rhs)
                 };
-                return Ok(LinearPolynomial::from_constant(result));
+                return Ok(LinearPolynomial::from_concrete(result));
             }
         };
 

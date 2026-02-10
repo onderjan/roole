@@ -1,7 +1,4 @@
-use super::{
-    SymbolicDomain,
-    linear::{LinearPolynomial, LinearSystem},
-};
+use super::{SymbolicDomain, linear::LinearSystem};
 use crate::domain::{
     bitvector::{abstr::BitvectorDomain, concr::ConcreteBitvector},
     traits::forward::{HwArith, TypedCmp},
@@ -39,7 +36,7 @@ fn signed_cmp_by_unsigned(
 
     // to convert to unsigned comparison, add overhalf to both
     let overhalf = ConcreteBitvector::new_overhalf(bound);
-    let overhalf = SymbolicDomain::from_polynomial(LinearPolynomial::from_constant(overhalf));
+    let overhalf = SymbolicDomain::from_concrete(overhalf);
 
     let lhs = lhs.add(overhalf.clone());
     let rhs = rhs.add(overhalf);

@@ -5,7 +5,9 @@ mod relation;
 mod slice;
 mod system;
 
-pub use {
+use {
     expression::LinearExpression, monomial::LinearMonomial, polynomial::LinearPolynomial,
-    relation::LinearRelation, slice::LinearSlice, system::LinearSystem,
+    relation::LinearRelation, slice::LinearSlice,
 };
+
+pub use system::LinearSystem;

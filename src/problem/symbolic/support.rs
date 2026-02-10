@@ -1,9 +1,6 @@
 use std::fmt::{Debug, UpperHex};
 
-use super::{
-    SymbolicDomain,
-    linear::{LinearPolynomial, LinearSystem},
-};
+use super::{SymbolicDomain, linear::LinearSystem};
 use crate::{
     domain::{
         bitvector::{BitvectorBound, RBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
@@ -28,12 +25,16 @@ impl SymbolicDomain {
         linear.constant_value()
     }
 
-    pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
-        Self::Linear(LinearSystem::from_polynomial(polynomial))
+    pub fn from_concrete(constant: ConcreteBitvector<RBound>) -> Self {
+        Self::Linear(LinearSystem::from_concrete(constant))
+    }
+
+    pub fn from_bool(value: bool) -> Self {
+        Self::Linear(LinearSystem::from_bool(value))
     }
 
     pub fn from_formula(formula_id: FormulaId, bound: RBound) -> Self {
-        Self::from_polynomial(LinearPolynomial::from_formula(formula_id, bound))
+        Self::Linear(LinearSystem::from_formula(formula_id, bound))
     }
 
     pub(super) fn unary_op(self, linear_fn: impl Fn(LinearSystem) -> LinearSystem) -> Self {

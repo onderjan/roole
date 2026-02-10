@@ -19,7 +19,7 @@ impl LinearExpression {
 
         if relation.slack().is_full_mask() {
             // polynomial <= max_value, this is a tautology
-            return LinearExpression::Polynomial(LinearPolynomial::single_bit(true));
+            return LinearExpression::Polynomial(LinearPolynomial::from_bool(true));
         }
 
         let bound = relation.polynomial().bound();
@@ -54,7 +54,7 @@ impl LinearExpression {
 
         let Some(monomial) = monomial else {
             // the result is whether constant <= slack
-            return LinearExpression::Polynomial(LinearPolynomial::from_constant(
+            return LinearExpression::Polynomial(LinearPolynomial::from_concrete(
                 constant.ule(slack),
             ));
         };
@@ -72,7 +72,7 @@ impl LinearExpression {
 
         if result_if_zero == result_if_one {
             // tautology / contradiction
-            return LinearExpression::Polynomial(LinearPolynomial::from_constant(result_if_one));
+            return LinearExpression::Polynomial(LinearPolynomial::from_concrete(result_if_one));
         }
 
         // if result_if_zero is 0 and result_if_one is 1, we want to construct single_bit

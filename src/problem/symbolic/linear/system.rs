@@ -52,11 +52,19 @@ impl LinearSystem {
         result
     }
 
-    pub fn from_polynomial(polynomial: LinearPolynomial) -> Self {
-        Self::from_expression(LinearExpression::Polynomial(polynomial))
+    pub fn from_concrete(constant: ConcreteBitvector<RBound>) -> Self {
+        Self::from_polynomial(LinearPolynomial::from_concrete(constant))
     }
 
-    pub fn from_expression(expression: LinearExpression) -> Self {
+    pub fn from_bool(value: bool) -> Self {
+        Self::from_polynomial(LinearPolynomial::from_bool(value))
+    }
+
+    pub fn from_formula(formula_id: FormulaId, bound: RBound) -> Self {
+        Self::from_polynomial(LinearPolynomial::from_formula(formula_id, bound))
+    }
+
+    fn from_expression(expression: LinearExpression) -> Self {
         let expression = expression.into_normal_form();
         Self {
             conjunction: true,
@@ -65,7 +73,11 @@ impl LinearSystem {
         }
     }
 
-    pub fn try_into_expression(self) -> Result<LinearExpression, LinearSystem> {
+    fn from_polynomial(polynomial: LinearPolynomial) -> Self {
+        Self::from_expression(LinearExpression::Polynomial(polynomial))
+    }
+
+    fn try_into_expression(self) -> Result<LinearExpression, LinearSystem> {
         if self.expressions.len() != 1
             || !matches!(self.expressions[0], LinearExpression::Polynomial(_))
         {
@@ -76,22 +88,6 @@ impl LinearSystem {
             panic!("Should be ensured to be a polynomial");
         };
         Ok(expression)
-    }
-
-    pub fn try_into_polynomial(self) -> Result<LinearPolynomial, LinearSystem> {
-        if self.expressions.len() != 1
-            || !matches!(self.expressions[0], LinearExpression::Polynomial(_))
-        {
-            return Err(self);
-        }
-
-        let Ok(LinearExpression::Polynomial(polynomial)) =
-            self.expressions.into_iter().exactly_one()
-        else {
-            panic!("Should be ensured to be a polynomial");
-        };
-
-        Ok(polynomial)
     }
 
     pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
@@ -118,22 +114,17 @@ impl LinearSystem {
     }
 
     pub fn ite(condition: Self, then_branch: Self, else_branch: Self) -> Result<Self, ()> {
-        // try to simplify with polynomial branches
-        let (Ok(then_branch), Ok(else_branch)) = (
-            then_branch.try_into_polynomial(),
-            else_branch.try_into_polynomial(),
+        // try to convert to a system if all are expressions
+        let (Ok(condition), Ok(then_branch), Ok(else_branch)) = (
+            condition.try_into_expression(),
+            then_branch.try_into_expression(),
+            else_branch.try_into_expression(),
         ) else {
             return Err(());
         };
 
-        // try to resolve all polynomials
-        if let Ok(condition) = condition.try_into_polynomial()
-            && let Ok(result) = LinearPolynomial::ite(condition, then_branch, else_branch)
-        {
-            return Ok(LinearSystem::from_polynomial(result));
-        };
-
-        Err(())
+        LinearExpression::ite(condition, then_branch, else_branch)
+            .map(LinearSystem::from_expression)
     }
 
     pub(crate) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {

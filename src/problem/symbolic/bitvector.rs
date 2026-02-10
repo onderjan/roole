@@ -1,4 +1,4 @@
-use super::{SymbolicDomain, linear::LinearPolynomial};
+use super::SymbolicDomain;
 use crate::domain::bitvector::{RBound, abstr::BitvectorDomain, concr::ConcreteBitvector};
 
 impl BitvectorDomain for SymbolicDomain {
@@ -12,7 +12,7 @@ impl BitvectorDomain for SymbolicDomain {
     }
 
     fn single_value(value: ConcreteBitvector<RBound>) -> Self {
-        SymbolicDomain::from_polynomial(LinearPolynomial::from_constant(value))
+        SymbolicDomain::from_concrete(value)
     }
 
     fn top(bound: RBound) -> Self {

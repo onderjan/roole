@@ -25,7 +25,7 @@ impl LinearRelation {
         if bit_not_slack.is_zero() {
             // the relation a <= s was a tautology as s was the highest possible value
             // return contradiction
-            return Err(LinearPolynomial::single_bit(false));
+            return Err(LinearPolynomial::from_bool(false));
         }
 
         // we now know 0 <= (!a) < m and 0 <= (!s)-1 < m-1
