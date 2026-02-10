@@ -4,8 +4,6 @@ use std::{
     num::NonZeroU32,
 };
 
-use serde::{Deserialize, Serialize};
-
 use crate::{
     domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
     domain::traits::forward::BExt,
@@ -15,10 +13,6 @@ use crate::{
 mod bi;
 
 pub use bi::{BiOp, BiOperator};
-
-/// Operation id.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct OperationId(pub usize);
 
 /// Operation on bitvector(s).
 ///
@@ -317,12 +311,6 @@ impl Debug for FormulaId {
             FormulaId::Variable(variable_id) => variable_id.fmt(f),
             FormulaId::Operation(operation_id) => operation_id.fmt(f),
         }
-    }
-}
-
-impl Debug for OperationId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "${}", self.0)
     }
 }
 

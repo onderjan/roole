@@ -13,8 +13,10 @@ use indexmap::IndexMap;
 use crate::{
     problem::{
         Problem,
-        formula::{FormulaId, Variable, VariableId},
-        operation::{BiOp, BiOperator, Operation, OperationId},
+        formula::{
+            FormulaId, OperationId, Variable, VariableId,
+            operation::{BiOp, BiOperator, Operation},
+        },
     },
     solver::{self, SolverSettings},
 };

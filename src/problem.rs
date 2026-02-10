@@ -7,13 +7,11 @@ use crate::{
     },
     problem::{
         eval::EvaluableDomain,
-        formula::{FormulaId, Variable, VariableId},
-        operation::{Operation, OperationId},
+        formula::{FormulaId, OperationId, Variable, VariableId, operation::Operation},
     },
 };
 
 pub mod formula;
-pub mod operation;
 pub mod solution;
 
 mod assignment;

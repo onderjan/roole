@@ -3,8 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 use crate::{
     problem::{
         Evaluator, OperationDomain, Problem,
-        formula::{FormulaId, VariableId},
-        operation::{Operation, OperationId},
+        formula::{FormulaId, OperationId, VariableId, operation::Operation},
     },
     solver::SolverSettings,
 };
