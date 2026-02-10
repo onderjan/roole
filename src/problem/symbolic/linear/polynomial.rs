@@ -11,6 +11,7 @@ mod constant;
 mod eq;
 mod eval;
 mod ext;
+mod format;
 mod misc;
 mod shift;
 mod support;

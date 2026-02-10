@@ -8,7 +8,7 @@ use crate::{
 };
 
 mod bitwise;
-mod support;
+mod format;
 
 /// A linear relation `polynomial` <= `slack`.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
