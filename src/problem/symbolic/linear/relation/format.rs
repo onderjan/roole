@@ -13,11 +13,20 @@ impl LinearRelation {
                 .polynomial
                 .clone()
                 .add(LinearPolynomial::from_concrete(one));
-            Debug::fmt(&nonequality_polynomial, f)?;
+
+            if hex {
+                UpperHex::fmt(&nonequality_polynomial, f)?;
+            } else {
+                Debug::fmt(&nonequality_polynomial, f)?;
+            }
 
             write!(f, " != 0")
         } else {
-            Debug::fmt(&self.polynomial, f)?;
+            if hex {
+                UpperHex::fmt(&self.polynomial, f)?;
+            } else {
+                Debug::fmt(&self.polynomial, f)?;
+            }
 
             let op = if self.slack.is_zero() { "==" } else { "<=" };
 
