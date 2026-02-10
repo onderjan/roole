@@ -167,6 +167,25 @@ impl LinearSystem {
         })
     }
 
+    pub fn ite(condition: Self, then_branch: Self, else_branch: Self) -> Result<Self, ()> {
+        // try to simplify with polynomial branches
+        let (Ok(then_branch), Ok(else_branch)) = (
+            then_branch.try_into_polynomial(),
+            else_branch.try_into_polynomial(),
+        ) else {
+            return Err(());
+        };
+
+        // try to resolve all polynomials
+        if let Ok(condition) = condition.try_into_polynomial()
+            && let Ok(result) = LinearPolynomial::ite(condition, then_branch, else_branch)
+        {
+            return Ok(LinearSystem::from_polynomial(result));
+        };
+
+        Err(())
+    }
+
     pub(crate) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         let op_symbol = if self.conjunction { "&" } else { "|" };
 

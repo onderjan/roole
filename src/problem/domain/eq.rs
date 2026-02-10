@@ -56,36 +56,16 @@ impl TypedEq for OperationDomain {
         let bound = then_branch.bound();
         assert_eq!(bound, else_branch.bound());
 
-        if bound.width() == 0 {
-            // replace with empty
-            return OperationDomain::from_polynomial(LinearPolynomial::empty(bound));
+        // select the branch if condition value is constant
+        if let Some(condition_value) = condition.constant_value() {
+            if condition_value.is_nonzero() {
+                return then_branch;
+            } else {
+                return else_branch;
+            }
         }
 
-        let condition = match condition.try_into_polynomial() {
-            Ok(condition) => {
-                if let Some(condition_value) = condition.constant_value() {
-                    // constant condition value, select the branch
-                    if condition_value.is_nonzero() {
-                        return then_branch;
-                    } else {
-                        return else_branch;
-                    }
-                }
-                // go back
-                OperationDomain::from_polynomial(condition)
-            }
-            Err(condition) => condition,
-        };
-
-        // try to simplify with polynomial branches
-        let (Ok(then_branch), Ok(else_branch)) = (
-            then_branch.try_into_polynomial(),
-            else_branch.try_into_polynomial(),
-        ) else {
-            return OperationDomain::Top(bound);
-        };
-
-        // collapse to condition if the width is a single bit
+        // collapse to condition if both then and else branches are constant Booleans
         if bound.width() == 1
             && let (Some(then_branch), Some(else_branch)) =
                 (then_branch.constant_value(), else_branch.constant_value())
@@ -97,13 +77,21 @@ impl TypedEq for OperationDomain {
             );
         }
 
-        if let Ok(condition) = condition.try_into_polynomial()
-            && let Ok(result) = LinearPolynomial::ite(condition, then_branch, else_branch)
-        {
-            return OperationDomain::Linear(LinearSystem::from_polynomial(result));
+        // try to forward to LinearSystem
+        let (
+            OperationDomain::Linear(condition),
+            OperationDomain::Linear(then_branch),
+            OperationDomain::Linear(else_branch),
+        ) = (condition, then_branch, else_branch)
+        else {
+            return OperationDomain::Top(bound);
         };
 
-        OperationDomain::Top(bound)
+        if let Ok(result) = LinearSystem::ite(condition, then_branch, else_branch) {
+            OperationDomain::Linear(result)
+        } else {
+            OperationDomain::Top(bound)
+        }
     }
 }
 
