@@ -1,7 +1,10 @@
 use super::LinearPolynomial;
-use crate::domain::{
-    bitvector::{RBound, concr::ConcreteBitvector},
-    traits::forward::HwArith,
+use crate::{
+    domain::{
+        bitvector::{RBound, concr::ConcreteBitvector},
+        traits::forward::{Bitwise, HwArith, HwShift},
+    },
+    problem::symbolic::linear::{monomial::LinearMonomial, slice::LinearSlice},
 };
 
 impl LinearPolynomial {
@@ -15,36 +18,131 @@ impl LinearPolynomial {
     }
 
     pub fn add(self, rhs: LinearPolynomial) -> LinearPolynomial {
-        //eprintln!("Adding {:?} and {:?}", self, rhs);
         // the main polynomial combination function
+
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
 
         // combine the constants
         let constant_term = self.constant_term.add(rhs.constant_term);
 
         // combine the polynomials in interleaved fashion based on slices
 
-        let mut lhs_iter = self.linear_terms.into_iter().peekable();
-        let mut rhs_iter = rhs.linear_terms.into_iter().peekable();
+        let mut lhs_iter = self.linear_terms.into_iter();
+        let mut rhs_iter = rhs.linear_terms.into_iter();
+
+        let mut current_lhs = None;
+        let mut current_rhs = None;
 
         let mut linear_terms = Vec::new();
 
-        while let (Some(lhs_peek), Some(rhs_peek)) = (lhs_iter.peek(), rhs_iter.peek()) {
-            // two competing monomials
-            match lhs_peek.slice.cmp(&rhs_peek.slice) {
-                std::cmp::Ordering::Less => {
-                    // lhs slice is lesser, push it
-                    linear_terms.push(lhs_iter.next().expect("Peeked monomial should be present"));
+        loop {
+            if current_lhs.is_none() {
+                current_lhs = lhs_iter.next();
+            }
+
+            if current_rhs.is_none() {
+                current_rhs = rhs_iter.next();
+            }
+            // ensure we have both lhs and rhs to combine them
+
+            let Some(lhs_monomial) = current_lhs.take() else {
+                // no lhs monomial, push the current rhs if exists and break loop
+                if let Some(rhs_monomial) = current_rhs.take() {
+                    linear_terms.push(rhs_monomial);
                 }
-                std::cmp::Ordering::Greater => {
-                    // rhs slice is lesser, push it
-                    linear_terms.push(rhs_iter.next().expect("Peeked monomial should be present"));
+                break;
+            };
+            let Some(rhs_monomial) = current_rhs.take() else {
+                // no rhs monomial, push the current lhs and break loop
+                linear_terms.push(lhs_monomial);
+                break;
+            };
+
+            // we now have both lhs and rhs and need to properly handle them
+
+            if lhs_monomial.slice.formula_id != rhs_monomial.slice.formula_id {
+                // slices have nothing in common
+                // push lesser one, they are clearly unequal
+                if lhs_monomial.slice <= rhs_monomial.slice {
+                    // lhs slice is lesser, push lhs
+                    linear_terms.push(lhs_monomial);
+                    // put rhs back to current rhs and get next lhs
+                    (current_lhs, current_rhs) = (lhs_iter.next(), Some(rhs_monomial));
+                } else {
+                    // rhs slice is lesser, push rhs
+                    linear_terms.push(rhs_monomial);
+                    // put lhs back to current lhs and get next rhs
+                    (current_lhs, current_rhs) = (Some(lhs_monomial), rhs_iter.next());
                 }
-                std::cmp::Ordering::Equal => {
-                    // both slices are equal, add the coefficients of both (advanced)
-                    let mut monomial = lhs_iter.next().expect("Peeked monomial should be present");
-                    let rhs_monomial = rhs_iter.next().expect("Peeked monomial should be present");
-                    monomial.coefficient = monomial.coefficient.add(rhs_monomial.coefficient);
-                    linear_terms.push(monomial);
+                continue;
+            }
+
+            let formula_id = lhs_monomial.slice.formula_id;
+
+            // a.lsb <= b.lsb
+            let (a, b, a_is_lhs) = if lhs_monomial.slice.lsb <= rhs_monomial.slice.lsb {
+                (lhs_monomial, rhs_monomial, true)
+            } else {
+                (rhs_monomial, lhs_monomial, false)
+            };
+
+            let a_mask = a.slice.mask(bound);
+            let b_mask = b.slice.mask(bound);
+
+            let only_a = a_mask.bit_and(b_mask.bit_not());
+            let a_and_b = a_mask.bit_and(b_mask);
+            let only_b = b_mask.bit_and(a_mask.bit_not());
+
+            // as they overlap, a_and_b is always nonzero
+            // if nonzero: only_a < a_and_b, a_and_b < only_b, and only_a < only_b
+
+            if only_a.is_nonzero() {
+                // consume only_a
+                // this must have the same coefficient as a
+                let only_a =
+                    LinearMonomial::new(a.coefficient, LinearSlice::from_mask(formula_id, only_a));
+
+                linear_terms.push(only_a);
+            }
+
+            // consume a_and_b
+            if a_and_b.is_nonzero() {
+                // we need to scale the coefficients
+                let a_and_b = LinearSlice::from_mask(formula_id, a_and_b);
+
+                let scaling_a = a_and_b.lsb - a.slice.lsb;
+                let scaling_b = a_and_b.lsb - b.slice.lsb;
+
+                let scaled_coeff_a = a.coefficient.logic_shl(ConcreteBitvector::new(
+                    scaling_a.into(),
+                    a.coefficient.bound(),
+                ));
+
+                let scaled_coeff_b = b.coefficient.logic_shl(ConcreteBitvector::new(
+                    scaling_b.into(),
+                    b.coefficient.bound(),
+                ));
+
+                let a_and_b_coeff = scaled_coeff_a.add(scaled_coeff_b);
+
+                let a_and_b = LinearMonomial::new(a_and_b_coeff, a_and_b);
+                linear_terms.push(a_and_b);
+            }
+
+            if only_b.is_nonzero() {
+                // retain only_b
+                let only_b = LinearSlice::from_mask(formula_id, only_b);
+                let scaled_coeff_b = b.coefficient.logic_shl(ConcreteBitvector::new(
+                    (only_b.lsb - b.slice.lsb).into(),
+                    b.coefficient.bound(),
+                ));
+                let only_b = LinearMonomial::new(scaled_coeff_b, only_b);
+
+                if a_is_lhs {
+                    current_rhs = Some(only_b);
+                } else {
+                    current_lhs = Some(only_b);
                 }
             }
         }
@@ -53,13 +151,16 @@ impl LinearPolynomial {
         linear_terms.extend(lhs_iter);
         linear_terms.extend(rhs_iter);
 
+        /*if !linear_terms.is_sorted_by(|a, b| a.slice < b.slice) {
+            panic!("Not sorted linear terms: {:?}", linear_terms);
+        }*/
+
         // construct the polynomial and convert it to normal form
 
         let polynomial = LinearPolynomial {
             constant_term,
             linear_terms,
         };
-        //eprintln!("Result polynomial: {:?}", polynomial);
         polynomial.into_normal_form()
     }
 

@@ -50,11 +50,6 @@ impl LinearPolynomial {
         self.linear_terms.retain(|monomial| {
             let slice = monomial.slice;
 
-            if slice.formula_id != assumed_slice.formula_id {
-                // retain
-                return true;
-            }
-
             if !assumed_slice.contains(&slice) {
                 // retain
                 return true;

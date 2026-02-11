@@ -4,7 +4,10 @@ use std::num::NonZeroU32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    domain::bitvector::{BitvectorBound, RBound},
+    domain::{
+        bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
+        traits::forward::{Bitwise, HwArith},
+    },
     problem::formula::FormulaId,
 };
 
@@ -28,14 +31,39 @@ impl LinearSlice {
         NonZeroU32::new(bound.width()).map(|width| Self::new(formula_id, 0, width))
     }
 
+    pub(super) fn from_mask(formula_id: FormulaId, mask: ConcreteBitvector<RBound>) -> Self {
+        // the mask must have continguous ones
+        let turned_off_rightmost_ones = mask.bit_and(mask.bit_not()).add(mask).bit_and(mask);
+        assert!(turned_off_rightmost_ones.is_nonzero());
+
+        let lsb = mask.to_u64().trailing_zeros();
+        let width = mask.to_u64().count_ones();
+
+        Self {
+            formula_id,
+            lsb,
+            width: NonZeroU32::new(width).expect("Width should be nonzero"),
+        }
+    }
+
     pub fn contains(&self, contained: &Self) -> bool {
-        if contained.lsb < self.lsb {
+        // must have the same formula id
+        if self.formula_id != contained.formula_id {
             return false;
         }
-        if contained.lsb + contained.width.get() > self.lsb + self.width.get() {
-            return false;
-        }
-        true
+
+        // contained must be within self
+        contained.lsb >= self.lsb && contained.above_msb() <= self.above_msb()
+    }
+
+    pub fn mask(&self, bound: RBound) -> ConcreteBitvector<RBound> {
+        let including_below_lsb = ConcreteBitvector::from_ones_width(self.above_msb(), bound);
+        let below_lsb = ConcreteBitvector::from_ones_width(self.lsb, bound);
+        including_below_lsb.sub(below_lsb)
+    }
+
+    pub(super) fn above_msb(&self) -> u32 {
+        self.lsb + self.width.get()
     }
 }
 
