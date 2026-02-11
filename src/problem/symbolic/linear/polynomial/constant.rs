@@ -18,32 +18,32 @@ impl LinearPolynomial {
         }
     }
 
-    pub fn constant_value_assuming(
-        &self,
-        assumption: &LinearPolynomial,
-    ) -> Option<ConcreteBitvector<RBound>> {
+    pub fn assume_polynomial_is_zero(&mut self, assumption: &LinearPolynomial) {
         if assumption.bound().width() != 1 {
-            return None;
+            return;
         }
 
         let Ok(assumption_monomial) = assumption.linear_terms.iter().exactly_one() else {
-            return None;
+            return;
         };
 
         if !assumption_monomial.coefficient.is_one() {
-            return None;
+            return;
         }
 
+        // assume slice is equal to arithmetic negation of the constant term
+        // this will force the polynomial to zero
         let assumption_slice = assumption_monomial.slice;
-
         let value = assumption.constant_term.arith_neg();
 
-        let mut polynomial = self.clone();
-        polynomial.assume(assumption_slice, value);
-        polynomial.constant_value()
+        self.assume_slice_value(assumption_slice, value);
     }
 
-    pub fn assume(&mut self, assumed_slice: LinearSlice, assumed_value: ConcreteBitvector<RBound>) {
+    pub fn assume_slice_value(
+        &mut self,
+        assumed_slice: LinearSlice,
+        assumed_value: ConcreteBitvector<RBound>,
+    ) {
         let bound = self.bound();
 
         // for each linear term, either convert it to a constant or retain it

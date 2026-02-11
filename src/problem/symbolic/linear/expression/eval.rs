@@ -62,7 +62,7 @@ impl LinearExpression {
         };
 
         for (assumed_slice, assumed_value) in concrete_assumptions {
-            polynomial.assume(assumed_slice, assumed_value);
+            polynomial.assume_slice_value(assumed_slice, assumed_value);
         }
     }
 }
