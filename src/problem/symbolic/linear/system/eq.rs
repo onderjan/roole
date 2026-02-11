@@ -43,12 +43,11 @@ fn can_simplify_taker(
     taken_branch: &LinearSystem,
     not_taken_branch: &LinearSystem,
 ) -> bool {
-    let then_when_true = taken_branch.constant_value_assuming(taker);
-    let else_when_true = not_taken_branch.constant_value_assuming(taker);
+    let mut then_when_true = taken_branch.clone();
+    let mut else_when_true = not_taken_branch.clone();
 
-    if let (Some(then_when_true), Some(else_when_true)) = (then_when_true, else_when_true) {
-        then_when_true == else_when_true
-    } else {
-        false
-    }
+    then_when_true.assume(taker);
+    else_when_true.assume(taker);
+
+    then_when_true == else_when_true
 }

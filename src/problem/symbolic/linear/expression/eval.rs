@@ -24,10 +24,7 @@ impl LinearExpression {
         }
     }
 
-    pub fn constant_value_assuming(
-        &self,
-        assumptions: &[Self],
-    ) -> Option<ConcreteBitvector<RBound>> {
+    pub fn assume(&mut self, assumptions: &[Self]) {
         let mut concrete_assumptions = BTreeMap::new();
 
         for assumption in assumptions {
@@ -59,17 +56,13 @@ impl LinearExpression {
         let polynomial = match self {
             LinearExpression::Polynomial(polynomial) => polynomial,
             LinearExpression::Relation(_) => {
-                // TODO: do constant value assuming with relation
-                return self.constant_value();
+                // TODO: assume with relation
+                return;
             }
         };
-
-        let mut polynomial = polynomial.clone();
 
         for (assumed_slice, assumed_value) in concrete_assumptions {
             polynomial.assume(assumed_slice, assumed_value);
         }
-
-        polynomial.constant_value()
     }
 }

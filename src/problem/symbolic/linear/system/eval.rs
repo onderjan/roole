@@ -54,41 +54,17 @@ impl LinearSystem {
         Some(result)
     }
 
-    pub fn constant_value_assuming(&self, assumption: &Self) -> Option<ConcreteBitvector<RBound>> {
-        if assumption.expressions.is_empty() {
-            return self.constant_value();
+    pub fn assume(&mut self, assumption: &Self) {
+        if !assumption.conjunction && assumption.expressions.len() != 1 {
+            // TODO: disjunction
+            return;
         }
 
-        if !assumption.conjunction {
-            // disjunction, try every disjunct separately
-            for disjunct in &assumption.expressions {
-                let disjunct = LinearSystem::from_expression(disjunct.clone());
-                assert!(disjunct.conjunction);
-                if let Some(result) = self.constant_value_assuming(&disjunct) {
-                    return Some(result);
-                }
-            }
-            return None;
+        // assumption system is a conjunction of assumptions
+
+        for expression in &mut self.expressions {
+            expression.assume(&assumption.expressions);
         }
-
-        // assumption is a conjunction, start with full mask
-
-        let assumptions = &assumption.expressions;
-        let mut result = ConcreteBitvector::new_umax(self.bound);
-
-        for expression in &self.expressions {
-            let Some(expression_result) = expression.constant_value_assuming(assumptions) else {
-                // not a constant value
-                return None;
-            };
-            if self.conjunction {
-                result = result.bit_and(expression_result);
-            } else {
-                result = result.bit_or(expression_result);
-            }
-        }
-
-        Some(result)
     }
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
