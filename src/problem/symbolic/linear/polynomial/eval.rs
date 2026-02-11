@@ -11,7 +11,9 @@ impl LinearPolynomial {
         let mut value = D::single_value(self.constant_term);
         let polynomial_bound = value.bound();
 
-        for (slice, coefficient) in &self.linear_terms {
+        for monomial in &self.linear_terms {
+            let slice = monomial.slice;
+
             let mut formula_value = (fetch)(slice.formula_id);
             let bound = formula_value.bound();
             // slice
@@ -35,7 +37,7 @@ impl LinearPolynomial {
             }
 
             // then, multiply by the coefficient
-            let term_value = formula_value.mul(D::single_value(*coefficient));
+            let term_value = formula_value.mul(D::single_value(monomial.coefficient));
             value = value.add(term_value);
         }
 
@@ -44,8 +46,8 @@ impl LinearPolynomial {
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
         self.linear_terms
-            .keys()
-            .map(|slice| slice.formula_id)
+            .iter()
+            .map(|monomial| monomial.slice.formula_id)
             .collect()
     }
 
@@ -64,11 +66,8 @@ impl LinearPolynomial {
             }
         };
 
-        let mut old_monomials = BTreeMap::new();
-        std::mem::swap(&mut self.linear_terms, &mut old_monomials);
-
-        for (formula_id, coefficient) in old_monomials {
-            self.linear_terms.insert(remap(formula_id), coefficient);
+        for monomial in &mut self.linear_terms {
+            monomial.slice = remap(monomial.slice);
         }
     }
 }

@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
 use super::{LinearMonomial, LinearSlice};
@@ -19,6 +17,10 @@ mod support;
 /// A linear combination of bitvectors and a constant.
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LinearPolynomial {
-    linear_terms: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
+    /// Linear terms (monomials).
+    ///
+    /// The monomials must be sorted by slice and each slice must be unique.
+    linear_terms: Vec<LinearMonomial>,
+    /// Constant term.
     constant_term: ConcreteBitvector<RBound>,
 }

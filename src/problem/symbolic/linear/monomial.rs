@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::LinearSlice;
 use crate::domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub struct LinearMonomial {
     pub coefficient: ConcreteBitvector<RBound>,
     pub slice: LinearSlice,

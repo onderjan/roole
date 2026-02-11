@@ -5,19 +5,20 @@ use crate::domain::{bitvector::BitvectorBound, traits::forward::HwArith};
 
 impl LinearPolynomial {
     pub(crate) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
+        //write!(f, "({:?}/{:?})", self.linear_terms, self.constant_term)?;
         if self.bound().width() == 1 && self.linear_terms.len() == 1 {
             // simplify printing Boolean polynomials with a single term
-            let Some((slice, coefficient)) = self.linear_terms.iter().next() else {
+            let Some(monomial) = self.linear_terms.first() else {
                 panic!("There should be a linear term");
             };
 
-            if slice.width.get() == 1 && coefficient.is_one() {
+            if monomial.slice.width.get() == 1 && monomial.coefficient.is_one() {
                 // only a single linear term with single-bit slice and coefficient one
                 // just print the slice, negated if the constant term is nonzero (i.e. one)
                 if self.constant_term.is_nonzero() {
                     write!(f, "!")?;
                 }
-                return write!(f, "{:?}", slice);
+                return write!(f, "{:?}", monomial.slice);
             }
         }
 
@@ -32,7 +33,9 @@ impl LinearPolynomial {
         }
 
         // write the linear monomials
-        for (slice, coefficient) in &self.linear_terms {
+        for monomial in &self.linear_terms {
+            let coefficient = &monomial.coefficient;
+
             let write_as_negative =
                 !hex && (coefficient.is_sign_bit_set() && !coefficient.is_overhalf());
 
@@ -60,7 +63,7 @@ impl LinearPolynomial {
                 }
             }
 
-            write!(f, "{:?}", slice)?;
+            write!(f, "{:?}", monomial.slice)?;
         }
 
         let abs_constant_term = if self.constant_term.is_nonzero() {

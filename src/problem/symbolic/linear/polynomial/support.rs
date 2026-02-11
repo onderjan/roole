@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use super::{LinearMonomial, LinearPolynomial, LinearSlice};
 use crate::{
     domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
@@ -7,20 +5,9 @@ use crate::{
 };
 
 impl LinearPolynomial {
-    pub fn new(
-        linear_terms: BTreeMap<LinearSlice, ConcreteBitvector<RBound>>,
-        constant_term: ConcreteBitvector<RBound>,
-    ) -> Self {
-        let result = Self {
-            constant_term,
-            linear_terms,
-        };
-        result.into_normal_form()
-    }
-
     pub fn empty(bound: RBound) -> Self {
         Self {
-            linear_terms: BTreeMap::new(),
+            linear_terms: Vec::new(),
             constant_term: ConcreteBitvector::zero(bound),
         }
     }
@@ -29,22 +16,20 @@ impl LinearPolynomial {
         monomial: LinearMonomial,
         constant_term: ConcreteBitvector<RBound>,
     ) -> Self {
-        Self::new(
-            BTreeMap::from_iter([(monomial.slice, monomial.coefficient)]),
+        Self {
+            linear_terms: vec![monomial],
             constant_term,
-        )
+        }
     }
 
     pub fn from_monomial(monomial: LinearMonomial) -> Self {
-        Self::new(
-            BTreeMap::from_iter([(monomial.slice, monomial.coefficient)]),
-            ConcreteBitvector::zero(monomial.bound()),
-        )
+        let zero = ConcreteBitvector::zero(monomial.bound());
+        Self::from_monomial_and_constant(monomial, zero)
     }
 
     pub fn from_concrete(constant: ConcreteBitvector<RBound>) -> Self {
         Self {
-            linear_terms: BTreeMap::new(),
+            linear_terms: Vec::new(),
             constant_term: constant,
         }
     }

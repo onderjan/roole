@@ -47,11 +47,11 @@ impl LinearPolynomial {
             return Err(());
         }
 
-        let Ok((slice, coefficient)) = other.linear_terms.into_iter().exactly_one() else {
+        let Ok(monomial) = other.linear_terms.into_iter().exactly_one() else {
             return Err(());
         };
 
-        let coefficient = coefficient.to_u64();
+        let coefficient = monomial.coefficient.to_u64();
         if !coefficient.is_power_of_two() {
             return Err(());
         }
@@ -61,6 +61,7 @@ impl LinearPolynomial {
 
         let constant = constant.to_u64();
 
+        let slice = monomial.slice;
         let slice_mask = match 1u64.checked_shl(slice.width.get() + 1) {
             Some(m) => m - 1,
             None => u64::MAX,

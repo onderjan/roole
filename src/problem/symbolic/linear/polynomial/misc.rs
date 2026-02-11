@@ -3,7 +3,8 @@ use super::LinearPolynomial;
 impl LinearPolynomial {
     pub fn into_normal_form(mut self) -> Self {
         // eliminate zero coefficients
-        self.linear_terms.retain(|_, coeff| !coeff.is_zero());
+        self.linear_terms
+            .retain(|monomial| !monomial.coefficient.is_zero());
         self
     }
 

@@ -26,34 +26,38 @@ impl LinearPolynomial {
             return None;
         }
 
-        let Ok((assumption_slice, assumption_factor)) =
-            assumption.linear_terms.iter().exactly_one()
-        else {
+        let Ok(assumption_monomial) = assumption.linear_terms.iter().exactly_one() else {
             return None;
         };
 
-        if !assumption_factor.is_one() {
+        if !assumption_monomial.coefficient.is_one() {
             return None;
         }
+
+        let assumption_slice = assumption_monomial.slice;
 
         let value = assumption.constant_term.arith_neg();
 
         let mut polynomial = self.clone();
-        polynomial.assume(*assumption_slice, value);
+        polynomial.assume(assumption_slice, value);
         polynomial.constant_value()
     }
 
     pub fn assume(&mut self, assumed_slice: LinearSlice, assumed_value: ConcreteBitvector<RBound>) {
         let bound = self.bound();
-        let mut remove_slices = Vec::new();
 
-        for (slice, factor) in self.linear_terms.iter() {
+        // for each linear term, either convert it to a constant or retain it
+        self.linear_terms.retain(|monomial| {
+            let slice = monomial.slice;
+
             if slice.formula_id != assumed_slice.formula_id {
-                continue;
+                // retain
+                return true;
             }
 
-            if !assumed_slice.contains(slice) {
-                continue;
+            if !assumed_slice.contains(&slice) {
+                // retain
+                return true;
             }
 
             let mut slice_value = assumed_value;
@@ -77,13 +81,12 @@ impl LinearPolynomial {
                 slice_value = slice_value.uext(bound);
             }
 
-            self.constant_term = self.constant_term.add(slice_value.mul(*factor));
-            remove_slices.push(*slice);
-        }
-
-        for remove_slice in remove_slices {
-            self.linear_terms.remove(&remove_slice);
-        }
+            // convert to constant term
+            self.constant_term = self
+                .constant_term
+                .add(slice_value.mul(monomial.coefficient));
+            false
+        });
     }
 
     pub fn monomial_and_constant_value(
@@ -92,13 +95,10 @@ impl LinearPolynomial {
         if self.linear_terms.is_empty() {
             return Some((None, self.constant_term));
         }
-        let Ok((slice, coefficient)) = self.linear_terms.iter().exactly_one() else {
+        let Ok(monomial) = self.linear_terms.iter().exactly_one() else {
             return None;
         };
 
-        Some((
-            Some(LinearMonomial::new(*coefficient, *slice)),
-            self.constant_term,
-        ))
+        Some((Some(monomial.clone()), self.constant_term))
     }
 }

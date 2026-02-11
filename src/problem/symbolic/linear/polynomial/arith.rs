@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use super::LinearPolynomial;
 use crate::domain::{
     bitvector::{RBound, concr::ConcreteBitvector},
@@ -9,19 +7,66 @@ use crate::domain::{
 impl LinearPolynomial {
     pub fn arith_neg(mut self) -> LinearPolynomial {
         self.constant_term = self.constant_term.arith_neg();
-        for coefficient in self.linear_terms.values_mut() {
-            *coefficient = (*coefficient).arith_neg();
+        for monomial in self.linear_terms.iter_mut() {
+            monomial.coefficient = monomial.coefficient.arith_neg();
         }
 
         self.into_normal_form()
     }
 
     pub fn add(self, rhs: LinearPolynomial) -> LinearPolynomial {
-        self.linear_combine(rhs, |a, b| a.add(b))
+        //eprintln!("Adding {:?} and {:?}", self, rhs);
+        // the main polynomial combination function
+
+        // combine the constants
+        let constant_term = self.constant_term.add(rhs.constant_term);
+
+        // combine the polynomials in interleaved fashion based on slices
+
+        let mut lhs_iter = self.linear_terms.into_iter().peekable();
+        let mut rhs_iter = rhs.linear_terms.into_iter().peekable();
+
+        let mut linear_terms = Vec::new();
+
+        while let (Some(lhs_peek), Some(rhs_peek)) = (lhs_iter.peek(), rhs_iter.peek()) {
+            // two competing monomials
+            match lhs_peek.slice.cmp(&rhs_peek.slice) {
+                std::cmp::Ordering::Less => {
+                    // lhs slice is lesser, push it
+                    linear_terms.push(lhs_iter.next().expect("Peeked monomial should be present"));
+                }
+                std::cmp::Ordering::Greater => {
+                    // rhs slice is lesser, push it
+                    linear_terms.push(rhs_iter.next().expect("Peeked monomial should be present"));
+                }
+                std::cmp::Ordering::Equal => {
+                    // both slices are equal, add the coefficients of both (advanced)
+                    let mut monomial = lhs_iter.next().expect("Peeked monomial should be present");
+                    let rhs_monomial = rhs_iter.next().expect("Peeked monomial should be present");
+                    monomial.coefficient = monomial.coefficient.add(rhs_monomial.coefficient);
+                    linear_terms.push(monomial);
+                }
+            }
+        }
+
+        // extend the linear terms by the iterators to preserve the remainder
+        linear_terms.extend(lhs_iter);
+        linear_terms.extend(rhs_iter);
+
+        // construct the polynomial and convert it to normal form
+
+        let polynomial = LinearPolynomial {
+            constant_term,
+            linear_terms,
+        };
+        //eprintln!("Result polynomial: {:?}", polynomial);
+        polynomial.into_normal_form()
     }
 
     pub fn sub(self, rhs: LinearPolynomial) -> LinearPolynomial {
-        self.linear_combine(rhs, |a, b| a.sub(b))
+        // subtract by adding negated rhs
+        let rhs = rhs.arith_neg();
+        self.add(rhs)
     }
 
     pub fn mul(self, rhs: LinearPolynomial) -> Result<LinearPolynomial, ()> {
@@ -46,50 +91,22 @@ impl LinearPolynomial {
 
         self.constant_term = self.constant_term.mul(scaler);
 
-        for coefficient in self.linear_terms.values_mut() {
-            *coefficient = coefficient.mul(scaler);
+        for monomial in self.linear_terms.iter_mut() {
+            monomial.coefficient = monomial.coefficient.mul(scaler);
         }
-    }
-
-    pub fn linear_combine(
-        self,
-        mut rhs: LinearPolynomial,
-        op: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
-    ) -> LinearPolynomial {
-        let constant = op(self.constant_term, rhs.constant_term);
-        let mut monomials = BTreeMap::new();
-
-        for (formula, left_coeff) in self.linear_terms {
-            let coeff = if let Some(right_coeff) = rhs.linear_terms.remove(&formula) {
-                op(left_coeff, right_coeff)
-            } else {
-                let zero = ConcreteBitvector::zero(left_coeff.bound());
-                op(left_coeff, zero)
-            };
-            monomials.insert(formula, coeff);
-        }
-
-        for (formula, right_coeff) in rhs.linear_terms {
-            let zero = ConcreteBitvector::zero(right_coeff.bound());
-            let coeff = op(zero, right_coeff);
-            monomials.insert(formula, coeff);
-        }
-
-        let polynomial = LinearPolynomial {
-            constant_term: constant,
-            linear_terms: monomials,
-        };
-        polynomial.into_normal_form()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, num::NonZero};
+    use std::num::NonZero;
 
     use crate::{
         domain::bitvector::{RBound, concr::ConcreteBitvector},
-        problem::formula::{FormulaId, VariableId},
+        problem::{
+            formula::{FormulaId, VariableId},
+            symbolic::linear::monomial::LinearMonomial,
+        },
     };
 
     use super::*;
@@ -104,22 +121,22 @@ mod tests {
             lsb: 0,
             width: NonZero::new(32).unwrap(),
         };
-        let a = LinearPolynomial {
-            constant_term: ConcreteBitvector::new(38, bound),
-            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(12, bound))]),
-        };
-        let b = LinearPolynomial {
-            constant_term: ConcreteBitvector::new(17, bound),
-            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(7, bound))]),
-        };
-        let add_result = LinearPolynomial {
-            constant_term: ConcreteBitvector::new(55, bound),
-            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(19, bound))]),
-        };
-        let sub_result = LinearPolynomial {
-            constant_term: ConcreteBitvector::new(21, bound),
-            linear_terms: BTreeMap::from_iter([(slice, ConcreteBitvector::new(5, bound))]),
-        };
+        let a = LinearPolynomial::from_monomial_and_constant(
+            LinearMonomial::new(ConcreteBitvector::new(12, bound), slice),
+            ConcreteBitvector::new(38, bound),
+        );
+        let b = LinearPolynomial::from_monomial_and_constant(
+            LinearMonomial::new(ConcreteBitvector::new(7, bound), slice),
+            ConcreteBitvector::new(17, bound),
+        );
+        let add_result = LinearPolynomial::from_monomial_and_constant(
+            LinearMonomial::new(ConcreteBitvector::new(19, bound), slice),
+            ConcreteBitvector::new(55, bound),
+        );
+        let sub_result = LinearPolynomial::from_monomial_and_constant(
+            LinearMonomial::new(ConcreteBitvector::new(5, bound), slice),
+            ConcreteBitvector::new(21, bound),
+        );
         assert_eq!(a.clone().add(b.clone()), add_result);
         assert_eq!(a.sub(b), sub_result);
     }

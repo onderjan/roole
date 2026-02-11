@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, num::NonZero};
+use std::num::NonZero;
 
 use itertools::Itertools;
 
@@ -47,12 +47,12 @@ impl LinearPolynomial {
             return Ok(self);
         }
 
-        let Ok((mut slice, factor)) = self.linear_terms.into_iter().exactly_one() else {
+        let Ok(mut monomial) = self.linear_terms.into_iter().exactly_one() else {
             return Err(());
         };
 
-        // TODO: handle other factors
-        if !factor.is_one() {
+        // TODO: handle other coefficients
+        if !monomial.coefficient.is_one() {
             return Err(());
         }
 
@@ -66,17 +66,14 @@ impl LinearPolynomial {
 
         // TODO: consider whether to mask amounts or not, this does not mask them
 
-        if amount < slice.width.get() {
+        if amount < monomial.slice.width.get() {
             // we will drop the lowest bits by increasing lsb
             // the width must decrease correspondingly
-            slice.lsb += amount;
-            slice.width = NonZero::new(slice.width.get() - amount)
+            monomial.slice.lsb += amount;
+            monomial.slice.width = NonZero::new(monomial.slice.width.get() - amount)
                 .expect("Slice width should be nonzero after logical shift right");
 
-            Ok(Self::new(
-                BTreeMap::from_iter([(slice, factor)]),
-                ConcreteBitvector::zero(bound),
-            ))
+            Ok(LinearPolynomial::from_monomial(monomial))
         } else {
             // all bits will be dropped
             Ok(Self::empty(bound))
