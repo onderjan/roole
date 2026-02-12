@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::{
     SolverMode,
+    domain::value::ThreeValued,
     problem::Problem,
     solver::internal::{InternalSolver, roole::RooleLearned},
 };
@@ -24,7 +25,7 @@ pub struct SolverSettings {
     pub hexadecimal: bool,
 }
 
-pub fn solve(problem: &Problem, settings: &SolverSettings) {
+pub fn solve(problem: &Problem, settings: &SolverSettings) -> ThreeValued {
     let preprocessed = if settings.preprocess {
         Some(preprocess::preprocess(problem, settings))
     } else {
@@ -34,25 +35,25 @@ pub fn solve(problem: &Problem, settings: &SolverSettings) {
     let problem = preprocessed.as_ref().unwrap_or(problem);
 
     // process
-    match settings.solver_mode {
+    let solution = match settings.solver_mode {
         SolverMode::Internal => {
             let solver: InternalSolver<'_, RooleLearned> =
                 InternalSolver::new(problem, settings.output_dir.as_ref());
-            solver.solve();
+            solver.solve()
         }
         SolverMode::Cadical => {
             #[cfg(feature = "cadical")]
             {
-                cadical::CadicalSolver::new(problem, output_dir).solve();
-            };
+                cadical::CadicalSolver::new(problem, output_dir).solve()
+            }
 
             #[cfg(not(feature = "cadical"))]
             {
-                panic!("CaDiCaL feature not enabled");
-            };
+                panic!("CaDiCaL feature not enabled")
+            }
         }
-        SolverMode::None => {
-            // do nothing
-        }
-    }
+        SolverMode::None => return problem.trivial_result(),
+    };
+
+    ThreeValued::from_bool(solution.result())
 }

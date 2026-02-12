@@ -1,8 +1,8 @@
-use std::{fmt::Display, io::BufReader, path::PathBuf};
+use std::{fmt::Display, io::BufReader, path::PathBuf, process::ExitCode};
 
 use clap::{Parser, ValueEnum};
 
-use crate::solver::SolverSettings;
+use crate::{domain::value::ThreeValued, solver::SolverSettings};
 
 mod domain;
 mod parser;
@@ -68,15 +68,14 @@ static A: limit_alloc::Limit<std::alloc::System> = {
 ///
 /// Takes one argument, a path to an SMT-LIB2 file.
 /// Only the QF_BV logic is (partially) supported.
-fn main() {
+fn main() -> ExitCode {
     let args = Args::parse();
 
     // open the file to be read
     let file = match std::fs::File::open(&args.input_file) {
         Ok(ok) => ok,
         Err(err) => {
-            eprintln!("File should be readable: {:?}", err);
-            return;
+            panic!("File should be readable: {:?}", err);
         }
     };
     let reader = BufReader::new(file);
@@ -90,6 +89,27 @@ fn main() {
         hexadecimal: args.hexadecimal,
     };
 
-    parser::parse(reader, args.input_file, settings);
+    let parse_result = parser::parse(reader, args.input_file, settings);
     eprintln!("Finished evaluation");
+
+    // decide on an exit code
+    let exit_code: u8 = match parse_result {
+        Some(ThreeValued::False) => {
+            // SAT competition: unsatisfiable standard code 20
+            20
+        }
+        Some(ThreeValued::True) => {
+            // SAT competition: satisfiable standard code 10
+            10
+        }
+        Some(ThreeValued::Unknown) => {
+            // return 47 because it is a nice number
+            47
+        }
+        None => {
+            // default to 0
+            0
+        }
+    };
+    ExitCode::from(exit_code)
 }

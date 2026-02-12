@@ -1,9 +1,12 @@
 use std::fmt::{Debug, Display, UpperHex};
 
 use crate::{
-    domain::bitvector::{
-        RBound,
-        abstr::{BitvectorDomain, RBitvector},
+    domain::{
+        bitvector::{
+            RBound,
+            abstr::{BitvectorDomain, RBitvector},
+        },
+        value::ThreeValued,
     },
     problem::{
         eval::EvaluableDomain,
@@ -62,6 +65,20 @@ impl Problem {
 
     pub fn assertion(&self) -> FormulaId {
         self.assertion
+    }
+
+    pub fn trivial_result(&self) -> ThreeValued {
+        let FormulaId::Operation(operation_id) = self.assertion else {
+            return ThreeValued::Unknown;
+        };
+
+        match self.operation(operation_id) {
+            Operation::Constant(value, width) => {
+                assert_eq!(*width, 1);
+                ThreeValued::from_bool(*value != 0)
+            }
+            _ => ThreeValued::Unknown,
+        }
     }
 
     /// An assignment of variables where all variables are unknown.

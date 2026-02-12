@@ -11,6 +11,7 @@ use aws_smt_ir::{
 use indexmap::IndexMap;
 
 use crate::{
+    domain::value::ThreeValued,
     problem::{
         Problem,
         formula::{
@@ -28,7 +29,14 @@ mod operation;
 /// Typically, the file will consist of constant and function declarations
 /// and assertions followed by the check-sat command. The SAT solver will be
 /// called then.
-pub fn parse(reader: impl std::io::BufRead, path: PathBuf, settings: SolverSettings) {
+///
+/// Returns a three-valued result of a single check-sat call or none
+/// if there was not exactly one check-sat call.
+pub fn parse(
+    reader: impl std::io::BufRead,
+    path: PathBuf,
+    settings: SolverSettings,
+) -> Option<ThreeValued> {
     // construct the parser
     let mut parser = Parser::new(settings);
 
@@ -50,6 +58,12 @@ pub fn parse(reader: impl std::io::BufRead, path: PathBuf, settings: SolverSetti
             }
         }
     }
+
+    if parser.results.len() == 1 {
+        Some(parser.results[0])
+    } else {
+        None
+    }
 }
 
 /// Parser structure.
@@ -66,6 +80,8 @@ struct Parser {
     operations: Vec<Operation>,
     /// List of assertions.
     assertions: Vec<FormulaId>,
+    /// Results of check-sat calls.
+    results: Vec<ThreeValued>,
 
     /// Solver settings.
     settings: SolverSettings,
@@ -94,7 +110,7 @@ impl Parser {
             variables: Vec::new(),
             operations: Vec::new(),
             assertions: Vec::new(),
-
+            results: Vec::new(),
             settings,
         }
     }
@@ -165,7 +181,7 @@ impl Parser {
 
         // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
-        solver::solve(&problem, &self.settings);
+        self.results.push(solver::solve(&problem, &self.settings));
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {

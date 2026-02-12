@@ -73,6 +73,13 @@ impl Solution<RBitvector> {
             }
         }
     }
+
+    pub fn result(&self) -> bool {
+        match self {
+            Solution::Satisfiable(_) => true,
+            Solution::Unsatisfiable(_) => false,
+        }
+    }
 }
 
 impl Proof {
