@@ -1,5 +1,3 @@
-use std::num::NonZero;
-
 use itertools::Itertools;
 
 use super::{
@@ -8,7 +6,7 @@ use super::{
 };
 use crate::domain::{
     bitvector::concr::ConcreteBitvector,
-    traits::forward::{Bitwise, HwArith},
+    traits::forward::{Bitwise, HwArith, HwShift},
 };
 
 impl LinearPolynomial {
@@ -26,8 +24,10 @@ impl LinearPolynomial {
         conjunction: bool,
     ) -> Result<LinearPolynomial, ()> {
         let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
 
-        let (constant, other) = match (self.constant_value(), rhs.constant_value()) {
+        let (constant_operand, other_operand) = match (self.constant_value(), rhs.constant_value())
+        {
             (None, None) => return Err(()),
             (None, Some(constant)) => (constant, self),
             (Some(constant), None) => (constant, rhs),
@@ -41,76 +41,86 @@ impl LinearPolynomial {
             }
         };
 
-        // TODO: this is just written offhand and maybe wrong in some cases
+        // we have a constant value to be bitwise-combined with a polynomial
 
-        if !other.constant_term.is_zero() {
+        if !other_operand.constant_term.is_zero() {
             return Err(());
         }
 
-        let Ok(monomial) = other.linear_terms.into_iter().exactly_one() else {
+        let Ok(monomial) = other_operand.linear_terms.into_iter().exactly_one() else {
             return Err(());
         };
 
-        let coefficient = monomial.coefficient.to_u64();
-        if !coefficient.is_power_of_two() {
+        let coefficient = monomial.coefficient;
+        if !coefficient.to_u64().is_power_of_two() {
             return Err(());
         }
 
-        // constant and a slice with power-of-two coefficient
-        // TODO: make this more powerful
+        let coefficient_log2 = coefficient.to_u64().ilog2();
+        let coefficient_log2 = ConcreteBitvector::new(coefficient_log2.into(), bound);
 
-        let constant = constant.to_u64();
+        // now, we have a constant value to be bitwise-combined with a bit-shifted slice
+        // get the slice mask
+        let slice_mask = monomial.slice.mask(bound);
 
-        let slice = monomial.slice;
-        let slice_mask = match 1u64.checked_shl(slice.width.get() + 1) {
-            Some(m) => m - 1,
-            None => u64::MAX,
-        };
+        // bit-shift left by the coefficient logarithm to get the monomial mask
+        let monomial_mask = slice_mask.logic_shl(coefficient_log2);
 
-        let placed_mask = slice_mask * coefficient;
-
-        let new_placed_mask = if conjunction {
-            placed_mask & constant
+        let (new_monomial_mask, new_constant) = if conjunction {
+            // bitwise AND, retain the monomial mask only where the constant operand had ones
+            // the new constant is zero, as was previously
+            let new_monomial_mask = monomial_mask.bit_and(constant_operand);
+            let new_constant = ConcreteBitvector::zero(bound);
+            (new_monomial_mask, new_constant)
         } else {
-            placed_mask & !constant
+            // bitwise OR, retain the monomial mask only where the constant operand had zeroes
+            // the new constant is exactly the constant operand
+            let new_monomial_mask = monomial_mask.bit_and(constant_operand.bit_not());
+            (new_monomial_mask, constant_operand)
         };
 
-        let new_constant = if conjunction {
-            !placed_mask & constant
-        } else {
-            constant
-        };
+        // unsigned-bit-shift right by the coefficient logarithm to get the new slice mask
+        let mut new_slice_mask = new_monomial_mask.logic_shr(coefficient_log2);
 
-        let new_slice_mask = new_placed_mask / coefficient;
+        // the new slice mask can have holes in it, leading to multiple slices
+        // or even be zero, leading to no slices
+        // start with the constant polynomial and add slices as long as we can extract them
 
-        let added_lsb = new_slice_mask.trailing_zeros();
+        let mut new_polynomial = LinearPolynomial::from_concrete(new_constant);
 
-        let down_mask = new_slice_mask >> added_lsb;
+        let one = ConcreteBitvector::one(bound);
 
-        if !(down_mask + 1).is_power_of_two() {
-            // not a single slice
-            return Err(());
+        while new_slice_mask.is_nonzero() {
+            // turn off the rightmost contiguous string of 1-bits
+            // from Hacker's Delight Chapter 2
+            let with_slice_turned_off = new_slice_mask
+                .bit_or(new_slice_mask.sub(one))
+                .add(one)
+                .bit_and(new_slice_mask);
+
+            let turned_off_slice = new_slice_mask.sub(with_slice_turned_off);
+
+            // construct the monomial from the turned-off slice
+            let turned_off_slice =
+                LinearSlice::from_mask(monomial.slice.formula_id, turned_off_slice);
+
+            let turned_off_lsb = ConcreteBitvector::new(turned_off_slice.lsb.into(), bound);
+
+            // we must compensate possibly non-zero lsb of the turned-off slice
+            // by shifting the coefficient by it
+            let turned_off_coefficient = coefficient.logic_shl(turned_off_lsb);
+
+            let turned_off_polynomial = LinearPolynomial::from_monomial(LinearMonomial::new(
+                turned_off_coefficient,
+                turned_off_slice,
+            ));
+
+            new_polynomial = new_polynomial.add(turned_off_polynomial);
+
+            new_slice_mask = with_slice_turned_off;
         }
 
-        let new_slice_width = NonZero::new(down_mask.count_ones()).unwrap();
-
-        let new_slice_lsb = slice.lsb + added_lsb;
-        assert!(new_slice_lsb + new_slice_width.get() <= slice.lsb + slice.width.get());
-
-        let new_coefficient = coefficient << added_lsb;
-
-        let new_slice = LinearSlice {
-            formula_id: slice.formula_id,
-            lsb: new_slice_lsb,
-            width: new_slice_width,
-        };
-
-        let new_constant = ConcreteBitvector::new(new_constant, bound);
-        let new_coefficient = ConcreteBitvector::new(new_coefficient, bound);
-
-        let new_monomial = LinearMonomial::new(new_coefficient, new_slice);
-        let result = LinearPolynomial::from_monomial_and_constant(new_monomial, new_constant);
-
-        Ok(result)
+        // we are done
+        Ok(new_polynomial)
     }
 }
