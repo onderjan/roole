@@ -91,7 +91,15 @@ impl ManyRoole {
     fn process_smt2_file(&self, path: &Path, stats: &Stats, summary_sender: mpsc::Sender<Summary>) {
         let executed = self.exec_roole(path);
 
-        let mut output_path = self.output_dir.clone().join(path);
+        let output_type_dir = match executed.status.code() {
+            Some(10) => "sat",
+            Some(20) => "unsat",
+            Some(47) => "unknown",
+            Some(101) => "panic",
+            _ => "other",
+        };
+
+        let mut output_path = self.output_dir.clone().join(output_type_dir).join(path);
         output_path.set_extension("out");
 
         let output_parent_dir = output_path
