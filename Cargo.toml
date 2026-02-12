@@ -3,10 +3,17 @@ name = "roole"
 version = "0.1.0"
 edition = "2024"
 
+default-run = "roole"
 
 [features]
 cadical = ["cadical-sys"]
-#default = ["cadical"]
+
+[[bin]]
+name = "roole"
+
+[[bin]]
+name = "manyroole"
+path = "src/tools/manyroole.rs"
 
 [dependencies]
 aws-smt-ir = "0.3.0"
@@ -21,6 +28,10 @@ indicatif = "0.18.2"
 clap = { version = "4.5.53", features = ["derive"] }
 
 cadical-sys = { version = "0.7.0", optional = true }
+
+# for manyroole
+pathdiff = "0.2.3"
+walkdir = "2.2.9"
 
 [lints.clippy]
 uninlined_format_args = "allow"
