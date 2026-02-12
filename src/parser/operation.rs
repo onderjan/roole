@@ -100,7 +100,28 @@ impl super::Parser {
         })
     }
 
-    fn create_bi_op(&self, op: BiOperator, arguments: Vec<FormulaId>) -> Operation {
+    fn create_bi_op(&mut self, op: BiOperator, mut arguments: Vec<FormulaId>) -> Operation {
+        // bvand, bvor, bvxor, bvadd, bvmul are left-associative
+        if matches!(
+            op,
+            BiOperator::BitAnd
+                | BiOperator::BitOr
+                | BiOperator::BitXor
+                | BiOperator::Add
+                | BiOperator::Mul
+        ) {
+            while arguments.len() > 2 {
+                // replace the first two arguments with the formula
+
+                let mut next_arguments = arguments.split_off(2);
+
+                let first_bi_op = self.create_bi_op(op, std::mem::take(&mut arguments));
+                let first_bi_op = self.add_operation(first_bi_op);
+                next_arguments.insert(0, first_bi_op);
+                arguments = next_arguments;
+            }
+        }
+
         let Some((left, right)) = arguments.into_iter().collect_tuple() else {
             panic!("Binary operation should have exactly two arguments");
         };
