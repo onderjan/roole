@@ -72,6 +72,7 @@ pub struct ExtractOp {
 #[derive(Clone, Copy, Debug)]
 pub enum UniOperator {
     Not,
+    Neg,
 }
 
 impl Operation {
@@ -89,6 +90,7 @@ impl Operation {
                 let inner = (fetch)(*inner);
                 match op {
                     UniOperator::Not => inner.bit_not(),
+                    UniOperator::Neg => inner.arith_neg(),
                 }
             }
             Operation::BiOp(bi_op) => bi_op.evaluate(fetch),
@@ -160,9 +162,7 @@ impl Operation {
     pub fn result_width(&self) -> u32 {
         match self {
             Operation::Constant(_value, width) => *width,
-            Operation::UniOp(uni_op) => match uni_op.op {
-                UniOperator::Not => uni_op.input_width,
-            },
+            Operation::UniOp(uni_op) => uni_op.input_width,
             Operation::BiOp(bi_op) => bi_op.result_width(),
             Operation::ExtOp(ext_op) => ext_op.output_width,
             Operation::IteOp(ite_op) => ite_op.width,

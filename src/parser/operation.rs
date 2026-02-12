@@ -44,6 +44,7 @@ impl super::Parser {
                 "bvsgt" => self.create_bi_op(BiOperator::Sgt, arguments),
                 "bvsge" => self.create_bi_op(BiOperator::Sge, arguments),
 
+                "bvneg" => self.create_uni_op(UniOperator::Neg, arguments),
                 "bvadd" => self.create_bi_op(BiOperator::Add, arguments),
                 "bvsub" => self.create_bi_op(BiOperator::Sub, arguments),
                 "bvmul" => self.create_bi_op(BiOperator::Mul, arguments),
