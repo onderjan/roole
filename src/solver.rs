@@ -51,5 +51,8 @@ pub fn solve(problem: &Problem, settings: &SolverSettings) {
                 panic!("CaDiCaL feature not enabled");
             };
         }
+        SolverMode::None => {
+            // do nothing
+        }
     }
 }

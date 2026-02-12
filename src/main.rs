@@ -34,6 +34,8 @@ enum SolverMode {
     Internal,
     /// Use the CaDiCaL solver
     Cadical,
+    /// Do not use any solver
+    None,
 }
 
 impl Display for SolverMode {
@@ -44,6 +46,7 @@ impl Display for SolverMode {
             match self {
                 SolverMode::Internal => "internal",
                 SolverMode::Cadical => "cadical",
+                SolverMode::None => "none",
             }
         )
     }
