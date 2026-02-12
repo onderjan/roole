@@ -95,6 +95,7 @@ impl ManyRoole {
             Some(10) => "sat",
             Some(20) => "unsat",
             Some(47) => "unknown",
+            Some(64) => "wrong",
             Some(101) => "panic",
             _ => "other",
         };

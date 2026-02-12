@@ -5,7 +5,7 @@ use aws_smt_ir::{
     smt2parser::{
         CommandStream,
         concrete::{Command, Identifier, QualIdentifier, Sort, Term},
-        visitors::Index,
+        visitors::{AttributeValue, Index},
     },
 };
 use indexmap::IndexMap;
@@ -85,6 +85,9 @@ struct Parser {
 
     /// Solver settings.
     settings: SolverSettings,
+
+    /// Expected result of solving.
+    expected_result: Option<bool>,
 }
 
 // Binding scope.
@@ -112,6 +115,7 @@ impl Parser {
             assertions: Vec::new(),
             results: Vec::new(),
             settings,
+            expected_result: None,
         }
     }
 
@@ -138,8 +142,19 @@ impl Parser {
             Command::Exit => {
                 return ControlFlow::Break(());
             }
-            Command::SetInfo { .. } => {
-                // ignore
+            Command::SetInfo { keyword, value } => {
+                // TODO: only check info based on a command-line argument
+                if keyword.0 == "status" {
+                    let AttributeValue::Symbol(symbol) = value else {
+                        panic!("Expected status value to be a symbol");
+                    };
+                    self.expected_result = match symbol.0.as_str() {
+                        "sat" => Some(true),
+                        "unsat" => Some(false),
+                        "unknown" => None,
+                        _ => panic!("Expected status value to be sat, unsat, or unknown"),
+                    };
+                }
             }
             Command::SetLogic { symbol } => {
                 if symbol.0 != "QF_BV" {
@@ -181,7 +196,25 @@ impl Parser {
 
         // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
-        self.results.push(solver::solve(&problem, &self.settings));
+
+        let result = solver::solve(&problem, &self.settings);
+
+        if result.is_known()
+            && let Some(expected_result) = self.expected_result
+        {
+            let our_result = result.is_true();
+            if expected_result != our_result {
+                eprintln!(
+                    "Wrong solver result, expected {}, but got {}",
+                    expected_result, our_result
+                );
+                // immediately exit with a unique status code
+                // TODO: make this less hacky by propagating the wrong result
+                std::process::exit(64)
+            }
+        }
+
+        self.results.push(result);
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {
