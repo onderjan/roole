@@ -7,3 +7,5 @@ edition = "2024"
 clap = { version = "4.5.53", features = ["derive"] }
 pathdiff = "0.2.3"
 walkdir = "2.2.9"
+rayon = "1.11.0"
+indicatif = "0.18.2"
