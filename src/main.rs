@@ -52,6 +52,18 @@ impl Display for SolverMode {
     }
 }
 
+#[cfg(feature = "limit-alloc")]
+#[global_allocator]
+static A: limit_alloc::Limit<std::alloc::System> = {
+    let Some(env) = option_env!("ROOLE_LIMIT_ALLOC") else {
+        panic!("To use the limit-alloc feature, set the environment variable ROOLE_LIMIT_ALLOC");
+    };
+    let Ok(env) = usize::from_str_radix(env, 10) else {
+        panic!("The environment variable ROOLE_LIMIT_ALLOC must be an unsigned number");
+    };
+    limit_alloc::Limit::new(env, std::alloc::System)
+};
+
 /// The main entry point to Roole.
 ///
 /// Takes one argument, a path to an SMT-LIB2 file.

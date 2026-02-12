@@ -6,6 +6,7 @@ edition = "2024"
 
 [features]
 cadical = ["cadical-sys"]
+mem-limit = ["limit-alloc"]
 
 [workspace]
 members = ["tools/manyroole"]
@@ -23,6 +24,8 @@ indicatif = "0.18.2"
 clap = { version = "4.5.53", features = ["derive"] }
 
 cadical-sys = { version = "0.7.0", optional = true }
+
+limit-alloc = { version = "0.1.0", optional = true }
 
 [lints.clippy]
 uninlined_format_args = "allow"

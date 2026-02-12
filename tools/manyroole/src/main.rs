@@ -16,6 +16,7 @@ use walkdir::WalkDir;
 struct ManyRoole {
     input_dir: PathBuf,
     output_dir: PathBuf,
+    limit_alloc: Option<u64>,
 }
 
 struct Stats {
@@ -58,10 +59,11 @@ impl Stats {
 }
 
 impl ManyRoole {
-    fn new(input_dir: PathBuf, output_dir: PathBuf) -> Self {
+    fn new(input_dir: PathBuf, output_dir: PathBuf, limit_alloc: Option<u64>) -> Self {
         Self {
             input_dir,
             output_dir,
+            limit_alloc,
         }
     }
 
@@ -71,6 +73,11 @@ impl ManyRoole {
         command.arg("--release");
         command.arg("--bin");
         command.arg("roole");
+        if let Some(limit_alloc) = self.limit_alloc {
+            command.arg("--features");
+            command.arg("limit-alloc");
+            command.env("ROOLE_LIMIT_ALLOC", limit_alloc.to_string());
+        }
         command.arg("--");
         command.arg(path);
         command.arg("--solver");
@@ -137,7 +144,7 @@ impl ManyRoole {
     }
 
     fn process_summary(summary: Summary, summary_file: &mut File) {
-        writeln!(summary_file, "{}: {}", summary.file_name, summary.status)
+        writeln!(summary_file, "{}; {}", summary.file_name, summary.status)
             .expect("Summary file should be writeable");
     }
 
@@ -211,6 +218,9 @@ struct Args {
     /// Directory in which the outputs will be put.
     #[arg(long)]
     output_dir: Option<PathBuf>,
+    /// Number of bytes to which to limit memory allocation by each Roole instance.
+    #[arg(long)]
+    limit_alloc: Option<u64>,
 }
 
 fn main() {
@@ -218,7 +228,7 @@ fn main() {
 
     let output_dir = args.output_dir.unwrap_or(PathBuf::from("output/manyroole"));
 
-    let manyroole = ManyRoole::new(args.dir, output_dir);
+    let manyroole = ManyRoole::new(args.dir, output_dir, args.limit_alloc);
 
     manyroole.execute();
 }

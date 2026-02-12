@@ -472,6 +472,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 
 [[package]]
+name = "limit-alloc"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10ab4eafc42d24cf3a84ee8add19d3c76aa7087b82313ddc3fb9a1842d3c8d37"
+
+[[package]]
 name = "link-cplusplus"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -791,6 +797,7 @@ dependencies = [
  "indexmap",
  "indicatif",
  "itertools",
+ "limit-alloc",
  "num",
  "seq-macro",
  "serde",
