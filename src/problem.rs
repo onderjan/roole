@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, UpperHex};
 use crate::{
     domain::{
         bitvector::{
-            RBound,
+            BitvectorBound, RBound,
             abstr::{BitvectorDomain, RBitvector},
         },
         value::ThreeValued,
@@ -71,11 +71,18 @@ impl Problem {
         let FormulaId::Operation(operation_id) = self.assertion else {
             return ThreeValued::Unknown;
         };
-
         match self.operation(operation_id) {
             Operation::Constant(value, width) => {
                 assert_eq!(*width, 1);
                 ThreeValued::from_bool(*value != 0)
+            }
+            Operation::Linear(linear) => {
+                if let Some(value) = linear.constant_value() {
+                    assert_eq!(value.bound().width(), 1);
+                    ThreeValued::from_bool(value.is_nonzero())
+                } else {
+                    ThreeValued::Unknown
+                }
             }
             _ => ThreeValued::Unknown,
         }
