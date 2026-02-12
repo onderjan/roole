@@ -465,6 +465,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "manyroole"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "pathdiff",
+ "walkdir",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -736,10 +745,8 @@ dependencies = [
  "indicatif",
  "itertools",
  "num",
- "pathdiff",
  "seq-macro",
  "serde",
- "walkdir",
 ]
 
 [[package]]
