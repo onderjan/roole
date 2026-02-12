@@ -31,6 +31,6 @@ impl LinearPolynomial {
             return true;
         }
 
-        monomial.might_overflow()
+        monomial.overflows()
     }
 }

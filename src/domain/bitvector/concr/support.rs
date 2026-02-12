@@ -158,6 +158,17 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         Self::new(value, bound)
     }
 
+    pub fn num_needed_bits(&self) -> u32 {
+        if let Some(ilog2) = self.value.checked_ilog2() {
+            // N + 1 bits are needed to represent a number
+            // with the highest set one at position N
+            ilog2 + 1
+        } else {
+            // zero bits are needed to represent zero
+            0
+        }
+    }
+
     pub fn modular_inverse(self) -> Option<Self> {
         // TODO: more general computation of modular inverse
         let a = self.to_u64().into();

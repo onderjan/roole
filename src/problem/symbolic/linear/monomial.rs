@@ -20,21 +20,18 @@ impl LinearMonomial {
         self.coefficient.bound()
     }
 
-    pub fn might_overflow(&self) -> bool {
-        let coefficient = self.coefficient.to_u64();
+    pub fn overflows(&self) -> bool {
+        // the width needed to represent the monomial product is
+        // sum of coefficient width and slice width minus 1
+        // this is precise
+
+        let coeff_width = self.coefficient.num_needed_bits();
         let slice_width = self.slice.width.get();
+        let product_width = coeff_width + slice_width - 1;
 
-        let Some(above_max_value) = coefficient.checked_shl(slice_width) else {
-            return true;
-        };
+        let bound_width = self.coefficient.bound().width();
 
-        let Some(max_value) = above_max_value.checked_sub(1) else {
-            return true;
-        };
-
-        let max_value_allowed = self.coefficient.bound().allowed(max_value);
-
-        !max_value_allowed
+        product_width > bound_width
     }
 
     pub(super) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
