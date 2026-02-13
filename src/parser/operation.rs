@@ -9,7 +9,8 @@ use itertools::Itertools;
 use crate::problem::formula::{
     FormulaId,
     operation::{
-        BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, IteOp, Operation, UniOp, UniOperator,
+        BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, IteOp, Operation, RotateOp, UniOp,
+        UniOperator,
     },
 };
 
@@ -65,17 +66,28 @@ impl super::Parser {
             },
             QualIdentifier::Simple {
                 identifier: Identifier::Indexed { symbol, indices },
-            } => match symbol.0.as_str() {
-                "zero_extend" => self.create_ext_op(false, indices, arguments),
-                "sign_extend" => self.create_ext_op(true, indices, arguments),
-                "extract" => self.create_extract_op(indices, arguments),
-                _ => {
-                    panic!(
-                        "Unsupported qualified identifier {:?} with indices {:?}",
-                        symbol, indices
-                    )
+            } => {
+                let name = symbol.0.as_str();
+
+                let rotate_left = name == "rotate_left";
+                let rotate_right = name == "rotate_right";
+
+                if rotate_left || rotate_right {
+                    self.create_rotate_op(rotate_left, indices, arguments)
+                } else {
+                    match name {
+                        "zero_extend" => self.create_ext_op(false, indices, arguments),
+                        "sign_extend" => self.create_ext_op(true, indices, arguments),
+                        "extract" => self.create_extract_op(indices, arguments),
+                        _ => {
+                            panic!(
+                                "Unsupported qualified identifier {:?} with indices {:?}",
+                                symbol, indices
+                            )
+                        }
+                    }
                 }
-            },
+            }
             QualIdentifier::Sorted { identifier, sort } => {
                 panic!(
                     "Qualified identifier {:?} with sort {:?} not supported within application",
@@ -236,6 +248,39 @@ impl super::Parser {
             NonZeroU32::new(msb - lsb + 1).expect("Extract msb should be greater or equal to lsb");
 
         Operation::ExtractOp(ExtractOp { inner, lsb, width })
+    }
+
+    fn create_rotate_op(
+        &self,
+        rotate_left: bool,
+        indices: Vec<Index>,
+        arguments: Vec<FormulaId>,
+    ) -> Operation {
+        let Ok(inner) = arguments.into_iter().exactly_one() else {
+            panic!("Rotate operation should have exactly one argument");
+        };
+        let width = self.formula_result_width(inner);
+
+        let Ok(Index::Numeral(amount)) = indices.into_iter().exactly_one() else {
+            panic!("Rotate operation should have exactly one numeric index (rotation amount)");
+        };
+
+        let Ok(amount) = TryInto::<u32>::try_into(amount) else {
+            panic!("Rotate amount is too big");
+        };
+
+        // the amount can be represented modulo width in range 0 <= amount < width
+        // handle the corner case of zero width
+        let amount = amount.checked_rem(width).unwrap_or(0);
+
+        // convert right rotation to left rotation
+        let left_rotate_amount = if rotate_left { amount } else { width - amount };
+
+        Operation::RotateOp(RotateOp {
+            inner,
+            width,
+            left_rotate_amount,
+        })
     }
 
     fn formula_result_width(&self, id: FormulaId) -> u32 {

@@ -28,6 +28,7 @@ pub enum Operation {
     IteOp(IteOp),
     ConcatOp(ConcatOp),
     ExtractOp(ExtractOp),
+    RotateOp(RotateOp),
     Linear(LinearSystem),
 }
 
@@ -67,6 +68,13 @@ pub struct ExtractOp {
     pub inner: FormulaId,
     pub lsb: u32,
     pub width: NonZeroU32,
+}
+
+#[derive(Clone)]
+pub struct RotateOp {
+    pub inner: FormulaId,
+    pub width: u32,
+    pub left_rotate_amount: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -155,6 +163,41 @@ impl Operation {
                 // narrow to extraction width
                 inner.uext(RBound::new(extract_op.width.get()))
             }
+            Operation::RotateOp(rotate_op) => {
+                let inner = (fetch)(rotate_op.inner);
+                let inner_bound = inner.bound();
+
+                let width = rotate_op.width;
+                let amount = rotate_op.left_rotate_amount;
+
+                assert_eq!(width, inner_bound.width());
+                assert!(amount < width);
+
+                // let's call the value width N, 0 <= amount < N
+                // theoretically, we start with one copy of value at -N..0, another copy at 0..N
+                // we then shift them left by the amount
+                // this means one copy is at -N+amount..amount, another at amount..N+amount
+                // practically, we have to start with both copies at 0..N
+                // so we need to shift one copy left by amount, the other right (unsigned) by N-amount
+                let left_shift_amount = amount;
+                let right_shift_amount = width - amount;
+
+                let left_shift_amount = D::single_value(ConcreteBitvector::new(
+                    left_shift_amount.into(),
+                    inner_bound,
+                ));
+                let right_shift_amount = D::single_value(ConcreteBitvector::new(
+                    right_shift_amount.into(),
+                    inner_bound,
+                ));
+
+                let left_shifted = inner.clone().logic_shl(left_shift_amount);
+                let right_shifted = inner.logic_shr(right_shift_amount);
+
+                // since left-shifted and right-shifted do not overlap, both addition and bit-or will work here
+                // one or other may be better depending on the domain
+                left_shifted.bit_or(right_shifted)
+            }
             Operation::Linear(linear) => linear.evaluate(fetch),
         }
     }
@@ -168,6 +211,7 @@ impl Operation {
             Operation::IteOp(ite_op) => ite_op.width,
             Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
             Operation::ExtractOp(extract_op) => extract_op.width.get(),
+            Operation::RotateOp(rotate_op) => rotate_op.width,
             Operation::Linear(linear) => linear.bound().width(),
         }
     }
@@ -183,6 +227,7 @@ impl Operation {
             }
             Operation::ConcatOp(concat_op) => vec![concat_op.left, concat_op.right],
             Operation::ExtractOp(extract_op) => vec![extract_op.inner],
+            Operation::RotateOp(rotate_op) => vec![rotate_op.inner],
             Operation::Linear(linear) => linear.used_ids(),
         }
     }
@@ -225,6 +270,11 @@ impl Operation {
                 inner: remap(extract_op.inner),
                 lsb: extract_op.lsb,
                 width: extract_op.width,
+            }),
+            Operation::RotateOp(rotate_op) => Operation::RotateOp(RotateOp {
+                inner: remap(rotate_op.inner),
+                width: rotate_op.width,
+                left_rotate_amount: rotate_op.left_rotate_amount,
             }),
             Operation::Linear(linear) => {
                 // TODO: rewrite remapped to use mutable reference
@@ -293,6 +343,17 @@ impl Operation {
             ),
             Operation::ExtractOp(ExtractOp { inner, lsb, width }) => {
                 write!(f, "extract_{}_{}({:?})", lsb + width.get() - 1, lsb, inner)
+            }
+            Operation::RotateOp(RotateOp {
+                inner,
+                width,
+                left_rotate_amount,
+            }) => {
+                write!(
+                    f,
+                    "rotate_left_{}({:?},{})",
+                    width, inner, left_rotate_amount
+                )
             }
             Operation::Linear(linear) => {
                 if hex {
