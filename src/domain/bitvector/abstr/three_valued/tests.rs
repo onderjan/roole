@@ -136,10 +136,10 @@ bi_op_test!(add, true);
 bi_op_test!(sub, true);
 bi_op_test!(mul, false);
 // TODO: div/rem tests
-/*divrem_op_test!(udiv, false);
-divrem_op_test!(sdiv, false);
-divrem_op_test!(urem, false);
-divrem_op_test!(srem, false);*/
+divrem_op_test!(udiv_wrapping_or_full, false);
+//divrem_op_test!(sdiv, false);
+divrem_op_test!(urem_wrapping_or_dividend, false);
+//divrem_op_test!(srem, false);
 
 // bitwise tests
 bi_op_test!(bit_and, true);

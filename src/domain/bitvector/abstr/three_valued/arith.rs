@@ -3,9 +3,9 @@ use crate::domain::{
         BitvectorBound,
         abstr::{BitvectorDomain, ExtendedBitvectorDomain},
         bound::compute_u64_mask,
-        concr::{ConcreteBitvector, UnsignedBitvector},
+        concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
     },
-    traits::forward::HwArith,
+    traits::{Join, forward::HwArith},
 };
 
 use super::ThreeValuedBitvector;
@@ -86,93 +86,129 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
         })
     }
 
-    fn udiv(self, _rhs: Self) -> Self {
-        todo!("Correct handling of division corner cases");
-
-        /*
+    fn udiv_wrapping_or_full(self, rhs: Self) -> Self {
         assert_eq!(self.bound(), rhs.bound());
         let bound = self.bound();
 
-        let min_division_result = (self.umin() / rhs.umax()).result.to_u64();
-        let max_division_result = (self.umax() / rhs.umin()).result.to_u64();
-        let result = convert_uarith(min_division_result, max_division_result, bound);
-        panic_result(rhs, result)
-        */
+        let (dividend_umin, dividend_umax) = (self.umin(), self.umax());
+        let (mut divisor_umin, divisor_umax) = (rhs.umin(), rhs.umax());
+
+        let can_be_div_by_zero = divisor_umin.is_zero();
+
+        if can_be_div_by_zero {
+            if divisor_umax.is_zero() {
+                // always division by zero
+                // this function produces full bitvector on division by zero
+                return Self::new_full(bound);
+            }
+
+            // compute division from 1 up
+            divisor_umin = UnsignedBitvector::one(bound);
+        }
+
+        let min_division_result = dividend_umin / divisor_umax;
+        let max_division_result = dividend_umax / divisor_umin;
+
+        let mut quotient = convert_uarith(
+            min_division_result.to_u64(),
+            max_division_result.to_u64(),
+            bound,
+        );
+
+        if can_be_div_by_zero {
+            // this function produces full bitvector on division by zero
+            quotient.apply_join(&Self::new_full(bound))
+        }
+
+        quotient
     }
 
-    fn sdiv(self, _rhs: Self) -> Self {
-        todo!("Correct handling of division corner cases");
-        /*
+    fn sdiv_wrapping_or_full(self, rhs: Self) -> Self {
+        todo!("sdiv")
+    }
+
+    /*fn sdiv_wrapping_or_zero(self, rhs: Self) -> Self {
         assert_eq!(self.bound(), rhs.bound());
 
         let result = compute_sdivrem(self, rhs, |a, b| (a / b).result);
-        panic_result(rhs, result)*/
-    }
+        zero_div_to_zero(rhs, result)
+    }*/
 
-    fn urem(self, _rhs: Self) -> Self {
-        todo!("Correct handling of division corner cases");
-        /*
-
+    fn urem_wrapping_or_dividend(self, rhs: Self) -> Self {
         assert_eq!(self.bound(), rhs.bound());
         let bound = self.bound();
 
-        let dividend_min = self.umin();
-        let dividend_max = self.umax();
-        let divisor_min = rhs.umin();
-        let divisor_max = rhs.umax();
-        let min_division_result = (dividend_min / divisor_max).result.to_u64();
-        let max_division_result = (dividend_max / divisor_min).result.to_u64();
+        let (dividend_umin, dividend_umax) = (self.umin(), self.umax());
+        let (mut divisor_umin, divisor_umax) = (rhs.umin(), rhs.umax());
 
-        if min_division_result != max_division_result {
-            // division results are different, return fully unknown
-            let result = Self::new_unknown(bound);
-            return panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO);
+        let can_be_div_by_zero = divisor_umin.is_zero();
+
+        if can_be_div_by_zero {
+            if divisor_umax.is_zero() {
+                // always division by zero
+                // this function produces dividend on division by zero
+                return self;
+            }
+
+            // compute division from 1 up
+            divisor_umin = UnsignedBitvector::one(bound);
         }
 
-        // division results are the same, return operation result
-        let min_result = (dividend_min % divisor_max).result.to_u64();
-        let max_result = (dividend_max % divisor_min).result.to_u64();
-        let result = convert_uarith(min_result, max_result, bound);
-        panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO)
-        */
+        let min_division_result = dividend_umin / divisor_umax;
+        let max_division_result = dividend_umax / divisor_umin;
+
+        let mut remainder = if min_division_result == max_division_result {
+            // only one division result, compute remainder
+            let min_result = (dividend_umin % divisor_umax).to_u64();
+            let max_result = (dividend_umax % divisor_umin).to_u64();
+            convert_uarith(min_result, max_result, bound)
+        } else {
+            // more than one division result, return fully unknown remainder
+            // TODO: this can be restricted to be lesser than divisor
+            Self::new_unknown(bound)
+        };
+
+        if can_be_div_by_zero {
+            // this function produces dividend on division by zero
+            remainder.apply_join(&self)
+        }
+
+        remainder
     }
 
-    fn srem(self, _rhs: Self) -> Self {
-        todo!("Correct handling of division corner cases");
-        /*
+    fn srem_wrapping_or_dividend(self, rhs: Self) -> Self {
+        todo!("srem")
+    }
+
+    /*fn srem_wrapping_or_zero(self, rhs: Self) -> Self {
         assert_eq!(self.bound(), rhs.bound());
         let bound = self.bound();
 
-        let sdiv_result = self.sdiv(rhs);
-        if sdiv_result.result.concrete_value().is_none() {
+        let sdiv_result = self.sdiv_wrapping_or_zero(rhs);
+        if sdiv_result.concrete_value().is_none() {
             // sdiv is not a concrete value, make fully unknown
             let result = Self::new_unknown(bound);
-            return panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO);
+            return zero_div_to_zero(rhs, result);
         }
 
-        let result = compute_sdivrem(self, rhs, |a, b| (a % b).result);
-        panic_result(rhs, result, PANIC_NUM_REM_BY_ZERO)
-        */
-    }
+        let result = compute_sdivrem(self, rhs, |a, b| a % b);
+        zero_div_to_zero(rhs, result)
+    }*/
 }
 
-/*fn panic_result<B: BitvectorBound>(
+/*fn zero_div_to_zero<B: BitvectorBound>(
     divisor: ThreeValuedBitvector<B>,
     mut result: ThreeValuedBitvector<B>,
-    panic_msg_num: u64,
 ) -> ThreeValuedBitvector<B> {
-    ThreeValuedBitvector::new(0, bound)
     // in SMT-LIB, division by zero produces zero
     let bound = divisor.bound();
     let zero = ConcreteBitvector::zero(bound);
-    let can_panic = divisor.contains_concrete(&zero);
-    let must_panic = divisor.concrete_value().map(|v| v == zero).unwrap_or(false);
-    if must_panic {
-        result =
-    ThreeValuedBitvector::new(0, bound)
-    } else if can_panic {
-        result = result.join(
-            &ThreeValuedBitvector::new(0, bound))
+    let can_be_corner = divisor.contains_concrete(&zero);
+    let must_be_corner = divisor.concrete_value().map(|v| v == zero).unwrap_or(false);
+    if must_be_corner {
+        result = ThreeValuedBitvector::new(0, bound)
+    } else if can_be_corner {
+        result = result.join(&ThreeValuedBitvector::new(0, bound))
     };
     result
 }*/
@@ -244,7 +280,7 @@ fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
     result
 }
 
-/*fn convert_uarith<B: BitvectorBound>(min: u64, max: u64, bound: B) -> ThreeValuedBitvector<B> {
+fn convert_uarith<B: BitvectorBound>(min: u64, max: u64, bound: B) -> ThreeValuedBitvector<B> {
     // make highest different bit and all after it unknown
     let different = min ^ max;
     if different == 0 {
@@ -259,6 +295,8 @@ fn shr_overflowing(overflowing_result: (u64, bool), k: u32) -> u64 {
         ConcreteBitvector::new(unknown_mask, bound),
     )
 }
+
+/*
 
 fn compute_sdivrem<B: BitvectorBound>(
     dividend: ThreeValuedBitvector<B>,
@@ -320,7 +358,6 @@ fn compute_sdivrem<B: BitvectorBound>(
 
     if divisor_min.to_i64() <= -1 && divisor_max.to_i64() >= -1 {
         // -1 divisor, causes overflow when the dividend is the most negative value, handle separately
-        // handle separately
 
         let minus_one = ConcreteBitvector::bit_mask(bound).as_signed();
 
@@ -417,5 +454,4 @@ fn apply_signed_op<B: BitvectorBound>(
 
     *zeros |= unknown_mask;
     *ones |= unknown_mask;
-}
-*/
+}*/

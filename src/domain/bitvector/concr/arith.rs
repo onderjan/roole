@@ -26,68 +26,61 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
         Self::from_masked_u64(result, self.bound)
     }
 
-    fn udiv(self, rhs: Self) -> Self {
+    fn udiv_wrapping_or_full(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
+
+        if rhs.is_zero() {
+            // return full bitvector
+            return ConcreteBitvector::new_umax(self.bound);
+        }
 
         let dividend = self.to_u64();
         let divisor = rhs.to_u64();
-        if divisor == 0 {
-            // return zero as by SMT-LIB2
-            return ConcreteBitvector::new(0, self.bound);
-        }
-        let result = dividend
-            .checked_div(divisor)
-            .expect("Unsigned division should only return none on zero divisor");
+        let result = dividend.wrapping_div(divisor);
 
         Self::from_masked_u64(result, self.bound)
     }
 
-    fn urem(self, rhs: Self) -> Self {
+    fn urem_wrapping_or_dividend(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
+
+        if rhs.is_zero() {
+            // return dividend
+            return self;
+        }
 
         let dividend = self.to_u64();
         let divisor = rhs.to_u64();
-        if divisor == 0 {
-            // return zero as by SMT-LIB2
-            return ConcreteBitvector::new(0, self.bound);
-        }
-        let result = dividend
-            .checked_rem(divisor)
-            .expect("Unsigned remainder should only return none on zero divisor");
+        let result = dividend.wrapping_rem(divisor);
         Self::from_masked_u64(result, self.bound)
     }
 
-    fn sdiv(self, rhs: Self) -> Self {
+    fn sdiv_wrapping_or_full(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
+
+        if rhs.is_zero() {
+            // return full bitvector
+            return ConcreteBitvector::new_umax(self.bound);
+        }
 
         let dividend = self.to_i64();
         let divisor = rhs.to_i64();
-        if divisor == 0 {
-            // return zero as by SMT-LIB2
-            return ConcreteBitvector::new(0, self.bound);
-        }
 
-        // wrapping div as by SMT-LIB2
         let result = dividend.wrapping_div(divisor);
         Self::from_masked_u64(result as u64, self.bound)
     }
 
-    fn srem(self, rhs: Self) -> Self {
+    fn srem_wrapping_or_dividend(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
+
+        if rhs.is_zero() {
+            // return dividend
+            return self;
+        }
 
         let dividend = self.to_i64();
         let divisor = rhs.to_i64();
-        if divisor == 0 {
-            // return zero as by SMT-LIB2
-            return ConcreteBitvector::new(0, self.bound);
-        }
-        let signed_minus_one = self.bound.mask();
-        let signed_minimum = self.bound.sign_bit_mask();
-        if self.value == signed_minimum && rhs.value == signed_minus_one {
-            // return zero as by SMT-LIB2
-            return ConcreteBitvector::new(0, self.bound);
-        }
-        // wrapping rem as by SMT-LIB2
+
         let result = dividend.wrapping_rem(divisor);
         Self::from_masked_u64(result as u64, self.bound)
     }

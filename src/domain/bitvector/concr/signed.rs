@@ -100,7 +100,7 @@ impl<B: BitvectorBound> Div<SignedBitvector<B>> for SignedBitvector<B> {
 
     fn div(self, rhs: Self) -> Self {
         // signed division
-        Self(self.0.sdiv(rhs.0))
+        Self(self.0.sdiv_wrapping_or_full(rhs.0))
     }
 }
 
@@ -109,7 +109,7 @@ impl<B: BitvectorBound> Rem<SignedBitvector<B>> for SignedBitvector<B> {
 
     fn rem(self, rhs: Self) -> Self {
         // signed remainder
-        Self(self.0.srem(rhs.0))
+        Self(self.0.srem_wrapping_or_dividend(rhs.0))
     }
 }
 

@@ -90,7 +90,7 @@ impl<B: BitvectorBound> Div<UnsignedBitvector<B>> for UnsignedBitvector<B> {
 
     fn div(self, rhs: UnsignedBitvector<B>) -> Self {
         // unsigned division
-        Self(self.0.udiv(rhs.0))
+        Self(self.0.udiv_wrapping_or_full(rhs.0))
     }
 }
 
@@ -99,7 +99,7 @@ impl<B: BitvectorBound> Rem<UnsignedBitvector<B>> for UnsignedBitvector<B> {
 
     fn rem(self, rhs: UnsignedBitvector<B>) -> Self {
         // unsigned remainder
-        Self(self.0.urem(rhs.0))
+        Self(self.0.urem_wrapping_or_dividend(rhs.0))
     }
 }
 

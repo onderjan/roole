@@ -54,14 +54,14 @@ where
     fn mul(self, rhs: Self) -> Self;
 
     #[must_use]
-    fn udiv(self, rhs: Self) -> Self;
+    fn udiv_wrapping_or_full(self, rhs: Self) -> Self;
     #[must_use]
-    fn sdiv(self, rhs: Self) -> Self;
+    fn sdiv_wrapping_or_full(self, rhs: Self) -> Self;
 
     #[must_use]
-    fn urem(self, rhs: Self) -> Self;
+    fn urem_wrapping_or_dividend(self, rhs: Self) -> Self;
     #[must_use]
-    fn srem(self, rhs: Self) -> Self;
+    fn srem_wrapping_or_dividend(self, rhs: Self) -> Self;
 }
 
 pub trait HwShift {

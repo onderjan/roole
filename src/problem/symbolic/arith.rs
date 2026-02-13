@@ -17,19 +17,19 @@ impl HwArith for SymbolicDomain {
         self.binary_op_try(rhs, |a, b| a.mul(b), false)
     }
 
-    fn udiv(self, _rhs: Self) -> Self {
+    fn udiv_wrapping_or_full(self, _rhs: Self) -> Self {
         todo!("udiv")
     }
 
-    fn sdiv(self, _rhs: Self) -> Self {
+    fn sdiv_wrapping_or_full(self, _rhs: Self) -> Self {
         todo!("sdiv")
     }
 
-    fn urem(self, _rhs: Self) -> Self {
+    fn urem_wrapping_or_dividend(self, _rhs: Self) -> Self {
         todo!("urem")
     }
 
-    fn srem(self, _rhs: Self) -> Self {
+    fn srem_wrapping_or_dividend(self, _rhs: Self) -> Self {
         todo!("srem")
     }
 }

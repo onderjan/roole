@@ -49,6 +49,16 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     }
 
     #[must_use]
+    pub fn new_zero(bound: B) -> Self {
+        Self::from_concrete_value(ConcreteBitvector::zero(bound))
+    }
+
+    #[must_use]
+    pub fn new_full(bound: B) -> Self {
+        Self::from_concrete_value(ConcreteBitvector::new_umax(bound))
+    }
+
+    #[must_use]
     pub fn from_zeros_ones(zeros: ConcreteBitvector<B>, ones: ConcreteBitvector<B>) -> Self {
         match Self::try_from_zeros_ones(zeros, ones) {
             Ok(ok) => ok,
