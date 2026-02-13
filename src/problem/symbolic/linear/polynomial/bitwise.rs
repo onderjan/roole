@@ -60,11 +60,11 @@ impl LinearPolynomial {
         let coefficient_log2 = ConcreteBitvector::new(coefficient_log2.into(), bound);
 
         // now, we have a constant value to be bitwise-combined with a bit-shifted slice
-        // get the slice mask
-        let slice_mask = monomial.slice.mask(bound);
+        // get the slice output mask
+        let slice_output_mask = monomial.slice.output_mask(bound);
 
         // bit-shift left by the coefficient logarithm to get the monomial mask
-        let monomial_mask = slice_mask.logic_shl(coefficient_log2);
+        let monomial_mask = slice_output_mask.logic_shl(coefficient_log2);
 
         let (new_monomial_mask, new_constant) = if conjunction {
             // bitwise AND, retain the monomial mask only where the constant operand had ones
@@ -79,8 +79,8 @@ impl LinearPolynomial {
             (new_monomial_mask, constant_operand)
         };
 
-        // unsigned-bit-shift right by the coefficient logarithm to get the new slice mask
-        let mut new_slice_mask = new_monomial_mask.logic_shr(coefficient_log2);
+        // unsigned-bit-shift right by the coefficient logarithm to get the new slice output mask
+        let mut new_slice_output_mask = new_monomial_mask.logic_shr(coefficient_log2);
 
         // the new slice mask can have holes in it, leading to multiple slices
         // or even be zero, leading to no slices
@@ -90,15 +90,15 @@ impl LinearPolynomial {
 
         let one = ConcreteBitvector::one(bound);
 
-        while new_slice_mask.is_nonzero() {
+        while new_slice_output_mask.is_nonzero() {
             // turn off the rightmost contiguous string of 1-bits
             // from Hacker's Delight Chapter 2
-            let with_slice_turned_off = new_slice_mask
-                .bit_or(new_slice_mask.sub(one))
+            let with_slice_turned_off = new_slice_output_mask
+                .bit_or(new_slice_output_mask.sub(one))
                 .add(one)
-                .bit_and(new_slice_mask);
+                .bit_and(new_slice_output_mask);
 
-            let turned_off_slice = new_slice_mask.sub(with_slice_turned_off);
+            let turned_off_slice = new_slice_output_mask.sub(with_slice_turned_off);
 
             // construct the monomial from the turned-off slice
             let turned_off_slice =
@@ -117,7 +117,7 @@ impl LinearPolynomial {
 
             new_polynomial = new_polynomial.add(turned_off_polynomial);
 
-            new_slice_mask = with_slice_turned_off;
+            new_slice_output_mask = with_slice_turned_off;
         }
 
         // we are done

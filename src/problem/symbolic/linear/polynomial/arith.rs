@@ -87,8 +87,8 @@ impl LinearPolynomial {
                 (rhs_monomial, lhs_monomial, false)
             };
 
-            let a_mask = a.slice.mask(bound);
-            let b_mask = b.slice.mask(bound);
+            let a_mask = a.slice.formula_mask(bound);
+            let b_mask = b.slice.formula_mask(bound);
 
             let only_a = a_mask.bit_and(b_mask.bit_not());
             let a_and_b = a_mask.bit_and(b_mask);

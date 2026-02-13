@@ -56,10 +56,16 @@ impl LinearSlice {
         contained.lsb >= self.lsb && contained.above_msb() <= self.above_msb()
     }
 
-    pub fn mask(&self, bound: RBound) -> ConcreteBitvector<RBound> {
+    // Mask applied to the slice formula.
+    pub fn formula_mask(&self, bound: RBound) -> ConcreteBitvector<RBound> {
         let including_below_lsb = ConcreteBitvector::from_ones_width(self.above_msb(), bound);
         let below_lsb = ConcreteBitvector::from_ones_width(self.lsb, bound);
         including_below_lsb.sub(below_lsb)
+    }
+
+    // Output mask. Starts from the lowest significant bit and has the number of consecutive ones equal to width.
+    pub fn output_mask(&self, bound: RBound) -> ConcreteBitvector<RBound> {
+        ConcreteBitvector::from_ones_width(self.width.get(), bound)
     }
 
     pub(super) fn above_msb(&self) -> u32 {
