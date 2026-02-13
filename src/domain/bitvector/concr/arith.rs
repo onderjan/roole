@@ -26,12 +26,12 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
         Self::from_masked_u64(result, self.bound)
     }
 
-    fn udiv_wrapping_or_full(self, rhs: Self) -> Self {
+    fn udiv_wrapping_or_all_ones(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
 
         if rhs.is_zero() {
             // return full bitvector
-            return ConcreteBitvector::new_umax(self.bound);
+            return ConcreteBitvector::new_all_ones(self.bound);
         }
 
         let dividend = self.to_u64();
@@ -55,12 +55,18 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
         Self::from_masked_u64(result, self.bound)
     }
 
-    fn sdiv_wrapping_or_full(self, rhs: Self) -> Self {
+    fn sdiv_wrapping_by_quadrants(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
 
         if rhs.is_zero() {
-            // return full bitvector
-            return ConcreteBitvector::new_umax(self.bound);
+            // the value to return depends on the sign of dividend
+            return if self.is_sign_bit_set() {
+                // return one
+                ConcreteBitvector::new_one(self.bound)
+            } else {
+                // return all-ones
+                ConcreteBitvector::new_all_ones(self.bound)
+            };
         }
 
         let dividend = self.to_i64();
@@ -70,7 +76,7 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
         Self::from_masked_u64(result as u64, self.bound)
     }
 
-    fn srem_wrapping_or_dividend(self, rhs: Self) -> Self {
+    fn srem_wrapping_by_quadrants(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
 
         if rhs.is_zero() {
@@ -86,7 +92,7 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
     }
 }
 
-/*impl<B: BitvectorBound> ConcreteBitvector<B> {
+impl<B: BitvectorBound> ConcreteBitvector<B> {
     pub(crate) fn checked_add(self, rhs: Self) -> Option<Self> {
         assert_eq!(self.bound, rhs.bound);
 
@@ -104,4 +110,4 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
         }
         Some(Self::new(result, self.bound))
     }
-}*/
+}

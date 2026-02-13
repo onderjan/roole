@@ -19,6 +19,11 @@ pub enum BiOperator {
     Sub,
     Mul,
 
+    Udiv,
+    Urem,
+    Sdiv,
+    Srem,
+
     BitAnd,
     BitOr,
     BitXor,
@@ -51,6 +56,10 @@ impl BiOp {
             BiOperator::Add => left.add(right),
             BiOperator::Sub => left.sub(right),
             BiOperator::Mul => left.mul(right),
+            BiOperator::Udiv => left.udiv_wrapping_or_all_ones(right),
+            BiOperator::Urem => left.urem_wrapping_or_dividend(right),
+            BiOperator::Sdiv => left.sdiv_wrapping_by_quadrants(right),
+            BiOperator::Srem => left.srem_wrapping_by_quadrants(right),
 
             BiOperator::BitAnd => left.bit_and(right),
             BiOperator::BitOr => left.bit_or(right),
@@ -64,7 +73,6 @@ impl BiOp {
             BiOperator::Ule => TypedCmp::ule(left, right),
             BiOperator::Ugt => TypedCmp::ule(left, right).bit_not(),
             BiOperator::Uge => TypedCmp::ult(left, right).bit_not(),
-
             BiOperator::Slt => TypedCmp::slt(left, right),
             BiOperator::Sle => TypedCmp::sle(left, right),
             BiOperator::Sgt => TypedCmp::sle(left, right).bit_not(),

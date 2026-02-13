@@ -26,7 +26,7 @@ impl LinearRelation {
     }
 
     pub fn from_eq_to_zero(polynomial: LinearPolynomial) -> Self {
-        let zero = ConcreteBitvector::zero(polynomial.bound());
+        let zero = ConcreteBitvector::new_zero(polynomial.bound());
         Self {
             polynomial,
             slack: zero,

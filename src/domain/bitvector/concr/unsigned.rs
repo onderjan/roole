@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Not, Rem, Shl, Shr, Sub},
+    ops::{Add, BitAnd, BitOr, BitXor, Mul, Not, Shl, Shr, Sub},
 };
 
 use serde::{Deserialize, Serialize};
@@ -59,6 +59,18 @@ impl<B: BitvectorBound> UnsignedBitvector<B> {
     pub fn ext<X: BitvectorBound>(self, new_bound: X) -> UnsignedBitvector<X> {
         UnsignedBitvector(self.0.uext(new_bound))
     }
+
+    pub fn div_wrapping_or_full(self, rhs: Self) -> Self {
+        self.cast_bitvector()
+            .udiv_wrapping_or_all_ones(rhs.cast_bitvector())
+            .as_unsigned()
+    }
+
+    pub fn rem_wrapping_or_dividend(self, rhs: Self) -> Self {
+        self.cast_bitvector()
+            .urem_wrapping_or_dividend(rhs.cast_bitvector())
+            .as_unsigned()
+    }
 }
 
 impl<B: BitvectorBound> Add<UnsignedBitvector<B>> for UnsignedBitvector<B> {
@@ -82,24 +94,6 @@ impl<B: BitvectorBound> Mul<UnsignedBitvector<B>> for UnsignedBitvector<B> {
 
     fn mul(self, rhs: UnsignedBitvector<B>) -> Self::Output {
         Self(self.0.mul(rhs.0))
-    }
-}
-
-impl<B: BitvectorBound> Div<UnsignedBitvector<B>> for UnsignedBitvector<B> {
-    type Output = Self;
-
-    fn div(self, rhs: UnsignedBitvector<B>) -> Self {
-        // unsigned division
-        Self(self.0.udiv_wrapping_or_full(rhs.0))
-    }
-}
-
-impl<B: BitvectorBound> Rem<UnsignedBitvector<B>> for UnsignedBitvector<B> {
-    type Output = Self;
-
-    fn rem(self, rhs: UnsignedBitvector<B>) -> Self {
-        // unsigned remainder
-        Self(self.0.urem_wrapping_or_dividend(rhs.0))
     }
 }
 

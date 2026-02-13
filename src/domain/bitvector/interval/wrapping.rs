@@ -1,12 +1,10 @@
 use std::fmt::Debug;
 
-use crate::{
-    bitvector::{
-        interval::{SignedInterval, SignlessInterval, UnsignedInterval},
-        BitvectorBound,
-    },
-    concr::{ConcreteBitvector, UnsignedBitvector},
-    forward::HwArith,
+use crate::domain::{bitvector::concr::UnsignedBitvector, traits::forward::HwArith};
+
+use super::{
+    super::{BitvectorBound, concr::ConcreteBitvector},
+    SignedInterval, SignlessInterval, UnsignedInterval,
 };
 
 /// A wrapping interval.
@@ -28,8 +26,8 @@ impl<B: BitvectorBound> WrappingInterval<B> {
     // the canonical full interval is from umin (zero) to umax (full mask)
     pub fn new_full(bound: B) -> Self {
         Self {
-            start: ConcreteBitvector::new_umin(bound),
-            end: ConcreteBitvector::new_umax(bound),
+            start: ConcreteBitvector::new_zero(bound),
+            end: ConcreteBitvector::new_all_ones(bound),
         }
     }
 

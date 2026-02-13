@@ -12,13 +12,10 @@ use super::LinearSystem;
 
 impl LinearSystem {
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
-        let mut result = if self.conjunction {
-            // start with full mask
-            D::single_value(ConcreteBitvector::new_umax(self.bound))
-        } else {
-            // start with zero mask
-            D::single_value(ConcreteBitvector::new_umin(self.bound))
-        };
+        let mut result = D::single_value(ConcreteBitvector::new_bool_masked(
+            self.conjunction,
+            self.bound,
+        ));
 
         for expression in &self.expressions {
             let expression_result = expression.evaluate(&fetch);
@@ -32,13 +29,7 @@ impl LinearSystem {
     }
 
     pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
-        let mut result = if self.conjunction {
-            // start with full mask
-            ConcreteBitvector::new_umax(self.bound)
-        } else {
-            // start with zero mask
-            ConcreteBitvector::new_umin(self.bound)
-        };
+        let mut result = ConcreteBitvector::new_bool_masked(self.conjunction, self.bound);
 
         for expression in &self.expressions {
             let Some(expression_result) = expression.constant_value() else {

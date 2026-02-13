@@ -1,8 +1,11 @@
 use std::fmt::Debug;
 
-use crate::{
-    bitvector::{interval::SignlessInterval, BitvectorBound},
-    concr::{ConcreteBitvector, SignedBitvector},
+use super::{
+    super::{
+        BitvectorBound,
+        concr::{ConcreteBitvector, SignedBitvector},
+    },
+    SignlessInterval,
 };
 
 /// A signed interval with a minimum and a maximum value.
@@ -53,6 +56,35 @@ impl<B: BitvectorBound> SignedInterval<B> {
         } else {
             None
         }
+    }
+
+    pub fn into_signless_halves(
+        self,
+    ) -> (Option<SignlessInterval<B>>, Option<SignlessInterval<B>>) {
+        assert!(self.bound().width() > 0);
+
+        let zero = ConcreteBitvector::new_zero(self.bound()).as_signed();
+
+        if self.min >= zero {
+            // only nonnegative interval
+            let interval =
+                SignlessInterval::new(self.min.cast_bitvector(), self.max.cast_bitvector());
+            return (None, Some(interval));
+        }
+        // negative interval exists
+        if self.max < zero {
+            // only negative interval
+            let interval =
+                SignlessInterval::new(self.min.cast_bitvector(), self.max.cast_bitvector());
+            return (Some(interval), None);
+        }
+        // both intervals exist
+        let minus_one = ConcreteBitvector::new_all_ones(self.bound());
+
+        let negative_interval = SignlessInterval::new(self.min.cast_bitvector(), minus_one);
+        let nonnegative_interval =
+            SignlessInterval::new(zero.cast_bitvector(), self.max.cast_bitvector());
+        (Some(negative_interval), Some(nonnegative_interval))
     }
 
     pub fn ext<X: BitvectorBound>(self, new_bound: X) -> SignedInterval<X> {

@@ -6,7 +6,7 @@ use super::{super::LinearPolynomial, LinearRelation};
 
 impl LinearRelation {
     pub(crate) fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
-        let one = ConcreteBitvector::one(self.polynomial.bound());
+        let one = ConcreteBitvector::new_one(self.polynomial.bound());
         if self.slack.add(one).is_full_mask() {
             // better to add 1 to the polynomial and print as non-equality
             let nonequality_polynomial = self

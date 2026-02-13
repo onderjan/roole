@@ -14,7 +14,7 @@ impl LinearPolynomial {
         let mut result = self.arith_neg();
         result.constant_term = result
             .constant_term
-            .sub(ConcreteBitvector::one(result.bound()));
+            .sub(ConcreteBitvector::new_one(result.bound()));
         result.into_normal_form()
     }
 
@@ -70,7 +70,7 @@ impl LinearPolynomial {
             // bitwise AND, retain the monomial mask only where the constant operand had ones
             // the new constant is zero, as was previously
             let new_monomial_mask = monomial_mask.bit_and(constant_operand);
-            let new_constant = ConcreteBitvector::zero(bound);
+            let new_constant = ConcreteBitvector::new_zero(bound);
             (new_monomial_mask, new_constant)
         } else {
             // bitwise OR, retain the monomial mask only where the constant operand had zeroes
@@ -88,7 +88,7 @@ impl LinearPolynomial {
 
         let mut new_polynomial = LinearPolynomial::from_concrete(new_constant);
 
-        let one = ConcreteBitvector::one(bound);
+        let one = ConcreteBitvector::new_one(bound);
 
         while new_slice_output_mask.is_nonzero() {
             // turn off the rightmost contiguous string of 1-bits

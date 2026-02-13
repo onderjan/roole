@@ -8,6 +8,7 @@ use crate::domain::{
             three_valued::InvalidZerosOnes,
         },
         concr::{ConcreteBitvector, SignedBitvector, UnsignedBitvector},
+        interval::{SignedInterval, UnsignedInterval},
     },
     traits::{Join, forward::Bitwise},
     value::ThreeValued,
@@ -50,12 +51,12 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
     #[must_use]
     pub fn new_zero(bound: B) -> Self {
-        Self::from_concrete_value(ConcreteBitvector::zero(bound))
+        Self::from_concrete_value(ConcreteBitvector::new_zero(bound))
     }
 
     #[must_use]
-    pub fn new_full(bound: B) -> Self {
-        Self::from_concrete_value(ConcreteBitvector::new_umax(bound))
+    pub fn new_all_ones(bound: B) -> Self {
+        Self::from_concrete_value(ConcreteBitvector::new_all_ones(bound))
     }
 
     #[must_use]
@@ -156,13 +157,10 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     }
 
     #[must_use]
-    pub fn from_unsigned_interval(min: UnsignedBitvector<B>, max: UnsignedBitvector<B>) -> Self {
-        assert_eq!(min.bound(), max.bound());
-        let bound = min.bound();
+    pub fn from_unsigned_interval(interval: UnsignedInterval<B>) -> Self {
+        let min = interval.min().cast_bitvector();
+        let max = interval.max().cast_bitvector();
 
-        assert!(min <= max);
-        let min = min.cast_bitvector();
-        let max = max.cast_bitvector();
         // make positions where min and max agree known
         let xor = min.bit_xor(max);
         let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
@@ -170,7 +168,8 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
             return Self::from_concrete_value(min);
         };
 
-        let unknown_mask = ConcreteBitvector::from_ones_width(unknown_positions + 1, bound);
+        let unknown_mask =
+            ConcreteBitvector::from_ones_width(unknown_positions + 1, interval.bound());
         Self::new_value_unknown(min, unknown_mask)
     }
 
@@ -212,6 +211,14 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
             (false, true) => ThreeValued::True,
             (false, false) => panic!("Bit should have a three-valued representation"),
         }
+    }
+
+    pub fn unsigned_interval(&self) -> UnsignedInterval<B> {
+        UnsignedInterval::new(self.umin(), self.umax())
+    }
+
+    pub fn signed_interval(&self) -> SignedInterval<B> {
+        SignedInterval::new(self.smin(), self.smax())
     }
 }
 

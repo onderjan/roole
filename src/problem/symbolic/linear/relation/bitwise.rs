@@ -33,7 +33,7 @@ impl LinearRelation {
         // as the negation of a <= s
 
         let polynomial = self.polynomial.clone().bit_not();
-        let slack = bit_not_slack.sub(ConcreteBitvector::one(self.slack.bound()));
+        let slack = bit_not_slack.sub(ConcreteBitvector::new_one(self.slack.bound()));
 
         Ok(LinearRelation::new(polynomial, slack))
     }

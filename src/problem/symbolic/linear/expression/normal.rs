@@ -79,7 +79,7 @@ impl LinearExpression {
         // if result_if_zero is 1 and result_if_one is 0, we want to construct (single_bit + 1) mod 2
         let constant = result_if_zero;
 
-        let single_bit_one = ConcreteBitvector::one(RBound::single_bit_bound());
+        let single_bit_one = ConcreteBitvector::new_one(RBound::single_bit_bound());
         let monomial = LinearMonomial::new(single_bit_one, slice);
 
         LinearExpression::Polynomial(LinearPolynomial::from_monomial_and_constant(

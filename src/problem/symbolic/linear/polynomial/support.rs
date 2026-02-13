@@ -8,7 +8,7 @@ impl LinearPolynomial {
     pub fn empty(bound: RBound) -> Self {
         Self {
             linear_terms: Vec::new(),
-            constant_term: ConcreteBitvector::zero(bound),
+            constant_term: ConcreteBitvector::new_zero(bound),
         }
     }
 
@@ -23,7 +23,7 @@ impl LinearPolynomial {
     }
 
     pub fn from_monomial(monomial: LinearMonomial) -> Self {
-        let zero = ConcreteBitvector::zero(monomial.bound());
+        let zero = ConcreteBitvector::new_zero(monomial.bound());
         Self::from_monomial_and_constant(monomial, zero)
     }
 
@@ -36,7 +36,7 @@ impl LinearPolynomial {
 
     pub fn from_formula(formula_id: FormulaId, bound: RBound) -> Self {
         if let Some(slice) = LinearSlice::from_bounded(formula_id, bound) {
-            let coefficient = ConcreteBitvector::one(bound);
+            let coefficient = ConcreteBitvector::new_one(bound);
             LinearPolynomial::from_monomial(LinearMonomial::new(coefficient, slice))
         } else {
             LinearPolynomial::empty(bound)
@@ -50,9 +50,9 @@ impl LinearPolynomial {
     pub fn from_bool(constant: bool) -> LinearPolynomial {
         let bound = RBound::single_bit_bound();
         let constant = if constant {
-            ConcreteBitvector::one(bound)
+            ConcreteBitvector::new_one(bound)
         } else {
-            ConcreteBitvector::zero(bound)
+            ConcreteBitvector::new_zero(bound)
         };
 
         LinearPolynomial::from_concrete(constant)

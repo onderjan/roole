@@ -1,4 +1,7 @@
-use crate::{domain::traits::forward::HwArith, problem::symbolic::SymbolicDomain};
+use crate::{
+    domain::{bitvector::abstr::BitvectorDomain, traits::forward::HwArith},
+    problem::symbolic::SymbolicDomain,
+};
 
 impl HwArith for SymbolicDomain {
     fn arith_neg(self) -> Self {
@@ -17,19 +20,31 @@ impl HwArith for SymbolicDomain {
         self.binary_op_try(rhs, |a, b| a.mul(b), false)
     }
 
-    fn udiv_wrapping_or_full(self, _rhs: Self) -> Self {
-        todo!("udiv")
+    fn udiv_wrapping_or_all_ones(self, rhs: Self) -> Self {
+        // TODO: division in symbolic domain
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+        Self::Top(bound)
     }
 
-    fn sdiv_wrapping_or_full(self, _rhs: Self) -> Self {
-        todo!("sdiv")
+    fn sdiv_wrapping_by_quadrants(self, rhs: Self) -> Self {
+        // TODO: division in symbolic domain
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+        Self::Top(bound)
     }
 
-    fn urem_wrapping_or_dividend(self, _rhs: Self) -> Self {
-        todo!("urem")
+    fn urem_wrapping_or_dividend(self, rhs: Self) -> Self {
+        // TODO: division in symbolic domain
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+        Self::Top(bound)
     }
 
-    fn srem_wrapping_or_dividend(self, _rhs: Self) -> Self {
-        todo!("srem")
+    fn srem_wrapping_by_quadrants(self, rhs: Self) -> Self {
+        // TODO: division in symbolic domain
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+        Self::Top(bound)
     }
 }

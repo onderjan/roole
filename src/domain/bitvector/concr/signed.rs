@@ -1,6 +1,6 @@
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, BitAnd, BitOr, BitXor, Div, Mul, Neg, Not, Rem, Shl, Shr, Sub},
+    ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Shl, Shr, Sub},
 };
 
 use crate::domain::{
@@ -92,24 +92,6 @@ impl<B: BitvectorBound> Mul<SignedBitvector<B>> for SignedBitvector<B> {
 
     fn mul(self, rhs: Self) -> Self::Output {
         Self(self.0.mul(rhs.0))
-    }
-}
-
-impl<B: BitvectorBound> Div<SignedBitvector<B>> for SignedBitvector<B> {
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self {
-        // signed division
-        Self(self.0.sdiv_wrapping_or_full(rhs.0))
-    }
-}
-
-impl<B: BitvectorBound> Rem<SignedBitvector<B>> for SignedBitvector<B> {
-    type Output = Self;
-
-    fn rem(self, rhs: Self) -> Self {
-        // signed remainder
-        Self(self.0.srem_wrapping_or_dividend(rhs.0))
     }
 }
 

@@ -2,13 +2,9 @@ use std::fmt::{Debug, Display};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    bitvector::{
-        interval::{SignedInterval, UnsignedInterval, WrappingInterval},
-        BitvectorBound,
-    },
-    concr::ConcreteBitvector,
-    misc::{CBound, RBound},
+use super::{
+    super::{BitvectorBound, CBound, RBound, concr::ConcreteBitvector},
+    SignedInterval, UnsignedInterval, WrappingInterval,
 };
 
 /// A signless interval with a minimum and a maximum value.
@@ -52,7 +48,7 @@ impl<B: BitvectorBound> SignlessInterval<B> {
 
     pub(crate) fn new_full_near_halfplane(bound: B) -> Self {
         Self {
-            min: ConcreteBitvector::<B>::zero(bound),
+            min: ConcreteBitvector::<B>::new_zero(bound),
             max: ConcreteBitvector::<B>::new_underhalf(bound),
         }
     }
@@ -60,7 +56,7 @@ impl<B: BitvectorBound> SignlessInterval<B> {
     pub(crate) fn new_full_far_halfplane(bound: B) -> Self {
         Self {
             min: ConcreteBitvector::<B>::new_overhalf(bound),
-            max: ConcreteBitvector::<B>::new_umax(bound),
+            max: ConcreteBitvector::<B>::new_all_ones(bound),
         }
     }
 

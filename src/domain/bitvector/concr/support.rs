@@ -42,14 +42,17 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         self.bound
     }
 
-    pub fn zero(bound: B) -> Self {
+    pub fn new_zero(bound: B) -> Self {
         Self { value: 0, bound }
     }
 
-    pub fn one(bound: B) -> Self {
-        // mask by bound to support zero-sized bitvectors
-        let one = 1 & bound.mask();
-        Self { value: one, bound }
+    pub fn new_one(bound: B) -> Self {
+        // if width is zero, one is the same element as zero
+        if bound.width() > 0 {
+            Self { value: 1, bound }
+        } else {
+            Self { value: 0, bound }
+        }
     }
 
     pub fn bit_mask(bound: B) -> Self {
@@ -125,11 +128,6 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         SignedBitvector::from_bitvector(self)
     }
 
-    pub fn new_umin(bound: B) -> Self {
-        // this is just zero
-        Self::zero(bound)
-    }
-
     pub fn new_underhalf(bound: B) -> Self {
         let value = bound.mask() ^ bound.sign_bit_mask();
         Self::from_masked_u64(value, bound)
@@ -140,9 +138,17 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         Self::from_masked_u64(value, bound)
     }
 
-    pub fn new_umax(bound: B) -> Self {
+    pub fn new_all_ones(bound: B) -> Self {
         let value = bound.mask();
         Self::from_masked_u64(value, bound)
+    }
+
+    pub fn new_bool_masked(value: bool, bound: B) -> Self {
+        if value {
+            Self::new_all_ones(bound)
+        } else {
+            Self::new_zero(bound)
+        }
     }
 
     pub fn as_runtime_bitvector(self) -> ConcreteBitvector<RBound> {
@@ -185,7 +191,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         };
         let inverse = Self::new(inverse, self.bound);
 
-        assert_eq!(inverse.mul(self), ConcreteBitvector::one(self.bound));
+        assert_eq!(inverse.mul(self), ConcreteBitvector::new_one(self.bound));
 
         Some(inverse)
     }
