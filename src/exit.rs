@@ -12,7 +12,7 @@ pub enum RooleResult {
 }
 
 /// Roole exit value.
-#[derive(FromPrimitive, ToPrimitive)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, FromPrimitive, ToPrimitive)]
 #[repr(u8)]
 pub enum ExitValue {
     Standard = 0,
