@@ -1,9 +1,6 @@
 use std::{
     env::VarError,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
+    sync::mpsc::{self, Sender},
     thread::JoinHandle,
     time::Duration,
 };
@@ -19,7 +16,7 @@ pub struct TimeLimit {
     start_time: ProcessTime,
     time_limit: Duration,
     join_handle: JoinHandle<()>,
-    should_finish: Arc<AtomicBool>,
+    finish_sender: Sender<()>,
 }
 
 #[must_use]
@@ -38,21 +35,22 @@ pub fn start() -> CpuTimeLimit {
     eprintln!("CPU time limited to {:?} ({})", time_limit, ENV_VAR_NAME);
 
     // start a thread that keeps checking the time limit
-
-    let should_finish = Arc::new(AtomicBool::new(false));
-    let should_finish_thread = Arc::clone(&should_finish);
+    let (finish_sender, finish_receiver) = mpsc::channel();
 
     let join_handle = std::thread::spawn(move || {
-        while !should_finish_thread.load(Ordering::SeqCst) {
-            let remaining_duration = check(start_time, time_limit);
-            std::thread::sleep(remaining_duration);
+        loop {
+            let (_taken_duration, remaining_duration) = check(start_time, time_limit);
+            if finish_receiver.recv_timeout(remaining_duration).is_ok() {
+                // we should finish monitoring
+                break;
+            }
         }
     });
 
     CpuTimeLimit(Some(TimeLimit {
         start_time,
         time_limit,
-        should_finish,
+        finish_sender,
         join_handle,
     }))
 }
@@ -62,23 +60,33 @@ impl CpuTimeLimit {
         let Some(inner) = self.0 else {
             return;
         };
-        inner.should_finish.store(true, Ordering::SeqCst);
+        // make the monitoring thread finish
+        // ignore if it cannot be done (worst case, we will wait for join forever)
+        let _ = inner.finish_sender.send(());
+        // join the monitoring thread
         if let Err(err) = inner.join_handle.join() {
             panic!("Could not join time-limit-keeping thread: {:?}", err)
         }
         // perform one final check that the limit was not exceeded
-        let _ = check(inner.start_time, inner.time_limit);
+        let (taken_duration, _) = check(inner.start_time, inner.time_limit);
+        eprintln!("Used CPU time: {:?}", taken_duration);
     }
 }
 
-fn check(start_time: ProcessTime, time_limit: Duration) -> Duration {
+fn check(start_time: ProcessTime, time_limit: Duration) -> (Duration, Duration) {
     let current_time = ProcessTime::now();
 
     let remaining = current_time.duration_since(start_time);
 
-    if let Some(remaining_duration) = time_limit.checked_sub(remaining) {
-        // we still have some duration remaining, return it
-        remaining_duration
+    if let Some(remaining_duration) = time_limit.checked_sub(remaining)
+        && !remaining_duration.is_zero()
+    {
+        let taken_duration = time_limit
+            .checked_sub(remaining_duration)
+            .unwrap_or(Duration::ZERO);
+
+        // we still have some duration remaining, return the split
+        (taken_duration, remaining_duration)
     } else {
         // timeout
         eprintln!("Time limit exceeded (set by {})", ENV_VAR_NAME);
