@@ -9,8 +9,7 @@ use std::{
 };
 
 use cpu_time::ProcessTime;
-
-use crate::exit::ExitValue;
+use roole::ExitValue;
 
 const ENV_VAR_NAME: &str = "ROOLE_CPU_TIME_LIMIT";
 

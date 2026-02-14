@@ -13,6 +13,7 @@ use itertools::Itertools;
 
 use crate::{
     domain::value::ThreeValued,
+    exit::RooleResult,
     problem::{
         Problem,
         formula::{
@@ -37,7 +38,7 @@ pub fn parse(
     reader: impl std::io::BufRead,
     path: PathBuf,
     settings: SolverSettings,
-) -> ParserResult {
+) -> RooleResult {
     // construct the parser
     let mut parser = Parser::new(settings);
 
@@ -63,17 +64,8 @@ pub fn parse(
     if parser.results.len() == 1 {
         parser.results[0]
     } else {
-        ParserResult::None
+        RooleResult::None
     }
-}
-
-/// Parser result.
-#[derive(Clone, Copy, Debug)]
-pub enum ParserResult {
-    None,
-    Unknown,
-    Known(bool),
-    Wrong(bool),
 }
 
 /// Parser structure.
@@ -91,7 +83,7 @@ struct Parser {
     /// List of assertions.
     assertions: Vec<FormulaId>,
     /// Results of check-sat calls.
-    results: Vec<ParserResult>,
+    results: Vec<RooleResult>,
 
     /// Solver settings.
     settings: SolverSettings,
@@ -216,20 +208,20 @@ impl Parser {
 
         let result = solver::solve(&problem, &self.settings);
 
-        self.results.push(self.parser_result(result));
+        self.results.push(self.solver_result(result));
     }
 
-    fn parser_result(&self, result: ThreeValued) -> ParserResult {
+    fn solver_result(&self, result: ThreeValued) -> RooleResult {
         let Some(result) = result.to_opt_bool() else {
-            return ParserResult::Unknown;
+            return RooleResult::Unknown;
         };
         if let Some(expected_result) = self.expected_result
             && expected_result != result
         {
             // definitely wrong result
-            return ParserResult::Wrong(result);
+            return RooleResult::Wrong(result);
         }
-        ParserResult::Known(result)
+        RooleResult::Known(result)
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {

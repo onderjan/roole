@@ -505,8 +505,10 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "indicatif",
+ "num-traits",
  "pathdiff",
  "rayon",
+ "roole",
  "walkdir",
 ]
 
@@ -555,6 +557,17 @@ checksum = "73f88a1307638156682bada9d7604135552957b7818057dcef22705b4d509495"
 dependencies = [
  "num-traits",
  "serde",
+]
+
+[[package]]
+name = "num-derive"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -803,6 +816,8 @@ dependencies = [
  "indicatif",
  "itertools",
  "num",
+ "num-derive",
+ "num-traits",
  "seq-macro",
  "serde",
 ]

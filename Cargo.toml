@@ -18,6 +18,8 @@ indexmap = "2.12.0"
 serde = "1.0.228"
 seq-macro = "0.3.6"
 itertools = "0.11.0"
+num-traits = "0.2"
+num-derive = "0.4"
 
 indicatif = "0.18.2"
 clap = { version = "4.5.53", features = ["derive"] }

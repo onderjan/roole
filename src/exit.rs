@@ -1,7 +1,18 @@
 use std::process::{ExitCode, Termination};
 
-use crate::parser::ParserResult;
+use num_derive::{FromPrimitive, ToPrimitive};
 
+/// Result of running Roole.
+#[derive(Clone, Copy, Debug)]
+pub enum RooleResult {
+    None,
+    Unknown,
+    Known(bool),
+    Wrong(bool),
+}
+
+/// Roole exit value.
+#[derive(FromPrimitive, ToPrimitive)]
 #[repr(u8)]
 pub enum ExitValue {
     Standard = 0,
@@ -15,18 +26,18 @@ pub enum ExitValue {
 }
 
 impl ExitValue {
-    pub fn from_parser_result(parser_result: ParserResult) -> Self {
-        match parser_result {
-            ParserResult::None => Self::Standard,
-            ParserResult::Unknown => Self::Unknown,
-            ParserResult::Known(value) => {
+    pub fn from_roole_result(roole_result: RooleResult) -> Self {
+        match roole_result {
+            RooleResult::None => Self::Standard,
+            RooleResult::Unknown => Self::Unknown,
+            RooleResult::Known(value) => {
                 if value {
                     Self::Satisfiable
                 } else {
                     Self::Unsatisfiable
                 }
             }
-            ParserResult::Wrong(value) => {
+            RooleResult::Wrong(value) => {
                 if value {
                     Self::WrongSatisfiable
                 } else {

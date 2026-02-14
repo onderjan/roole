@@ -1,0 +1,39 @@
+use std::io::BufReader;
+
+use crate::{args::Args, exit::RooleResult, solver::SolverSettings};
+
+mod domain;
+mod parser;
+mod problem;
+mod solver;
+
+pub mod args;
+mod exit;
+
+pub use exit::ExitValue;
+
+pub fn exec(args: Args) -> RooleResult {
+    // open the file to be read
+    let file = match std::fs::File::open(&args.input_file) {
+        Ok(ok) => ok,
+        Err(err) => {
+            panic!("File should be readable: {:?}", err);
+        }
+    };
+    let reader = BufReader::new(file);
+
+    // evaluate the file with the parser
+    eprintln!("Evaluating file {:?}", args.input_file);
+    let settings = SolverSettings {
+        output_dir: args.output_dir,
+        solver_mode: args.solver,
+        preprocess: args.preprocess,
+        hexadecimal: args.hexadecimal,
+    };
+
+    let roole_result = parser::parse(reader, args.input_file, settings);
+
+    eprintln!("Finished evaluation");
+
+    roole_result
+}

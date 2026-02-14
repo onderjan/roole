@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{
-    SolverMode,
+    args::SolverMode,
     domain::value::ThreeValued,
     problem::Problem,
     solver::internal::{InternalSolver, roole::RooleLearned},

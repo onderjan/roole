@@ -7,7 +7,7 @@ use std::{
     },
 };
 
-use crate::exit::ExitValue;
+use roole::ExitValue;
 
 const ENV_VAR_NAME: &str = "ROOLE_HEAP_LIMIT";
 

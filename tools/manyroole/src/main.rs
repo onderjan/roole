@@ -11,6 +11,7 @@ use std::{
 };
 
 use clap::Parser;
+use num_traits::FromPrimitive;
 use walkdir::WalkDir;
 
 struct ManyRoole {
@@ -86,17 +87,23 @@ impl ManyRoole {
         let executed = self.exec_roole(path);
 
         // TODO: get this from Exit
-        let output_type_dir = match executed.status.code() {
-            Some(10) => "sat",
-            Some(11) => "wrong_sat",
-            Some(20) => "unsat",
-            Some(21) => "wrong_unsat",
-            Some(47) => "unknown",
-            Some(51) => "time_limit",
-            Some(52) => "heap_limit",
-            Some(101) => "panic",
-            _ => "other",
-        };
+
+        let mut output_type_dir = "other";
+
+        if let Some(status_code) = executed.status.code()
+            && let Some(exit_value) = roole::ExitValue::from_i32(status_code)
+        {
+            output_type_dir = match exit_value {
+                roole::ExitValue::Standard => "standard",
+                roole::ExitValue::Satisfiable => "sat",
+                roole::ExitValue::WrongSatisfiable => "wrong_sat",
+                roole::ExitValue::Unsatisfiable => "unsat",
+                roole::ExitValue::WrongUnsatisfiable => "wrong_unsat",
+                roole::ExitValue::Unknown => "unknown",
+                roole::ExitValue::TimeLimitExceeded => "time_limit",
+                roole::ExitValue::HeapLimitExceeded => "heap_limit",
+            }
+        }
 
         let mut output_path = self.output_dir.clone().join(output_type_dir).join(path);
         output_path.set_extension("out");
