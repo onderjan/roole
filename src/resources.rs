@@ -6,7 +6,7 @@ mod heap_limit;
 #[must_use]
 pub fn init() -> Resources {
     let time_limit = cpu_time_limit::start();
-    heap_limit::init_heap_limit();
+    heap_limit::init();
 
     Resources { time_limit }
 }
@@ -18,5 +18,6 @@ pub struct Resources {
 impl Resources {
     pub fn finish(self) {
         self.time_limit.finish();
+        heap_limit::finish();
     }
 }

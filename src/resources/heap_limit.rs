@@ -1,6 +1,7 @@
 use std::{
     alloc::{GlobalAlloc, Layout, System},
     env::VarError,
+    num::{NonZero, NonZeroUsize},
     sync::{
         OnceLock,
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -11,9 +12,9 @@ use roole::ExitValue;
 
 const ENV_VAR_NAME: &str = "ROOLE_HEAP_LIMIT";
 
-pub fn init_heap_limit() {
+pub fn init() {
     let heap_limit = compute_heap_limit();
-    if heap_limit != usize::MAX {
+    if let HeapLimitValue::Limited(heap_limit) = heap_limit {
         eprintln!(
             "Heap size limited to {:?} bytes ({})",
             heap_limit, ENV_VAR_NAME
@@ -22,7 +23,20 @@ pub fn init_heap_limit() {
     let _ = HEAP_LIMIT.limit.set(heap_limit);
 }
 
-fn compute_heap_limit() -> usize {
+pub fn finish() {
+    if HEAP_LIMIT.is_definitely_limited() {
+        let max_allocated = HEAP_LIMIT.max_allocated.load(Ordering::SeqCst);
+        eprintln!("Maximal allocation size: {} bytes", max_allocated);
+    }
+}
+
+#[derive(Clone, Copy)]
+enum HeapLimitValue {
+    Limited(NonZeroUsize),
+    Unlimited,
+}
+
+fn compute_heap_limit() -> HeapLimitValue {
     let mut value = match std::env::var(ENV_VAR_NAME) {
         Ok(value) => value,
         Err(VarError::NotUnicode(_)) => {
@@ -30,13 +44,13 @@ fn compute_heap_limit() -> usize {
         }
         Err(VarError::NotPresent) => {
             // no heap limit
-            return usize::MAX;
+            return HeapLimitValue::Unlimited;
         }
     };
 
     let Some(unit_prefix) = value.pop() else {
         // consider empty variable unset, no heap limit
-        return usize::MAX;
+        return HeapLimitValue::Unlimited;
     };
 
     const THOUSAND: u128 = 1000;
@@ -62,17 +76,22 @@ fn compute_heap_limit() -> usize {
         );
     };
 
-    let Some(num_bytes) = value.checked_mul(multiplier) else {
-        // use the maximum value
-        return usize::MAX;
+    // compute the number of bytes, saturate
+    let num_bytes = value.saturating_mul(multiplier);
+    // convert to machine usize, saturate
+    let num_bytes = usize::try_from(num_bytes).unwrap_or(usize::MAX);
+
+    let Some(num_bytes) = NonZero::new(num_bytes) else {
+        panic!("{} cannot be zero", num_bytes);
     };
-    // convert to machine usize, use maximum value if it is bigger
-    usize::try_from(num_bytes).unwrap_or(usize::MAX)
+
+    HeapLimitValue::Limited(num_bytes)
 }
 
 struct HeapLimit {
-    limit: OnceLock<usize>,
+    limit: OnceLock<HeapLimitValue>,
     allocated: AtomicUsize,
+    max_allocated: AtomicUsize,
     exceeded: AtomicBool,
 }
 
@@ -80,8 +99,23 @@ struct HeapLimit {
 static HEAP_LIMIT: HeapLimit = HeapLimit {
     limit: OnceLock::new(),
     allocated: AtomicUsize::new(0),
+    max_allocated: AtomicUsize::new(0),
     exceeded: AtomicBool::new(false),
 };
+
+impl HeapLimit {
+    fn is_definitely_limited(&self) -> bool {
+        self.limit
+            .get()
+            .is_some_and(|limit| matches!(limit, HeapLimitValue::Limited(_)))
+    }
+
+    fn is_definitely_unlimited(&self) -> bool {
+        self.limit
+            .get()
+            .is_some_and(|limit| matches!(limit, HeapLimitValue::Unlimited))
+    }
+}
 
 unsafe impl GlobalAlloc for HeapLimit {
     /// Allocates memory.
@@ -101,21 +135,24 @@ unsafe impl GlobalAlloc for HeapLimit {
     /// in which case it sets `exceeded` to true before calling functions from std
     /// so that further allocations allocate normally with the limit exceeded.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // if the limit has not been set yet, consider that there is a limit with the maximum value
+        // if the limit variable has not been set yet, consider that there is a limit with the maximum value
         let limit = self.limit.get().cloned();
 
-        // if the limit has been already set to maximum, allocate normally without tracking
-        if limit.is_some_and(|limit| limit == usize::MAX) {
-            // SAFETY: since we are inside `GlobalAlloc::alloc`, we fulfil restrictions for `System.alloc`
-            return unsafe { System.alloc(layout) };
+        let limit = match limit {
+            Some(HeapLimitValue::Unlimited) => {
+                // if we know there is no limit, allocate normally without tracking
+                // SAFETY: since we are inside `GlobalAlloc::alloc`, we fulfil restrictions for `System.alloc`
+                return unsafe { System.alloc(layout) };
+            }
+            Some(HeapLimitValue::Limited(limit)) => limit,
+            None => {
+                // no limit specified, assume it is maximum but track allocations
+                NonZeroUsize::MAX
+            }
         };
 
-        // if the limit has not been set yet, assume it is maximum but track allocations
-        let limit = limit.unwrap_or(usize::MAX);
-
-        let allocation_size = layout.size();
-
         // add layout size to allocated, this can wrap around
+        let allocation_size = layout.size();
         let before_allocation = self.allocated.fetch_add(allocation_size, Ordering::SeqCst);
 
         let Some(after_allocation) = before_allocation.checked_add(allocation_size) else {
@@ -123,7 +160,7 @@ unsafe impl GlobalAlloc for HeapLimit {
             return std::ptr::null_mut();
         };
 
-        if after_allocation > limit {
+        if after_allocation > limit.get() {
             // limit was breached
             // to be able to print and exit with potential allocations, only fail when not exceeded already
             let exceeded_previously = self.exceeded.fetch_or(true, Ordering::SeqCst);
@@ -142,6 +179,10 @@ unsafe impl GlobalAlloc for HeapLimit {
         // if allocation failed, subtract the allocation size from allocated
         if allocated_ptr.is_null() {
             self.allocated.fetch_sub(allocation_size, Ordering::SeqCst);
+        } else {
+            // if allocation did not fail, update max_allocated to be at least after_allocation
+            self.max_allocated
+                .fetch_max(after_allocation, Ordering::SeqCst);
         }
 
         // return the allocated pointer
@@ -168,10 +209,8 @@ unsafe impl GlobalAlloc for HeapLimit {
             std::alloc::System.dealloc(ptr, layout);
         }
 
-        // do not track the deallocation if the allowed heap size has been definitely set to maximum
-        if let Some(limit) = self.limit.get()
-            && *limit == usize::MAX
-        {
+        // do not track the deallocation if the heap is definitely unlimited
+        if self.is_definitely_unlimited() {
             return;
         }
 
