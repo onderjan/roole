@@ -6,7 +6,6 @@ edition = "2024"
 
 [features]
 cadical = ["cadical-sys"]
-mem-limit = ["limit-alloc"]
 
 [workspace]
 members = ["tools/manyroole"]

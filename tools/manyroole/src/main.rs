@@ -16,7 +16,6 @@ use walkdir::WalkDir;
 struct ManyRoole {
     input_dir: PathBuf,
     output_dir: PathBuf,
-    limit_alloc: Option<u64>,
 }
 
 struct Stats {
@@ -54,16 +53,16 @@ impl Stats {
     }
 
     fn finish(&self) {
+        self.update_progress_bar();
         self.progress_bar.finish();
     }
 }
 
 impl ManyRoole {
-    fn new(input_dir: PathBuf, output_dir: PathBuf, limit_alloc: Option<u64>) -> Self {
+    fn new(input_dir: PathBuf, output_dir: PathBuf) -> Self {
         Self {
             input_dir,
             output_dir,
-            limit_alloc,
         }
     }
 
@@ -73,11 +72,6 @@ impl ManyRoole {
         command.arg("--release");
         command.arg("--bin");
         command.arg("roole");
-        if let Some(limit_alloc) = self.limit_alloc {
-            command.arg("--features");
-            command.arg("limit-alloc");
-            command.env("ROOLE_LIMIT_ALLOC", limit_alloc.to_string());
-        }
         command.arg("--");
         command.arg(path);
         command.arg("--solver");
@@ -213,8 +207,6 @@ impl ManyRoole {
             Self::process_summary(summary, &mut summary_file);
         }
 
-        eprintln!("Processed summaries");
-
         stats.finish();
     }
 }
@@ -237,7 +229,7 @@ fn main() {
 
     let output_dir = args.output_dir.unwrap_or(PathBuf::from("output/manyroole"));
 
-    let manyroole = ManyRoole::new(args.dir, output_dir, args.limit_alloc);
+    let manyroole = ManyRoole::new(args.dir, output_dir);
 
     manyroole.execute();
 }
