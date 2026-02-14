@@ -152,14 +152,15 @@ impl Stats {
 
 fn exit_value_str(exit_value: ExitValue) -> &'static str {
     match exit_value {
-        roole::ExitValue::Standard => "standard",
-        roole::ExitValue::Satisfiable => "sat",
-        roole::ExitValue::WrongSatisfiable => "wrong_sat",
-        roole::ExitValue::Unsatisfiable => "unsat",
-        roole::ExitValue::WrongUnsatisfiable => "wrong_unsat",
-        roole::ExitValue::Unknown => "unknown",
-        roole::ExitValue::TimeLimitExceeded => "time_limit",
-        roole::ExitValue::HeapLimitExceeded => "heap_limit",
+        ExitValue::Standard => "standard",
+        ExitValue::Satisfiable => "sat",
+        ExitValue::WrongSatisfiable => "wrong_sat",
+        ExitValue::Unsatisfiable => "unsat",
+        ExitValue::WrongUnsatisfiable => "wrong_unsat",
+        ExitValue::Unknown => "unknown",
+        ExitValue::TimeLimitExceeded => "time_limit",
+        ExitValue::HeapLimitExceeded => "heap_limit",
+        ExitValue::Panic => "panic",
     }
 }
 

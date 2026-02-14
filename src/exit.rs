@@ -23,6 +23,7 @@ pub enum ExitValue {
     Unknown = 47,
     TimeLimitExceeded = 61,
     HeapLimitExceeded = 62,
+    Panic = 101,
 }
 
 impl ExitValue {
