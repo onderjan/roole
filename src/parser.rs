@@ -9,6 +9,7 @@ use aws_smt_ir::{
     },
 };
 use indexmap::IndexMap;
+use itertools::Itertools;
 
 use crate::{
     domain::value::ThreeValued,
@@ -104,6 +105,13 @@ impl Scope {
             names: IndexMap::new(),
         }
     }
+}
+
+enum ReversePolishElement {
+    Term(Term),
+    Application(QualIdentifier, usize),
+    LetStart(Vec<Symbol>),
+    LetEnd,
 }
 
 impl Parser {
@@ -218,7 +226,71 @@ impl Parser {
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {
-        match term {
+        // To convert terms to formulas without recursion, we use an operation stack
+        // in a Polish notation with reversed order of arguments and a value stack.
+        // We evaluate the operation stack from the back to the front.
+        // Note that the operation stack has arguments in right-to-left order,
+        // while the value stack has results in left-to-right order.
+
+        let mut op_deque = Vec::new();
+        let mut value_stack = Vec::new();
+
+        op_deque.push(ReversePolishElement::Term(term));
+
+        while let Some(polish_element) = op_deque.pop() {
+            let formula_id = match polish_element {
+                ReversePolishElement::Term(term) => self.create_formula_inner(term, &mut op_deque),
+                ReversePolishElement::Application(qual_identifier, num_arguments) => {
+                    // take the arguments from the back of evaluated values, no need to reverse them
+                    assert!(num_arguments <= value_stack.len());
+                    let arguments = value_stack.split_off(value_stack.len() - num_arguments);
+                    assert_eq!(num_arguments, arguments.len());
+                    Some(self.create_formula_from_application(qual_identifier, arguments))
+                }
+                ReversePolishElement::LetStart(names) => {
+                    // take the binding values from the back of evaluated values, no need to reverse them
+                    assert!(names.len() <= value_stack.len());
+                    let values = value_stack.split_off(value_stack.len() - names.len());
+                    assert_eq!(names.len(), values.len());
+
+                    // push a new scope with the variable bindings
+                    let mut new_scope = Scope::new();
+                    for (name, value) in names.into_iter().zip(values) {
+                        new_scope.names.insert(name.0, value);
+                    }
+                    self.scopes.push(new_scope);
+
+                    // the next elements will be resolved
+                    None
+                }
+                ReversePolishElement::LetEnd => {
+                    // just pop the scope
+                    self.scopes.pop();
+
+                    None
+                }
+            };
+
+            // Evaluated terms place the resulting formula id at the end of the value stack.
+
+            if let Some(formula_id) = formula_id {
+                value_stack.push(formula_id);
+            }
+        }
+
+        let Ok(formula_id) = value_stack.into_iter().exactly_one() else {
+            panic!("Expected exactly one formula id on the value stack");
+        };
+
+        formula_id
+    }
+
+    fn create_formula_inner(
+        &mut self,
+        term: Term,
+        op_stack: &mut Vec<ReversePolishElement>,
+    ) -> Option<FormulaId> {
+        let result = match term {
             Term::Constant(constant) => match constant {
                 Constant::Binary(items) => {
                     let mut value = 0u64;
@@ -254,33 +326,45 @@ impl Parser {
             Term::Application {
                 qual_identifier,
                 arguments,
-            } => self.create_formula_from_application(qual_identifier, arguments),
+            } => {
+                // Application terms first push the application element to operation stack,
+                // followed by the argument terms in reverse order.
+                op_stack.push(ReversePolishElement::Application(
+                    qual_identifier,
+                    arguments.len(),
+                ));
+                op_stack.extend(arguments.into_iter().rev().map(ReversePolishElement::Term));
+                return None;
+            }
             Term::Let { var_bindings, term } => {
-                // push a new scope
-                self.scopes.push(Scope::new());
-
-                // add variable bindings
-                for (symbol, term) in var_bindings {
-                    let name = symbol.0;
-                    let formula_id = self.create_formula(term);
-
-                    self.current_scope_mut().names.insert(name, formula_id);
+                let mut var_symbols = Vec::new();
+                let mut var_terms = Vec::new();
+                for (var_symbol, var_term) in var_bindings {
+                    var_symbols.push(var_symbol);
+                    var_terms.push(var_term);
                 }
 
-                // evaluate subterm
-                let result = self.create_formula(*term);
+                // Let terms first push a let-and element that pops the scope,
+                // followed by the term inside let that will be evaluated in the scope,
+                // followed by a let-start element that adds a new scope with bindings from the value stack,
+                // followed by binding terms in reverse order.
 
-                // pop the scope
-                self.scopes.pop();
+                op_stack.push(ReversePolishElement::LetEnd);
+                op_stack.push(ReversePolishElement::Term(*term));
+                op_stack.push(ReversePolishElement::LetStart(var_symbols));
 
-                result
+                op_stack.extend(var_terms.into_iter().rev().map(ReversePolishElement::Term));
+
+                return None;
             }
             Term::Forall { .. } | Term::Exists { .. } => {
                 panic!("Quantifiers not supported")
             }
             Term::Match { .. } => panic!("Match not supported"),
             Term::Attributes { .. } => panic!("Attributes not supported"),
-        }
+        };
+
+        Some(result)
     }
 
     fn create_formula_from_identifier(&mut self, identifier: Identifier) -> FormulaId {

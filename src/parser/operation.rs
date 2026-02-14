@@ -1,7 +1,7 @@
 use std::num::NonZeroU32;
 
 use aws_smt_ir::smt2parser::{
-    concrete::{Identifier, QualIdentifier, Term},
+    concrete::{Identifier, QualIdentifier},
     visitors::Index,
 };
 use itertools::Itertools;
@@ -18,13 +18,8 @@ impl super::Parser {
     pub(super) fn create_formula_from_application(
         &mut self,
         qual_identifier: QualIdentifier,
-        term_arguments: Vec<Term>,
+        arguments: Vec<FormulaId>,
     ) -> FormulaId {
-        let mut arguments = Vec::new();
-        for argument in term_arguments {
-            arguments.push(self.create_formula(argument));
-        }
-
         let operation = match qual_identifier {
             QualIdentifier::Simple {
                 identifier: Identifier::Simple { symbol },
