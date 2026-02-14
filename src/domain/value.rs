@@ -71,6 +71,14 @@ impl ThreeValued {
             ThreeValued::False
         }
     }
+
+    pub fn to_opt_bool(self) -> Option<bool> {
+        match self {
+            ThreeValued::False => Some(false),
+            ThreeValued::True => Some(true),
+            ThreeValued::Unknown => None,
+        }
+    }
 }
 
 impl Not for ThreeValued {

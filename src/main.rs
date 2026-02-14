@@ -1,10 +1,11 @@
-use std::{fmt::Display, io::BufReader, path::PathBuf, process::ExitCode};
+use std::{fmt::Display, io::BufReader, path::PathBuf};
 
 use clap::{Parser, ValueEnum};
 
-use crate::{domain::value::ThreeValued, solver::SolverSettings};
+use crate::{exit::ExitValue, solver::SolverSettings};
 
 mod domain;
+mod exit;
 mod parser;
 mod problem;
 mod resources;
@@ -57,8 +58,8 @@ impl Display for SolverMode {
 ///
 /// Takes one argument, a path to an SMT-LIB2 file.
 /// Only the QF_BV logic is (partially) supported.
-fn main() -> ExitCode {
-    resources::init_resources();
+fn main() -> ExitValue {
+    let resources = resources::init();
 
     let args = Args::parse();
 
@@ -80,27 +81,13 @@ fn main() -> ExitCode {
         hexadecimal: args.hexadecimal,
     };
 
-    let parse_result = parser::parse(reader, args.input_file, settings);
+    let parser_result = parser::parse(reader, args.input_file, settings);
+    let exit = ExitValue::from_parser_result(parser_result);
+
     eprintln!("Finished evaluation");
 
-    // decide on an exit code
-    let exit_code: u8 = match parse_result {
-        Some(ThreeValued::False) => {
-            // SAT competition: unsatisfiable standard code 20
-            20
-        }
-        Some(ThreeValued::True) => {
-            // SAT competition: satisfiable standard code 10
-            10
-        }
-        Some(ThreeValued::Unknown) => {
-            // return 47 because it is a nice number
-            47
-        }
-        None => {
-            // default to 0
-            0
-        }
-    };
-    ExitCode::from(exit_code)
+    // ensure that the resources have not been exceeded
+    resources.finish();
+
+    exit
 }

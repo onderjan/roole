@@ -85,11 +85,15 @@ impl ManyRoole {
     fn process_smt2_file(&self, path: &Path, stats: &Stats, summary_sender: mpsc::Sender<Summary>) {
         let executed = self.exec_roole(path);
 
+        // TODO: get this from Exit
         let output_type_dir = match executed.status.code() {
             Some(10) => "sat",
+            Some(11) => "wrong_sat",
             Some(20) => "unsat",
+            Some(21) => "wrong_unsat",
             Some(47) => "unknown",
-            Some(64) => "wrong",
+            Some(51) => "time_limit",
+            Some(52) => "heap_limit",
             Some(101) => "panic",
             _ => "other",
         };

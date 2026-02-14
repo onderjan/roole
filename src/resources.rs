@@ -1,5 +1,22 @@
-mod heap_limit;
+use crate::resources::time_limit::TimeLimit;
 
-pub fn init_resources() {
+mod heap_limit;
+mod time_limit;
+
+#[must_use]
+pub fn init() -> Resources {
+    let time_limit = time_limit::start();
     heap_limit::init_heap_limit();
+
+    Resources { time_limit }
+}
+
+pub struct Resources {
+    time_limit: TimeLimit,
+}
+
+impl Resources {
+    pub fn finish(self) {
+        self.time_limit.finish();
+    }
 }

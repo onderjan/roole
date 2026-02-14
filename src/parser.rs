@@ -37,7 +37,7 @@ pub fn parse(
     reader: impl std::io::BufRead,
     path: PathBuf,
     settings: SolverSettings,
-) -> Option<ThreeValued> {
+) -> ParserResult {
     // construct the parser
     let mut parser = Parser::new(settings);
 
@@ -61,10 +61,19 @@ pub fn parse(
     }
 
     if parser.results.len() == 1 {
-        Some(parser.results[0])
+        parser.results[0]
     } else {
-        None
+        ParserResult::None
     }
+}
+
+/// Parser result.
+#[derive(Clone, Copy, Debug)]
+pub enum ParserResult {
+    None,
+    Unknown,
+    Known(bool),
+    Wrong(bool),
 }
 
 /// Parser structure.
@@ -82,7 +91,7 @@ struct Parser {
     /// List of assertions.
     assertions: Vec<FormulaId>,
     /// Results of check-sat calls.
-    results: Vec<ThreeValued>,
+    results: Vec<ParserResult>,
 
     /// Solver settings.
     settings: SolverSettings,
@@ -207,22 +216,20 @@ impl Parser {
 
         let result = solver::solve(&problem, &self.settings);
 
-        if result.is_known()
-            && let Some(expected_result) = self.expected_result
-        {
-            let our_result = result.is_true();
-            if expected_result != our_result {
-                eprintln!(
-                    "Wrong solver result, expected {}, but got {}",
-                    expected_result, our_result
-                );
-                // immediately exit with a unique status code
-                // TODO: make this less hacky by propagating the wrong result
-                std::process::exit(64)
-            }
-        }
+        self.results.push(self.parser_result(result));
+    }
 
-        self.results.push(result);
+    fn parser_result(&self, result: ThreeValued) -> ParserResult {
+        let Some(result) = result.to_opt_bool() else {
+            return ParserResult::Unknown;
+        };
+        if let Some(expected_result) = self.expected_result
+            && expected_result != result
+        {
+            // definitely wrong result
+            return ParserResult::Wrong(result);
+        }
+        ParserResult::Known(result)
     }
 
     fn create_formula(&mut self, term: Term) -> FormulaId {

@@ -3,9 +3,11 @@ use std::{
     env::VarError,
     sync::{
         OnceLock,
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
+
+use crate::exit::ExitValue;
 
 const ENV_VAR_NAME: &str = "ROOLE_HEAP_LIMIT";
 
@@ -71,15 +73,33 @@ fn compute_heap_limit() -> usize {
 struct HeapLimit {
     limit: OnceLock<usize>,
     allocated: AtomicUsize,
+    exceeded: AtomicBool,
 }
 
 #[global_allocator]
 static HEAP_LIMIT: HeapLimit = HeapLimit {
     limit: OnceLock::new(),
     allocated: AtomicUsize::new(0),
+    exceeded: AtomicBool::new(false),
 };
 
 unsafe impl GlobalAlloc for HeapLimit {
+    /// Allocates memory.
+    ///
+    /// # Safety
+    ///
+    /// This function does not unwind: either returns the allocated pointer,
+    /// returns a null pointer (leading to memory exhaustion), or prints and exits.
+    ///
+    /// No calculations are done, everything is forwarded to System allocator.
+    ///
+    /// There is no reliance on the allocations actually happening.
+    ///
+    /// # Re-entrance
+    ///
+    /// This function does not allocate unless the allocation limit is exceeded,
+    /// in which case it sets `exceeded` to true before calling functions from std
+    /// so that further allocations allocate normally with the limit exceeded.
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // if the limit has not been set yet, consider that there is a limit with the maximum value
         let limit = self.limit.get().cloned();
@@ -104,9 +124,15 @@ unsafe impl GlobalAlloc for HeapLimit {
         };
 
         if after_allocation > limit {
-            // limit was breached, signal memory exhaustion
-            // allocated must have wrapped around, signal memory exhaustion
-            return std::ptr::null_mut();
+            // limit was breached
+            // to be able to print and exit with potential allocations, only fail when not exceeded already
+            let exceeded_previously = self.exceeded.fetch_or(true, Ordering::SeqCst);
+
+            if !exceeded_previously {
+                // limit breached right now, print a message and terminate
+                eprintln!("Heap limit exceeded (set by {})", ENV_VAR_NAME);
+                std::process::exit(ExitValue::HeapLimitExceeded as i32);
+            }
         }
 
         // allocate normally
@@ -122,6 +148,19 @@ unsafe impl GlobalAlloc for HeapLimit {
         allocated_ptr
     }
 
+    /// Deallocates memory.
+    ///
+    /// # Safety
+    ///
+    /// This function does not unwind, just returns normally.
+    ///
+    /// No calculations are done, everything is forwarded to System allocator.
+    ///
+    /// There is no reliance on the allocations actually happening.
+    ///
+    /// # Re-entrance
+    ///
+    /// This function does not allocate.
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         // deallocate normally, this must succeed
         // SAFETY: since we are inside `GlobalAlloc::dealloc`, we fulfil restrictions for `System.dealloc`
