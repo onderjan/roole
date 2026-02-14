@@ -5,36 +5,38 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
     thread::JoinHandle,
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use cpu_time::ProcessTime;
 
 use crate::exit::ExitValue;
 
-const ENV_VAR_NAME: &str = "ROOLE_TIME_LIMIT";
+const ENV_VAR_NAME: &str = "ROOLE_CPU_TIME_LIMIT";
 
-pub struct TimeLimit(Option<SetTimeLimit>);
+pub struct CpuTimeLimit(Option<TimeLimit>);
 
-pub struct SetTimeLimit {
-    limit_instant: Instant,
+pub struct TimeLimit {
+    start_time: ProcessTime,
+    time_limit: Duration,
     join_handle: JoinHandle<()>,
     should_finish: Arc<AtomicBool>,
 }
 
 #[must_use]
-pub fn start() -> TimeLimit {
-    let start_time = Instant::now();
-    let Some(time_limit) = compute_time_limit() else {
-        return TimeLimit(None);
+pub fn start() -> CpuTimeLimit {
+    let start_time = ProcessTime::try_now();
+
+    let Some(time_limit) = compute_cpu_time_limit() else {
+        return CpuTimeLimit(None);
     };
 
-    let limit_instant = start_time
-        .checked_add(time_limit)
-        .expect("Limit time instant should be representable");
+    let start_time = match start_time {
+        Ok(ok) => ok,
+        Err(err) => panic!("CPU time cannot be limited as it cannot be read: {:?}", err),
+    };
 
-    eprintln!(
-        "Execution time limited to {:?} ({})",
-        time_limit, ENV_VAR_NAME
-    );
+    eprintln!("CPU time limited to {:?} ({})", time_limit, ENV_VAR_NAME);
 
     // start a thread that keeps checking the time limit
 
@@ -43,20 +45,20 @@ pub fn start() -> TimeLimit {
 
     let join_handle = std::thread::spawn(move || {
         while !should_finish_thread.load(Ordering::SeqCst) {
-            let sleep_duration = limit_instant.duration_since(Instant::now());
-            std::thread::sleep(sleep_duration);
-            check_time_limit(limit_instant);
+            let remaining_duration = check(start_time, time_limit);
+            std::thread::sleep(remaining_duration);
         }
     });
 
-    TimeLimit(Some(SetTimeLimit {
-        limit_instant,
+    CpuTimeLimit(Some(TimeLimit {
+        start_time,
+        time_limit,
         should_finish,
         join_handle,
     }))
 }
 
-impl TimeLimit {
+impl CpuTimeLimit {
     pub fn finish(self) {
         let Some(inner) = self.0 else {
             return;
@@ -65,22 +67,28 @@ impl TimeLimit {
         if let Err(err) = inner.join_handle.join() {
             panic!("Could not join time-limit-keeping thread: {:?}", err)
         }
-        check_time_limit(inner.limit_instant);
+        // perform one final check that the limit was not exceeded
+        let _ = check(inner.start_time, inner.time_limit);
     }
 }
 
-fn check_time_limit(limit_instant: Instant) {
-    let finish_time = Instant::now();
+fn check(start_time: ProcessTime, time_limit: Duration) -> Duration {
+    let current_time = ProcessTime::now();
 
-    if finish_time > limit_instant {
-        // we timeouted
+    let remaining = current_time.duration_since(start_time);
+
+    if let Some(remaining_duration) = time_limit.checked_sub(remaining) {
+        // we still have some duration remaining, return it
+        remaining_duration
+    } else {
+        // timeout
         eprintln!("Time limit exceeded (set by {})", ENV_VAR_NAME);
         // immediately end with timeout code
         std::process::exit(ExitValue::TimeLimitExceeded as i32);
     }
 }
 
-fn compute_time_limit() -> Option<Duration> {
+fn compute_cpu_time_limit() -> Option<Duration> {
     let mut value = match std::env::var(ENV_VAR_NAME) {
         Ok(value) => value,
         Err(VarError::NotUnicode(_)) => {
