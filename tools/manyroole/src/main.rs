@@ -8,6 +8,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         mpsc,
     },
+    time::{Duration, Instant},
 };
 
 use clap::Parser;
@@ -20,6 +21,7 @@ struct ManyRoole {
 }
 
 struct Stats {
+    start_instant: Instant,
     num_files: usize,
     num_processed_files: AtomicUsize,
     progress_bar: indicatif::ProgressBar,
@@ -32,6 +34,7 @@ struct Summary {
 
 impl Stats {
     fn new(num_files: usize) -> Self {
+        let start_instant = Instant::now();
         let progress_bar = indicatif::ProgressBar::new(num_files as u64);
         progress_bar.set_style(
             indicatif::ProgressStyle::with_template(
@@ -40,6 +43,7 @@ impl Stats {
             .unwrap(),
         );
         Self {
+            start_instant,
             num_files,
             num_processed_files: AtomicUsize::new(0),
             progress_bar,
@@ -48,8 +52,40 @@ impl Stats {
 
     fn update_progress_bar(&self) {
         let num_processed_files = self.num_processed_files.load(Ordering::SeqCst);
+        let current_instant = Instant::now();
+
+        let elapsed = current_instant
+            .checked_duration_since(self.start_instant)
+            .unwrap_or(Duration::ZERO);
+
+        // total estimated time: elapsed + remaining
+        // for 1 file: elapsed / num_processed_files
+        // for remaining files = elapsed * (num_remaining_files / num_processed_files)
+
+        let num_remaining_files = self.num_files - num_processed_files;
+
+        let remaining_ratio = num_remaining_files as f64 / num_processed_files as f64;
+
+        let remaining_seconds = elapsed.as_secs_f64() * remaining_ratio;
+
+        let completion_msg = if remaining_seconds.is_finite() && remaining_seconds >= 0. {
+            let remaining = Duration::from_secs_f64(remaining_seconds).as_secs();
+
+            let hours = remaining / 3600;
+            let minutes = (remaining / 60) % 60;
+            let seconds = remaining % 60;
+
+            format!(" ({:0>2}:{:0>2}:{:0>2} remaining)", hours, minutes, seconds)
+        } else {
+            String::new()
+        };
+
+        let message = format!(
+            "{}/{}{}",
+            num_processed_files, self.num_files, completion_msg
+        );
+
         self.progress_bar.set_position(num_processed_files as u64);
-        let message = format!("{}/{}", num_processed_files, self.num_files);
         self.progress_bar.set_message(message);
     }
 
