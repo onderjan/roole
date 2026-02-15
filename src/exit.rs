@@ -15,7 +15,7 @@ pub enum RooleResult {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, FromPrimitive, ToPrimitive)]
 #[repr(u8)]
 pub enum ExitValue {
-    Standard = 0,
+    Success = 0,
     Satisfiable = 10,
     WrongSatisfiable = 11,
     Unsatisfiable = 20,
@@ -29,7 +29,7 @@ pub enum ExitValue {
 impl ExitValue {
     pub fn from_roole_result(roole_result: RooleResult) -> Self {
         match roole_result {
-            RooleResult::None => Self::Standard,
+            RooleResult::None => Self::Success,
             RooleResult::Unknown => Self::Unknown,
             RooleResult::Known(value) => {
                 if value {

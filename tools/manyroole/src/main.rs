@@ -156,7 +156,7 @@ impl Stats {
 
 fn exit_value_str(exit_value: ExitValue) -> &'static str {
     match exit_value {
-        ExitValue::Standard => "standard",
+        ExitValue::Success => "success",
         ExitValue::Satisfiable => "sat",
         ExitValue::WrongSatisfiable => "wrong_sat",
         ExitValue::Unsatisfiable => "unsat",
