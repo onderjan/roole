@@ -2,7 +2,7 @@ use std::{
     env::VarError,
     sync::{
         Arc, LazyLock, Mutex,
-        mpsc::{self, Sender},
+        mpsc::{self, RecvTimeoutError, Sender},
     },
     thread::JoinHandle,
     time::Duration,
@@ -54,10 +54,15 @@ pub fn start() {
 
     let join_handle = std::thread::spawn(move || {
         loop {
-            let (_taken_duration, remaining_duration) = check(start_time, time_limit);
-            if finish_receiver.recv_timeout(remaining_duration).is_ok() {
-                // we should finish monitoring
-                break;
+            let remaining_duration = check(start_time, time_limit);
+            match finish_receiver.recv_timeout(remaining_duration) {
+                Ok(()) | Err(RecvTimeoutError::Disconnected) => {
+                    // received that we should finish monitoring or the other side disconnected, break
+                    break;
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    // receive timeout, continue looping
+                }
             }
         }
     });
@@ -94,7 +99,7 @@ pub fn finish() {
         panic!("Could not join time-limit-keeping thread: {:?}", err)
     }
     // perform one final check that the limit was not exceeded
-    let (_, _) = check(inner.start_time, limit.time_limit);
+    check(inner.start_time, limit.time_limit);
 }
 
 pub fn print_used() {
@@ -111,7 +116,7 @@ pub fn print_used() {
     eprintln!("Used CPU time: {:?}", taken_duration);
 }
 
-fn check(start_time: ProcessTime, time_limit: Duration) -> (Duration, Duration) {
+fn check(start_time: ProcessTime, time_limit: Duration) -> Duration {
     let current_time = ProcessTime::now();
 
     let remaining = current_time.duration_since(start_time);
@@ -119,12 +124,8 @@ fn check(start_time: ProcessTime, time_limit: Duration) -> (Duration, Duration) 
     if let Some(remaining_duration) = time_limit.checked_sub(remaining)
         && !remaining_duration.is_zero()
     {
-        let taken_duration = time_limit
-            .checked_sub(remaining_duration)
-            .unwrap_or(Duration::ZERO);
-
-        // we still have some duration remaining, return the split
-        (taken_duration, remaining_duration)
+        // we still have some duration remaining, return it
+        remaining_duration
     } else {
         // timeout, print resources, error message, and terminate
         resources::print_used();
