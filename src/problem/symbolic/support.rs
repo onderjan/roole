@@ -72,20 +72,20 @@ impl SymbolicDomain {
     ) -> Self {
         let bound = self.bound();
         assert_eq!(bound, rhs.bound());
+
+        let result_bound = if single_bit_result {
+            RBound::single_bit_bound()
+        } else {
+            bound
+        };
+
         let (SymbolicDomain::Linear(lhs), SymbolicDomain::Linear(rhs)) = (self, rhs) else {
-            return Self::Top(bound);
+            return Self::Top(result_bound);
         };
 
         match (linear_fn)(lhs, rhs) {
             Ok(system) => Self::Linear(system),
-            Err(_) => {
-                let result_bound = if single_bit_result {
-                    RBound::single_bit_bound()
-                } else {
-                    bound
-                };
-                Self::Top(result_bound)
-            }
+            Err(_) => Self::Top(result_bound),
         }
     }
 
