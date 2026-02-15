@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
+    eprintln!("Performing preprocessing");
     let mut evaluator = Evaluator::<SymbolicDomain>::new(problem);
     evaluator.evaluate_preprocess(&problem.linear_assignment());
 
