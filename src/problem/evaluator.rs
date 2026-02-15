@@ -1,24 +1,15 @@
-use std::{
-    collections::BTreeSet,
-    fmt::{Debug, Display, UpperHex},
-    num::NonZeroUsize,
+use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize};
+
+use crate::problem::{
+    Problem,
+    assignment::Assignment,
+    formula::{FormulaId, OperationId},
 };
 
-use crate::{
-    domain::{
-        bitvector::{
-            RBound,
-            abstr::{AbstractBitvector, BitvectorDomain},
-        },
-        traits::forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
-    },
-    problem::{
-        Problem,
-        assignment::Assignment,
-        formula::{FormulaId, OperationId, VariableId},
-        symbolic::SymbolicDomain,
-    },
-};
+mod domain;
+mod format;
+
+pub use domain::EvaluableDomain;
 
 pub struct Evaluator<'a, D: EvaluableDomain> {
     problem: &'a Problem,
@@ -203,8 +194,8 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         }
     }
 
-    fn get_result(&self, assignment: &Assignment<D>, formnula_id: FormulaId) -> Option<D> {
-        match formnula_id {
+    fn get_result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> Option<D> {
+        match formula_id {
             FormulaId::Variable(variable_id) => Some(assignment.value(variable_id).clone()),
             FormulaId::Operation(operation_id) => {
                 self.get_operation_result_ref(operation_id).cloned()
@@ -245,99 +236,5 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         }
 
         num_uses
-    }
-
-    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
-        let mut franz = f.debug_struct("Evaluator");
-
-        struct FieldStr<'a>(&'a str);
-        impl Debug for FieldStr<'_> {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                Display::fmt(&self.0, f)
-            }
-        }
-
-        for (variable_id, variable) in self.problem.variables.iter().enumerate() {
-            let variable_id = VariableId(variable_id);
-            franz.field(format!("{:?}", variable_id).as_str(), &variable);
-        }
-
-        for (operation_id, operation) in self.problem.operations.iter().enumerate() {
-            let result = &self.results[operation_id];
-            let operation_id = OperationId(operation_id);
-            let name = format!("{:?}", operation_id);
-
-            let mut value = if hex {
-                format!("{:#X}", operation)
-            } else {
-                format!("{:?}", operation)
-            };
-
-            if let Some(result) = result {
-                value = if hex {
-                    format!(
-                        "{} --({})-> {:#X}",
-                        value, result.remaining_uses, result.value
-                    )
-                } else {
-                    format!(
-                        "{} --({})-> {:?}",
-                        value, result.remaining_uses, result.value
-                    )
-                };
-            }
-
-            franz.field(&name, &FieldStr(&value));
-        }
-
-        franz.finish()
-    }
-}
-
-pub trait EvaluableDomain:
-    BitvectorDomain<Bound = RBound>
-    + HwArith
-    + Bitwise
-    + TypedEq<Output = Self>
-    + TypedCmp<Output = Self>
-    + HwShift<Output = Self>
-    + BExt<RBound, Output = Self>
-    + Debug
-    + UpperHex
-{
-    fn formula(formula: FormulaId, bound: RBound) -> Self;
-    fn used_ids(&self) -> Vec<FormulaId>;
-}
-
-impl EvaluableDomain for AbstractBitvector<RBound> {
-    fn formula(formula: FormulaId, bound: RBound) -> Self {
-        let _ = formula;
-        Self::top(bound)
-    }
-    fn used_ids(&self) -> Vec<FormulaId> {
-        // no used ids
-        Vec::new()
-    }
-}
-
-impl EvaluableDomain for SymbolicDomain {
-    fn formula(formula_id: FormulaId, bound: RBound) -> Self {
-        SymbolicDomain::from_formula(formula_id, bound)
-    }
-
-    fn used_ids(&self) -> Vec<FormulaId> {
-        SymbolicDomain::used_ids(self)
-    }
-}
-
-impl<D: EvaluableDomain> Debug for Evaluator<'_, D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format(f, false)
-    }
-}
-
-impl<D: EvaluableDomain> UpperHex for Evaluator<'_, D> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.format(f, true)
     }
 }
