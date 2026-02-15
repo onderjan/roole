@@ -21,6 +21,8 @@ impl Resources {
 }
 
 fn print_used() {
+    eprintln!("----------");
     cpu_time_limit::print_used();
     heap_limit::print_used();
+    eprintln!("----------");
 }
