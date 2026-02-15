@@ -1,7 +1,6 @@
-use std::fmt::Debug;
-
 use serde::{Deserialize, Serialize};
 
+mod format;
 pub mod operation;
 
 /// Formula id.
@@ -25,20 +24,18 @@ pub struct Variable {
     pub width: u32,
 }
 
-impl Debug for VariableId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "#{}", self.0)
+impl FormulaId {
+    pub fn operation_id(self) -> Option<OperationId> {
+        if let Self::Operation(operation_id) = self {
+            Some(operation_id)
+        } else {
+            None
+        }
     }
 }
 
-impl Debug for OperationId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "${}", self.0)
-    }
-}
-
-impl Debug for Variable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Bitvector({})", self.width)
+impl OperationId {
+    pub fn formula_id(self) -> FormulaId {
+        FormulaId::Operation(self)
     }
 }

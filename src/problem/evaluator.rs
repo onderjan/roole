@@ -60,29 +60,31 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         let mut op_stack = vec![self.problem.assertion];
         let mut resolve = Vec::new();
 
-        while let Some(formula) = op_stack.pop() {
-            self.evaluate_formula(assignment, formula, &mut op_stack, &mut resolve, preprocess);
+        while let Some(formula_id) = op_stack.pop() {
+            if let Some(operation_id) = formula_id.operation_id() {
+                self.evaluate_operation(
+                    assignment,
+                    operation_id,
+                    &mut op_stack,
+                    &mut resolve,
+                    preprocess,
+                );
+            }
         }
 
         self.get_result(assignment, self.problem.assertion)
             .expect("Assertion result should be present")
     }
 
-    fn evaluate_formula(
+    fn evaluate_operation(
         &mut self,
         assignment: &Assignment<D>,
-        formula_id: FormulaId,
+        operation_id: OperationId,
         op_stack: &mut Vec<FormulaId>,
         resolve: &mut Vec<FormulaId>,
         preprocess: bool,
     ) {
-        let operation_id = match formula_id {
-            FormulaId::Variable(_) => {
-                // nothing to evaluate
-                return;
-            }
-            FormulaId::Operation(operation_id) => operation_id,
-        };
+        let formula_id = operation_id.formula_id();
 
         let operation = &self.problem.operations[operation_id.0];
         let operation_used_ids = operation.used_ids();
@@ -153,23 +155,16 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         if domain_used_ids.contains(&formula_id) {
             return;
         }
-        let preserve_operation_ids = |a| {
-            if let FormulaId::Operation(a) = a {
-                Some(a)
-            } else {
-                None
-            }
-        };
 
         let operation_used_set = BTreeSet::from_iter(
             operation_used_ids
                 .into_iter()
-                .filter_map(preserve_operation_ids),
+                .filter_map(FormulaId::operation_id),
         );
         let domain_used_set = BTreeSet::from_iter(
             domain_used_ids
                 .into_iter()
-                .filter_map(preserve_operation_ids),
+                .filter_map(FormulaId::operation_id),
         );
 
         for newly_used in domain_used_set.difference(&operation_used_set) {
@@ -225,13 +220,13 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
 
         for operation in problem.operations.iter() {
             for used_id in operation.used_ids() {
-                if let FormulaId::Operation(operation_id) = used_id {
+                if let Some(operation_id) = used_id.operation_id() {
                     num_uses[operation_id.0] += 1;
                 }
             }
         }
 
-        if let FormulaId::Operation(operation_id) = problem.assertion {
+        if let Some(operation_id) = problem.assertion.operation_id() {
             num_uses[operation_id.0] += 1;
         }
 

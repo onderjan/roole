@@ -112,23 +112,21 @@ fn create_preprocessed(
         if redirected_id != old_id {
             // if redirected, just put this into old-to-new map
             let new_id = *old_to_new
-                .get(&FormulaId::Operation(redirected_id))
+                .get(&redirected_id.formula_id())
                 .expect("Redirected id should be in old-to-new map");
 
-            old_to_new.insert(FormulaId::Operation(old_id), new_id);
+            old_to_new.insert(old_id.formula_id(), new_id);
             continue;
         }
 
         // non-redirected operation
 
         let new_operation = used_formulas
-            .get(&FormulaId::Operation(old_id))
+            .get(&old_id.formula_id())
             .expect("Redirected id should be used");
 
         let new_operation = if let Some(SymbolicDomain::Linear(new_operation)) = new_operation
-            && !new_operation
-                .used_ids()
-                .contains(&FormulaId::Operation(old_id))
+            && !new_operation.used_ids().contains(&old_id.formula_id())
         {
             // keep the new operation
             Operation::Linear(new_operation.clone())
@@ -141,8 +139,8 @@ fn create_preprocessed(
         new_operations.push(new_operation.remapped(&old_to_new));
 
         // insert to old-to-new map
-        let new_id = FormulaId::Operation(OperationId(new_operations.len() - 1));
-        old_to_new.insert(FormulaId::Operation(old_id), new_id);
+        let new_id = OperationId(new_operations.len() - 1);
+        old_to_new.insert(old_id.formula_id(), new_id.formula_id());
     }
 
     let new_assertion = *old_to_new

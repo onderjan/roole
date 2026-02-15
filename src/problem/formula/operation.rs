@@ -366,15 +366,6 @@ impl Operation {
     }
 }
 
-impl Debug for FormulaId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FormulaId::Variable(variable_id) => variable_id.fmt(f),
-            FormulaId::Operation(operation_id) => operation_id.fmt(f),
-        }
-    }
-}
-
 impl Debug for Operation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.format(f, false)
