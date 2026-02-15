@@ -19,11 +19,9 @@ pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
         eprintln!("{:#?}", evaluator);
     }
 
-    let used_operations = used_operations(problem, &evaluator);
-
-    let redirects = unique_redirects(&used_operations);
-
-    let preprocessed = create_preprocessed(problem, used_operations, redirects);
+    let used_formulas = used_formulas(problem, &evaluator);
+    let redirects = redirects_to_equal(&used_formulas);
+    let preprocessed = create_preprocessed(problem, used_formulas, redirects);
 
     eprintln!("Preprocessed problem: ");
     if settings.hexadecimal {
@@ -35,106 +33,116 @@ pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
     preprocessed
 }
 
-fn used_operations<'a>(
+fn used_formulas<'a>(
     problem: &Problem,
     evaluator: &'a Evaluator<'a, SymbolicDomain>,
 ) -> BTreeMap<FormulaId, Option<&'a SymbolicDomain>> {
-    let mut used_operations = BTreeMap::new();
+    let mut used_formulas = BTreeMap::new();
     let mut stack = vec![problem.assertion()];
 
     while let Some(formula_id) = stack.pop() {
-        if used_operations.contains_key(&formula_id) {
+        if used_formulas.contains_key(&formula_id) {
+            // this formula is already marked as used
             continue;
         }
 
-        let redone = match formula_id {
+        let operation_id = match formula_id {
             FormulaId::Variable(_) => {
-                // nothing used by this
-                None
+                // no further formulas used by this variable, just insert it
+                used_formulas.insert(formula_id, None);
+                continue;
             }
-            FormulaId::Operation(operation_id) => {
-                let result = evaluator.result(operation_id);
-                let mut used_own_id = false;
-                for used_id in result.used_ids() {
-                    if used_id != formula_id {
-                        stack.push(used_id);
-                    } else {
-                        used_own_id = true;
-                    }
-                }
-
-                if used_own_id {
-                    let operation = problem.operation(operation_id);
-                    for used_id in operation.used_ids() {
-                        stack.push(used_id);
-                    }
-                    None
-                } else {
-                    Some(result)
-                }
-            }
+            FormulaId::Operation(operation_id) => operation_id,
         };
 
-        used_operations.insert(formula_id, redone);
+        let result = evaluator.get_operation_result_ref(operation_id);
+
+        let (really_used_ids, redone) = if let Some(result) = result {
+            let used_ids = result.used_ids();
+            if used_ids.contains(&formula_id) {
+                // use the operation ids instead
+                (problem.operation(operation_id).used_ids(), None)
+            } else {
+                (used_ids, Some(result))
+            }
+        } else {
+            // use the operation ids instead
+            (problem.operation(operation_id).used_ids(), None)
+        };
+
+        stack.extend(really_used_ids);
+
+        used_formulas.insert(formula_id, redone);
     }
 
-    used_operations
+    used_formulas
 }
 
 fn create_preprocessed(
     problem: &Problem,
-    used_operations: BTreeMap<FormulaId, Option<&SymbolicDomain>>,
-    redirects: BTreeMap<FormulaId, FormulaId>,
+    used_formulas: BTreeMap<FormulaId, Option<&SymbolicDomain>>,
+    operation_redirects: BTreeMap<OperationId, OperationId>,
 ) -> Problem {
     let mut old_to_new = BTreeMap::<FormulaId, FormulaId>::new();
 
     let mut new_variables = Vec::new();
     let mut new_operations = Vec::new();
 
-    for old_id in used_operations.keys().copied() {
+    for old_id in used_formulas.keys().copied() {
+        let old_id = match old_id {
+            FormulaId::Variable(variable_id) => {
+                // add the variable to the new problem
+                let variable = problem.variable(variable_id);
+                new_variables.push(variable.clone());
+
+                // insert to old-to-new
+                let new_id = FormulaId::Variable(VariableId(new_variables.len() - 1));
+                old_to_new.insert(old_id, new_id);
+                continue;
+            }
+            FormulaId::Operation(operation_id) => operation_id,
+        };
+
         // go through all redirects first
         let mut redirected_id = old_id;
-        while let Some(redirect) = redirects.get(&redirected_id) {
+        while let Some(redirect) = operation_redirects.get(&redirected_id) {
             redirected_id = *redirect;
         }
 
         if redirected_id != old_id {
             // if redirected, just put this into old-to-new map
             let new_id = *old_to_new
-                .get(&redirected_id)
+                .get(&FormulaId::Operation(redirected_id))
                 .expect("Redirected id should be in old-to-new map");
 
-            old_to_new.insert(old_id, new_id);
+            old_to_new.insert(FormulaId::Operation(old_id), new_id);
             continue;
         }
 
-        let new_operation = used_operations
-            .get(&old_id)
+        // non-redirected operation
+
+        let new_operation = used_formulas
+            .get(&FormulaId::Operation(old_id))
             .expect("Redirected id should be used");
 
-        let new_id = match old_id {
-            FormulaId::Variable(variable_id) => {
-                let variable = problem.variable(variable_id);
-                new_variables.push(variable.clone());
-                FormulaId::Variable(VariableId(new_variables.len() - 1))
-            }
-            FormulaId::Operation(operation_id) => {
-                let operation = if let Some(new_operation) = new_operation {
-                    match &new_operation {
-                        SymbolicDomain::Top(_) => problem.operation(operation_id),
-                        SymbolicDomain::Linear(linear) => &Operation::Linear(linear.clone()),
-                    }
-                } else {
-                    problem.operation(operation_id)
-                };
-
-                let operation = operation.remapped(&old_to_new);
-
-                new_operations.push(operation);
-                FormulaId::Operation(OperationId(new_operations.len() - 1))
-            }
+        let new_operation = if let Some(SymbolicDomain::Linear(new_operation)) = new_operation
+            && !new_operation
+                .used_ids()
+                .contains(&FormulaId::Operation(old_id))
+        {
+            // keep the new operation
+            Operation::Linear(new_operation.clone())
+        } else {
+            // replace by the original operation
+            problem.operation(old_id).clone()
         };
-        old_to_new.insert(old_id, new_id);
+
+        // push the remapped operation
+        new_operations.push(new_operation.remapped(&old_to_new));
+
+        // insert to old-to-new map
+        let new_id = FormulaId::Operation(OperationId(new_operations.len() - 1));
+        old_to_new.insert(FormulaId::Operation(old_id), new_id);
     }
 
     let new_assertion = *old_to_new
@@ -144,17 +152,23 @@ fn create_preprocessed(
     Problem::new(new_variables, new_operations, new_assertion)
 }
 
-fn unique_redirects(
-    used_operations: &BTreeMap<FormulaId, Option<&SymbolicDomain>>,
-) -> BTreeMap<FormulaId, FormulaId> {
+fn redirects_to_equal(
+    used_formulas: &BTreeMap<FormulaId, Option<&SymbolicDomain>>,
+) -> BTreeMap<OperationId, OperationId> {
+    // for each set of operations that are equal, redirects the operations
+    // with higher formula id to the one with the lowest formula id.
     let mut redirects = BTreeMap::new();
     let mut unique_operations = HashMap::new();
-    for (formula_id, operation) in used_operations.iter() {
-        let Some(operation) = *operation else {
+    for (formula_id, operation) in used_formulas.iter() {
+        let (FormulaId::Operation(operation_id), Some(operation)) = (*formula_id, *operation)
+        else {
             continue;
         };
         if let Some(unique_id) = unique_operations.get(operation).copied() {
-            redirects.insert(*formula_id, unique_id);
+            let FormulaId::Operation(unique_id) = unique_id else {
+                panic!("Unique formula with equal operation should be an operation");
+            };
+            redirects.insert(operation_id, unique_id);
         } else {
             unique_operations.insert(operation.clone(), *formula_id);
         }
