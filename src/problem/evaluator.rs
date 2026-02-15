@@ -1,9 +1,12 @@
 use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize};
 
-use crate::problem::{
-    Problem,
-    assignment::Assignment,
-    formula::{FormulaId, OperationId},
+use crate::{
+    domain::bitvector::RBound,
+    problem::{
+        Problem,
+        assignment::Assignment,
+        formula::{FormulaId, OperationId},
+    },
 };
 
 mod domain;
@@ -52,59 +55,61 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
     }
 
     fn evaluate_inner(&mut self, assignment: &Assignment<D>, preprocess: bool) -> D {
+        let Some(assertion_id) = self.problem.assertion.operation_id() else {
+            // assertion is on an operation, no need to evaluate anything
+            return self.result(assignment, self.problem.assertion);
+        };
+
         // must set previous results to None work with new assignment
         // keep the allocated vector for reuse
         for result in &mut self.results {
             *result = None;
         }
 
-        let mut op_stack = vec![self.problem.assertion];
+        let mut op_stack = vec![assertion_id];
         let mut resolve = Vec::new();
 
-        while let Some(formula_id) = op_stack.pop() {
-            if let Some(operation_id) = formula_id.operation_id() {
-                self.evaluate_operation(
-                    assignment,
-                    operation_id,
-                    &mut op_stack,
-                    &mut resolve,
-                    preprocess,
-                );
-            }
+        while let Some(operation_id) = op_stack.pop() {
+            self.evaluate_operation(
+                assignment,
+                operation_id,
+                &mut op_stack,
+                &mut resolve,
+                preprocess,
+            );
         }
 
-        self.get_result(assignment, self.problem.assertion)
-            .expect("Assertion result should be present")
+        self.result(assignment, self.problem.assertion)
     }
 
     fn evaluate_operation(
         &mut self,
         assignment: &Assignment<D>,
         operation_id: OperationId,
-        op_stack: &mut Vec<FormulaId>,
-        resolve: &mut Vec<FormulaId>,
+        op_stack: &mut Vec<OperationId>,
+        resolve: &mut Vec<OperationId>,
         preprocess: bool,
     ) {
-        let formula_id = operation_id.formula_id();
-
         let operation = &self.problem.operations[operation_id.0];
         let operation_used_ids = operation.used_ids();
 
         // resolve is empty here
 
-        for dependency in operation_used_ids.iter().rev().cloned() {
-            assert_ne!(dependency, formula_id);
-            if let FormulaId::Operation(dependency_operation_id) = dependency
-                && self.results[dependency_operation_id.0].is_none()
-            {
-                resolve.push(dependency);
+        for operation_dependency in operation_used_ids
+            .iter()
+            .rev()
+            .cloned()
+            .filter_map(FormulaId::operation_id)
+        {
+            if self.results[operation_dependency.0].is_none() {
+                resolve.push(operation_dependency);
             }
         }
 
         if !resolve.is_empty() {
-            // push the current formula id to operation stack before the dependencies
+            // push the current operation to operation stack before the dependencies
             // so the dependencies will get resolved before it is next encountered
-            op_stack.push(formula_id);
+            op_stack.push(operation_id);
             // append resolve to operation stack, empties it
             op_stack.append(resolve);
             return;
@@ -129,15 +134,13 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         };
         */
 
-        // replace top with formula
-        let evaluated = if evaluated == D::top(bound) {
-            D::formula(formula_id, bound)
-        } else {
-            evaluated
-        };
+        // if top value, do not store the result
+        if evaluated == D::top(bound) {
+            return;
+        }
 
         // update remaining uses
-        self.update_remaining_uses(formula_id, &evaluated, operation_used_ids);
+        self.update_remaining_uses(operation_id, &evaluated, operation_used_ids);
 
         self.results[operation_id.0] = Some(EvaluatorResult {
             value: evaluated,
@@ -147,26 +150,23 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
 
     fn update_remaining_uses(
         &mut self,
-        formula_id: FormulaId,
+        operation_id: OperationId,
         evaluated: &D,
         operation_used_ids: Vec<FormulaId>,
     ) {
-        let domain_used_ids = evaluated.used_ids();
-
-        if domain_used_ids.contains(&formula_id) {
-            return;
-        }
-
         let operation_used_set = BTreeSet::from_iter(
             operation_used_ids
                 .into_iter()
                 .filter_map(FormulaId::operation_id),
         );
         let domain_used_set = BTreeSet::from_iter(
-            domain_used_ids
+            evaluated
+                .used_ids()
                 .into_iter()
                 .filter_map(FormulaId::operation_id),
         );
+
+        assert!(!domain_used_set.contains(&operation_id));
 
         for newly_used in domain_used_set.difference(&operation_used_set) {
             if let Some(result) = &self.results[newly_used.0] {
@@ -190,11 +190,17 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         }
     }
 
-    fn get_result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> Option<D> {
+    fn result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> D {
         match formula_id {
-            FormulaId::Variable(variable_id) => Some(assignment.value(variable_id).clone()),
+            FormulaId::Variable(variable_id) => assignment.value(variable_id).clone(),
             FormulaId::Operation(operation_id) => {
-                self.get_operation_result_ref(operation_id).cloned()
+                if let Some(result) = self.get_operation_result_ref(operation_id) {
+                    result.clone()
+                } else {
+                    // return top
+                    let bound = RBound::new(self.problem.operation(operation_id).result_width());
+                    D::top(bound)
+                }
             }
         }
     }

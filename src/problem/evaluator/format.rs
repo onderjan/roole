@@ -45,12 +45,12 @@ impl<D: EvaluableDomain> Evaluator<'_, D> {
             if let Some(result) = result {
                 value = if hex {
                     format!(
-                        "{} --({})-> {:#X}",
+                        "{} -({})-> {:#X}",
                         value, result.remaining_uses, result.value
                     )
                 } else {
                     format!(
-                        "{} --({})-> {:?}",
+                        "{} -({})-> {:?}",
                         value, result.remaining_uses, result.value
                     )
                 };

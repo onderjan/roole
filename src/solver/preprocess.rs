@@ -57,22 +57,15 @@ fn used_formulas<'a>(
 
         let result = evaluator.get_operation_result_ref(operation_id);
 
-        let (really_used_ids, redone) = if let Some(result) = result {
-            let used_ids = result.used_ids();
-            if used_ids.contains(&formula_id) {
-                // use the operation ids instead
-                (problem.operation(operation_id).used_ids(), None)
-            } else {
-                (used_ids, Some(result))
-            }
+        if let Some(result) = result {
+            // consider the used ids from the domain value
+            stack.extend(result.used_ids());
         } else {
-            // use the operation ids instead
-            (problem.operation(operation_id).used_ids(), None)
-        };
+            // consider the used ids from the operation
+            stack.extend(problem.operation(operation_id).used_ids());
+        }
 
-        stack.extend(really_used_ids);
-
-        used_formulas.insert(formula_id, redone);
+        used_formulas.insert(formula_id, result);
     }
 
     used_formulas
@@ -120,14 +113,11 @@ fn create_preprocessed(
         }
 
         // non-redirected operation
-
         let new_operation = used_formulas
             .get(&old_id.formula_id())
             .expect("Redirected id should be used");
 
-        let new_operation = if let Some(SymbolicDomain::Linear(new_operation)) = new_operation
-            && !new_operation.used_ids().contains(&old_id.formula_id())
-        {
+        let new_operation = if let Some(SymbolicDomain::Linear(new_operation)) = new_operation {
             // keep the new operation
             Operation::Linear(new_operation.clone())
         } else {
