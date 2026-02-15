@@ -10,6 +10,7 @@ mod domain;
 mod format;
 
 pub use domain::EvaluableDomain;
+use itertools::Itertools;
 
 pub struct Evaluator<'a, D: EvaluableDomain> {
     problem: &'a Problem,
@@ -219,7 +220,8 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         let mut num_uses = vec![0; problem.operations.len()];
 
         for operation in problem.operations.iter() {
-            for used_id in operation.used_ids() {
+            // ensure the used ids are unique for a proper count
+            for used_id in operation.used_ids().into_iter().unique() {
                 if let Some(operation_id) = used_id.operation_id() {
                     num_uses[operation_id.0] += 1;
                 }
