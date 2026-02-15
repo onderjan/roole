@@ -15,26 +15,28 @@ use crate::resources;
 
 const ENV_VAR_NAME: &str = "ROOLE_CPU_TIME_LIMIT";
 
-pub struct CpuTimeLimit(Option<TimeLimit>);
+pub struct CpuTimeLimit {
+    start_time: ProcessTime,
+    limit: Option<TimeLimit>,
+}
 
 pub struct TimeLimit {
-    start_time: ProcessTime,
     time_limit: Duration,
     join_handle: JoinHandle<()>,
     finish_sender: Sender<()>,
 }
 
-static CPU_TIME_LIMIT: LazyLock<Arc<Mutex<CpuTimeLimit>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(CpuTimeLimit(None))));
+static CPU_TIME_LIMIT: LazyLock<Arc<Mutex<Option<CpuTimeLimit>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(None)));
 
 pub fn start() {
+    let start_time = ProcessTime::try_now();
+
     let mut guard = CPU_TIME_LIMIT
         .lock()
         .expect("Lock should not be already held");
 
-    assert!(guard.0.is_none());
-
-    let start_time = ProcessTime::try_now();
+    assert!(guard.is_none());
 
     let Some(time_limit) = compute_cpu_time_limit() else {
         return;
@@ -60,11 +62,13 @@ pub fn start() {
         }
     });
 
-    guard.0 = Some(TimeLimit {
+    *guard = Some(CpuTimeLimit {
         start_time,
-        time_limit,
-        finish_sender,
-        join_handle,
+        limit: Some(TimeLimit {
+            time_limit,
+            finish_sender,
+            join_handle,
+        }),
     });
 }
 
@@ -73,20 +77,24 @@ pub fn finish() {
         .lock()
         .expect("Lock should not be already held");
 
-    let Some(inner) = guard.0.take() else {
+    let Some(inner) = guard.as_mut() else {
+        return;
+    };
+
+    let Some(limit) = inner.limit.take() else {
         // no limit
         return;
     };
 
     // make the monitoring thread finish
     // ignore if it cannot be done (worst case, we will wait for join forever)
-    let _ = inner.finish_sender.send(());
+    let _ = limit.finish_sender.send(());
     // join the monitoring thread
-    if let Err(err) = inner.join_handle.join() {
+    if let Err(err) = limit.join_handle.join() {
         panic!("Could not join time-limit-keeping thread: {:?}", err)
     }
     // perform one final check that the limit was not exceeded
-    let (_, _) = check(inner.start_time, inner.time_limit);
+    let (_, _) = check(inner.start_time, limit.time_limit);
 }
 
 pub fn print_used() {
@@ -94,7 +102,7 @@ pub fn print_used() {
         .lock()
         .expect("Lock should not be already held");
 
-    let Some(inner) = guard.0.as_ref() else {
+    let Some(inner) = guard.as_ref() else {
         // no limit, do not print anything
         return;
     };
