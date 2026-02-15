@@ -1,12 +1,17 @@
 use std::{
     env::VarError,
-    sync::mpsc::{self, Sender},
+    sync::{
+        Arc, LazyLock, Mutex,
+        mpsc::{self, Sender},
+    },
     thread::JoinHandle,
     time::Duration,
 };
 
 use cpu_time::ProcessTime;
 use roole::ExitValue;
+
+use crate::resources;
 
 const ENV_VAR_NAME: &str = "ROOLE_CPU_TIME_LIMIT";
 
@@ -19,12 +24,20 @@ pub struct TimeLimit {
     finish_sender: Sender<()>,
 }
 
-#[must_use]
-pub fn start() -> CpuTimeLimit {
+static CPU_TIME_LIMIT: LazyLock<Arc<Mutex<CpuTimeLimit>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(CpuTimeLimit(None))));
+
+pub fn start() {
+    let mut guard = CPU_TIME_LIMIT
+        .lock()
+        .expect("Lock should not be already held");
+
+    assert!(guard.0.is_none());
+
     let start_time = ProcessTime::try_now();
 
     let Some(time_limit) = compute_cpu_time_limit() else {
-        return CpuTimeLimit(None);
+        return;
     };
 
     let start_time = match start_time {
@@ -47,30 +60,47 @@ pub fn start() -> CpuTimeLimit {
         }
     });
 
-    CpuTimeLimit(Some(TimeLimit {
+    guard.0 = Some(TimeLimit {
         start_time,
         time_limit,
         finish_sender,
         join_handle,
-    }))
+    });
 }
 
-impl CpuTimeLimit {
-    pub fn finish(self) {
-        let Some(inner) = self.0 else {
-            return;
-        };
-        // make the monitoring thread finish
-        // ignore if it cannot be done (worst case, we will wait for join forever)
-        let _ = inner.finish_sender.send(());
-        // join the monitoring thread
-        if let Err(err) = inner.join_handle.join() {
-            panic!("Could not join time-limit-keeping thread: {:?}", err)
-        }
-        // perform one final check that the limit was not exceeded
-        let (taken_duration, _) = check(inner.start_time, inner.time_limit);
-        eprintln!("Used CPU time: {:?}", taken_duration);
+pub fn finish() {
+    let mut guard = CPU_TIME_LIMIT
+        .lock()
+        .expect("Lock should not be already held");
+
+    let Some(inner) = guard.0.take() else {
+        // no limit
+        return;
+    };
+
+    // make the monitoring thread finish
+    // ignore if it cannot be done (worst case, we will wait for join forever)
+    let _ = inner.finish_sender.send(());
+    // join the monitoring thread
+    if let Err(err) = inner.join_handle.join() {
+        panic!("Could not join time-limit-keeping thread: {:?}", err)
     }
+    // perform one final check that the limit was not exceeded
+    let (_, _) = check(inner.start_time, inner.time_limit);
+}
+
+pub fn print_used() {
+    let guard = CPU_TIME_LIMIT
+        .lock()
+        .expect("Lock should not be already held");
+
+    let Some(inner) = guard.0.as_ref() else {
+        // no limit, do not print anything
+        return;
+    };
+
+    let taken_duration = ProcessTime::now().duration_since(inner.start_time);
+    eprintln!("Used CPU time: {:?}", taken_duration);
 }
 
 fn check(start_time: ProcessTime, time_limit: Duration) -> (Duration, Duration) {
@@ -88,9 +118,9 @@ fn check(start_time: ProcessTime, time_limit: Duration) -> (Duration, Duration) 
         // we still have some duration remaining, return the split
         (taken_duration, remaining_duration)
     } else {
-        // timeout
+        // timeout, print resources, error message, and terminate
+        resources::print_used();
         eprintln!("Time limit exceeded (set by {})", ENV_VAR_NAME);
-        // immediately end with timeout code
         std::process::exit(ExitValue::TimeLimitExceeded as i32);
     }
 }

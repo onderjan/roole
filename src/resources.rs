@@ -1,23 +1,26 @@
-use crate::resources::cpu_time_limit::CpuTimeLimit;
-
 mod cpu_time_limit;
 mod heap_limit;
 
 #[must_use]
 pub fn init() -> Resources {
-    let time_limit = cpu_time_limit::start();
+    cpu_time_limit::start();
     heap_limit::init();
 
-    Resources { time_limit }
+    Resources(())
 }
 
-pub struct Resources {
-    time_limit: CpuTimeLimit,
-}
+pub struct Resources(());
 
 impl Resources {
     pub fn finish(self) {
-        self.time_limit.finish();
+        cpu_time_limit::finish();
         heap_limit::finish();
+
+        print_used();
     }
+}
+
+fn print_used() {
+    cpu_time_limit::print_used();
+    heap_limit::print_used();
 }

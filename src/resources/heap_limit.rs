@@ -10,6 +10,8 @@ use std::{
 
 use roole::ExitValue;
 
+use crate::resources;
+
 const ENV_VAR_NAME: &str = "ROOLE_HEAP_LIMIT";
 
 pub fn init() {
@@ -24,9 +26,37 @@ pub fn init() {
 }
 
 pub fn finish() {
-    if HEAP_LIMIT.is_definitely_limited() {
-        let max_allocated = HEAP_LIMIT.max_allocated.load(Ordering::SeqCst);
-        eprintln!("Maximal allocation size: {} bytes", max_allocated);
+    // do nothing
+}
+
+pub fn print_used() {
+    if !HEAP_LIMIT.is_definitely_limited() {
+        // do not print
+        return;
+    }
+    let max_allocated = HEAP_LIMIT.max_allocated.load(Ordering::SeqCst);
+
+    if max_allocated < 1000 {
+        // print bytes
+        println!("Maximal allocation sum: {} B", max_allocated);
+        return;
+    }
+
+    // print kilobytes or above
+    let mut whole_part = max_allocated;
+    let mut fract_part;
+
+    for prefix in ['k', 'M', 'G', 'T'] {
+        (fract_part, whole_part) = (whole_part % 1000, whole_part / 1000);
+
+        if whole_part < 1000 || prefix == 'T' {
+            // print with this prefix
+            eprintln!(
+                "Maximal allocation sum: {}.{:0>3} {}B",
+                whole_part, fract_part, prefix
+            );
+            return;
+        }
     }
 }
 
@@ -166,7 +196,8 @@ unsafe impl GlobalAlloc for HeapLimit {
             let exceeded_previously = self.exceeded.fetch_or(true, Ordering::SeqCst);
 
             if !exceeded_previously {
-                // limit breached right now, print a message and terminate
+                // limit breached right now, print used resources, error message, and terminate
+                resources::print_used();
                 eprintln!("Heap limit exceeded (set by {})", ENV_VAR_NAME);
                 std::process::exit(ExitValue::HeapLimitExceeded as i32);
             }
