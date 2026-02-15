@@ -5,7 +5,7 @@ use crate::{
         bitvector::{RBound, concr::ConcreteBitvector},
         traits::forward::Bitwise,
     },
-    problem::{eval::EvaluableDomain, formula::FormulaId},
+    problem::{evaluator::EvaluableDomain, formula::FormulaId},
 };
 
 use super::LinearSystem;

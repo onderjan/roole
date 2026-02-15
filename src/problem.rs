@@ -9,7 +9,7 @@ use crate::{
         value::ThreeValued,
     },
     problem::{
-        eval::EvaluableDomain,
+        evaluator::EvaluableDomain,
         formula::{FormulaId, OperationId, Variable, VariableId, operation::Operation},
     },
 };
@@ -19,12 +19,12 @@ pub mod solution;
 
 mod assignment;
 mod decision;
-mod eval;
+mod evaluator;
 mod symbolic;
 
 pub use assignment::Assignment;
 pub use decision::Decision;
-pub use eval::Evaluator;
+pub use evaluator::Evaluator;
 pub use symbolic::SymbolicDomain;
 
 /// A satisfiability problem.

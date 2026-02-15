@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fmt::Debug};
 
 use crate::{
     domain::traits::forward::{TypedCmp, TypedEq},
-    problem::{eval::EvaluableDomain, formula::FormulaId},
+    problem::{evaluator::EvaluableDomain, formula::FormulaId},
 };
 
 #[derive(Clone)]

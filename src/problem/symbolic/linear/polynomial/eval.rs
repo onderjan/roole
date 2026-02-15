@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use super::{super::LinearSlice, LinearPolynomial};
 use crate::{
     domain::bitvector::{RBound, concr::ConcreteBitvector},
-    problem::{eval::EvaluableDomain, formula::FormulaId},
+    problem::{evaluator::EvaluableDomain, formula::FormulaId},
 };
 
 impl LinearPolynomial {

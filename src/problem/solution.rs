@@ -8,7 +8,7 @@ use crate::{
         },
         value::ThreeValued,
     },
-    problem::{Evaluator, assignment::Assignment, decision::Decision, eval::EvaluableDomain},
+    problem::{Evaluator, assignment::Assignment, decision::Decision, evaluator::EvaluableDomain},
 };
 
 use super::Problem;
