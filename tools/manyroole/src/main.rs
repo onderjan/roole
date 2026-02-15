@@ -16,12 +16,16 @@ use std::{
 
 use clap::Parser;
 use num_traits::FromPrimitive;
-use roole::ExitValue;
+use roole::{
+    ExitValue,
+    args::{DEFAULT_SOLVER_MODE, SolverMode},
+};
 use walkdir::WalkDir;
 
 struct ManyRoole {
     input_dir: PathBuf,
     output_dir: PathBuf,
+    solver_mode: SolverMode,
 }
 
 struct Stats {
@@ -165,10 +169,11 @@ fn exit_value_str(exit_value: ExitValue) -> &'static str {
 }
 
 impl ManyRoole {
-    fn new(input_dir: PathBuf, output_dir: PathBuf) -> Self {
+    fn new(input_dir: PathBuf, output_dir: PathBuf, solver_mode: SolverMode) -> Self {
         Self {
             input_dir,
             output_dir,
+            solver_mode,
         }
     }
 
@@ -181,7 +186,7 @@ impl ManyRoole {
         command.arg("--");
         command.arg(path);
         command.arg("--solver");
-        command.arg("none");
+        command.arg(self.solver_mode.to_string());
         command.arg("--preprocess");
         command.arg("--hexadecimal");
 
@@ -330,9 +335,9 @@ struct Args {
     /// Directory in which the outputs will be put.
     #[arg(long)]
     output_dir: Option<PathBuf>,
-    /// Number of bytes to which to limit memory allocation by each Roole instance.
-    #[arg(long)]
-    limit_alloc: Option<u64>,
+    /// The solver to use.
+    #[arg(long, default_value_t = DEFAULT_SOLVER_MODE)]
+    solver: SolverMode,
 }
 
 fn main() {
@@ -340,7 +345,7 @@ fn main() {
 
     let output_dir = args.output_dir.unwrap_or(PathBuf::from("output/manyroole"));
 
-    let manyroole = ManyRoole::new(args.dir, output_dir);
+    let manyroole = ManyRoole::new(args.dir, output_dir, args.solver);
 
     manyroole.execute();
 }

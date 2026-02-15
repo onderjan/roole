@@ -11,7 +11,7 @@ pub struct Args {
 
     pub input_file: PathBuf,
 
-    #[arg(short, long, default_value_t = SolverMode::Internal)]
+    #[arg(short, long, default_value_t = DEFAULT_SOLVER_MODE)]
     pub solver: SolverMode,
 
     #[arg(short, long)]
@@ -30,6 +30,8 @@ pub enum SolverMode {
     /// Do not use any solver
     None,
 }
+
+pub const DEFAULT_SOLVER_MODE: SolverMode = SolverMode::Internal;
 
 impl Display for SolverMode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
