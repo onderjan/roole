@@ -12,7 +12,7 @@ mod support;
 use serde::{Deserialize, Serialize};
 
 use crate::domain::bitvector::RBound;
-use linear::LinearSystem;
+pub use linear::LinearSystem;
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SymbolicDomain {

@@ -25,7 +25,7 @@ mod symbolic;
 pub use assignment::Assignment;
 pub use decision::Decision;
 pub use evaluator::Evaluator;
-pub use symbolic::SymbolicDomain;
+pub use symbolic::{LinearSystem, SymbolicDomain};
 
 /// A satisfiability problem.
 pub struct Problem {

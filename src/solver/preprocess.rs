@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use crate::{
     problem::{
-        Evaluator, Problem, SymbolicDomain,
+        Evaluator, LinearSystem, Problem, SymbolicDomain,
         formula::{FormulaId, OperationId, VariableId, operation::Operation},
     },
     solver::SolverSettings,
@@ -37,7 +37,7 @@ pub fn preprocess(problem: &Problem, settings: &SolverSettings) -> Problem {
 fn used_formulas<'a>(
     problem: &Problem,
     evaluator: &'a Evaluator<'a, SymbolicDomain>,
-) -> BTreeMap<FormulaId, Option<&'a SymbolicDomain>> {
+) -> BTreeMap<FormulaId, Option<&'a LinearSystem>> {
     let mut used_formulas = BTreeMap::new();
     let mut stack = vec![problem.assertion()];
 
@@ -58,15 +58,16 @@ fn used_formulas<'a>(
 
         let result = evaluator.get_operation_result_ref(operation_id);
 
-        if let Some(result) = result {
+        if let SymbolicDomain::Linear(linear) = result {
+            // we can replace the operation
             // consider the used ids from the domain value
-            stack.extend(result.used_ids());
+            stack.extend(linear.used_ids());
+            used_formulas.insert(formula_id, Some(linear));
         } else {
-            // consider the used ids from the operation
+            // fall back to the operation
             stack.extend(problem.operation(operation_id).used_ids());
+            used_formulas.insert(formula_id, None);
         }
-
-        used_formulas.insert(formula_id, result);
     }
 
     used_formulas
@@ -74,7 +75,7 @@ fn used_formulas<'a>(
 
 fn create_preprocessed(
     problem: &Problem,
-    used_formulas: BTreeMap<FormulaId, Option<&SymbolicDomain>>,
+    used_formulas: BTreeMap<FormulaId, Option<&LinearSystem>>,
     operation_redirects: BTreeMap<OperationId, OperationId>,
 ) -> Problem {
     let mut old_to_new = BTreeMap::<FormulaId, FormulaId>::new();
@@ -114,13 +115,13 @@ fn create_preprocessed(
         }
 
         // non-redirected operation
-        let new_operation = used_formulas
+        let new_operation = *used_formulas
             .get(&old_id.formula_id())
             .expect("Redirected id should be used");
 
-        let new_operation = if let Some(SymbolicDomain::Linear(new_operation)) = new_operation {
+        let new_operation = if let Some(linear) = new_operation {
             // keep the new operation
-            Operation::Linear(new_operation.clone())
+            Operation::Linear(linear.clone())
         } else {
             // replace by the original operation
             problem.operation(old_id).clone()
@@ -142,7 +143,7 @@ fn create_preprocessed(
 }
 
 fn redirects_to_equal(
-    used_formulas: &BTreeMap<FormulaId, Option<&SymbolicDomain>>,
+    used_formulas: &BTreeMap<FormulaId, Option<&LinearSystem>>,
 ) -> BTreeMap<OperationId, OperationId> {
     // for each set of operations that are equal, redirects the operations
     // with higher formula id to the one with the lowest formula id.

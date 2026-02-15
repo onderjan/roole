@@ -41,19 +41,17 @@ impl<D: EvaluableDomain> Evaluator<'_, D> {
             } else {
                 format!("{:?}", operation)
             };
-
             if let Some(result) = result {
-                value = if hex {
-                    format!(
-                        "{} -({})-> {:#X}",
-                        value, result.remaining_uses, result.value
-                    )
+                if result.value.is_top() {
+                    value += "*";
                 } else {
-                    format!(
-                        "{} -({})-> {:?}",
-                        value, result.remaining_uses, result.value
-                    )
-                };
+                    value += &format!(" -({})-> ", result.remaining_uses);
+                    if hex {
+                        value += &format!("{:#X}", result.value)
+                    } else {
+                        value += &format!("{:?}", result.value)
+                    }
+                }
             }
 
             franz.field(&name, &FieldStr(&value));

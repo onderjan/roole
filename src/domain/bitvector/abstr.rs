@@ -24,6 +24,10 @@ pub trait BitvectorDomain: Clone + Hash + Join + PartialEq + Eq {
     fn top(bound: Self::Bound) -> Self;
 
     fn concrete_value(&self) -> Option<ConcreteBitvector<Self::Bound>>;
+
+    fn is_top(&self) -> bool {
+        self == &Self::top(self.bound())
+    }
 }
 
 pub trait ExtendedBitvectorDomain: BitvectorDomain {

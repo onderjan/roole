@@ -23,7 +23,7 @@ pub trait EvaluableDomain:
     + UpperHex
 {
     fn formula(formula: FormulaId, bound: RBound) -> Self;
-    fn used_ids(&self) -> Vec<FormulaId>;
+    fn used_ids(&self) -> Option<Vec<FormulaId>>;
 }
 
 impl EvaluableDomain for AbstractBitvector<RBound> {
@@ -31,9 +31,9 @@ impl EvaluableDomain for AbstractBitvector<RBound> {
         let _ = formula;
         Self::top(bound)
     }
-    fn used_ids(&self) -> Vec<FormulaId> {
-        // no used ids
-        Vec::new()
+    fn used_ids(&self) -> Option<Vec<FormulaId>> {
+        // no used ids tracked
+        None
     }
 }
 
@@ -42,7 +42,7 @@ impl EvaluableDomain for SymbolicDomain {
         SymbolicDomain::from_formula(formula_id, bound)
     }
 
-    fn used_ids(&self) -> Vec<FormulaId> {
+    fn used_ids(&self) -> Option<Vec<FormulaId>> {
         SymbolicDomain::used_ids(self)
     }
 }

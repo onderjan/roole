@@ -1,12 +1,9 @@
 use std::{collections::BTreeSet, fmt::Debug, num::NonZeroUsize};
 
-use crate::{
-    domain::bitvector::RBound,
-    problem::{
-        Problem,
-        assignment::Assignment,
-        formula::{FormulaId, OperationId},
-    },
+use crate::problem::{
+    Problem,
+    assignment::Assignment,
+    formula::{FormulaId, OperationId},
 };
 
 mod domain;
@@ -121,26 +118,22 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         };
 
         let evaluated = operation.evaluate(|formula_id| self.fetch_result(assignment, formula_id));
-        let bound = evaluated.bound();
 
         // for debugging, we can disqualify some operations from preprocessing
         // this is useful for tracking bugs in preprocessing
         let _ = preprocess;
         /*
         let evaluated = if preprocess && operation_id.0 > XYZ {
-            D::top(bound)
+            D::top(evaluated.bound())
         } else {
             evaluated
         };
         */
 
-        // if top value, do not store the result
-        if evaluated == D::top(bound) {
-            return;
+        // if the domain value tracks use, update remaining uses
+        if let Some(domain_used_ids) = evaluated.used_ids() {
+            self.update_remaining_uses(operation_id, operation_used_ids, domain_used_ids);
         }
-
-        // update remaining uses
-        self.update_remaining_uses(operation_id, &evaluated, operation_used_ids);
 
         self.results[operation_id.0] = Some(EvaluatorResult {
             value: evaluated,
@@ -151,8 +144,8 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
     fn update_remaining_uses(
         &mut self,
         operation_id: OperationId,
-        evaluated: &D,
         operation_used_ids: Vec<FormulaId>,
+        domain_used_ids: Vec<FormulaId>,
     ) {
         let operation_used_set = BTreeSet::from_iter(
             operation_used_ids
@@ -160,8 +153,7 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
                 .filter_map(FormulaId::operation_id),
         );
         let domain_used_set = BTreeSet::from_iter(
-            evaluated
-                .used_ids()
+            domain_used_ids
                 .into_iter()
                 .filter_map(FormulaId::operation_id),
         );
@@ -194,21 +186,16 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         match formula_id {
             FormulaId::Variable(variable_id) => assignment.value(variable_id).clone(),
             FormulaId::Operation(operation_id) => {
-                if let Some(result) = self.get_operation_result_ref(operation_id) {
-                    result.clone()
-                } else {
-                    // return top
-                    let bound = RBound::new(self.problem.operation(operation_id).result_width());
-                    D::top(bound)
-                }
+                self.get_operation_result_ref(operation_id).clone()
             }
         }
     }
 
-    pub fn get_operation_result_ref(&self, operation_id: OperationId) -> Option<&D> {
-        self.results[operation_id.0]
+    pub fn get_operation_result_ref(&self, operation_id: OperationId) -> &D {
+        &self.results[operation_id.0]
             .as_ref()
-            .map(|result| &result.value)
+            .expect("Result should be present")
+            .value
     }
 
     fn fetch_result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> D {

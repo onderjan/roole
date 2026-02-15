@@ -10,10 +10,13 @@ use crate::{
 };
 
 impl SymbolicDomain {
-    pub fn used_ids(&self) -> Vec<FormulaId> {
+    pub fn used_ids(&self) -> Option<Vec<FormulaId>> {
         match &self {
-            SymbolicDomain::Top(_) => vec![],
-            SymbolicDomain::Linear(linear) => linear.used_ids(),
+            SymbolicDomain::Top(_) => {
+                // top does not track used ids
+                None
+            }
+            SymbolicDomain::Linear(linear) => Some(linear.used_ids()),
         }
     }
 
