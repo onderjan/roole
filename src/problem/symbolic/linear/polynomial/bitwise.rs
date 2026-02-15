@@ -101,14 +101,16 @@ impl LinearPolynomial {
             let turned_off_slice = new_slice_output_mask.sub(with_slice_turned_off);
 
             // construct the monomial from the turned-off slice
-            let turned_off_slice =
+            let mut turned_off_slice =
                 LinearSlice::from_mask(monomial.slice.formula_id, turned_off_slice);
 
             let turned_off_lsb = ConcreteBitvector::new(turned_off_slice.lsb.into(), bound);
 
-            // we must compensate possibly non-zero lsb of the turned-off slice
-            // by shifting the coefficient by it
+            // we must compensate possibly non-zero lsb of the turned-off slice by shifting the coefficient by it
             let turned_off_coefficient = coefficient.logic_shl(turned_off_lsb);
+
+            // add the original lsb to the turned off slice
+            turned_off_slice.lsb += monomial.slice.lsb;
 
             let turned_off_polynomial = LinearPolynomial::from_monomial(LinearMonomial::new(
                 turned_off_coefficient,
@@ -122,5 +124,68 @@ impl LinearPolynomial {
 
         // we are done
         Ok(new_polynomial)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZero;
+
+    use crate::{
+        domain::bitvector::{RBound, concr::ConcreteBitvector},
+        problem::{
+            formula::{FormulaId, VariableId},
+            symbolic::linear::monomial::LinearMonomial,
+        },
+    };
+
+    use super::*;
+
+    use super::super::LinearSlice;
+
+    #[test]
+    fn test_bitwise() {
+        let bound = RBound::new(32);
+
+        let a = LinearPolynomial::from_concrete(ConcreteBitvector::new(0x4000000, bound));
+
+        let b = LinearPolynomial::from_monomial(LinearMonomial::new(
+            ConcreteBitvector::new(1, bound),
+            LinearSlice {
+                formula_id: FormulaId::Variable(VariableId(0)),
+                lsb: 1,
+                width: NonZero::new(31).unwrap(),
+            },
+        ));
+
+        let and_result = LinearPolynomial::from_monomial(LinearMonomial::new(
+            ConcreteBitvector::new(0x4000000, bound),
+            LinearSlice {
+                formula_id: FormulaId::Variable(VariableId(0)),
+                lsb: 27,
+                width: NonZero::new(1).unwrap(),
+            },
+        ));
+        let or_result = LinearPolynomial::from_monomial_and_constant(
+            LinearMonomial::new(
+                ConcreteBitvector::new(1, bound),
+                LinearSlice {
+                    formula_id: FormulaId::Variable(VariableId(0)),
+                    lsb: 1,
+                    width: NonZero::new(26).unwrap(),
+                },
+            ),
+            ConcreteBitvector::new(0x4000000, bound),
+        )
+        .add(LinearPolynomial::from_monomial(LinearMonomial::new(
+            ConcreteBitvector::new(0x8000000, bound),
+            LinearSlice {
+                formula_id: FormulaId::Variable(VariableId(0)),
+                lsb: 28,
+                width: NonZero::new(4).unwrap(),
+            },
+        )));
+        assert_eq!(a.clone().bitwise_combine(b.clone(), true), Ok(and_result));
+        assert_eq!(a.bitwise_combine(b, false), Ok(or_result));
     }
 }
