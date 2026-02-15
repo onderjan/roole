@@ -181,27 +181,28 @@ impl Parser {
     fn check_sat(&mut self) {
         // construct one result assertion by doing bit-ands
         // of all assertions
-        let mut result_assertion = None;
-        for assertion in &self.assertions {
-            result_assertion = match result_assertion {
+        let mut assertion = None;
+        for partial_assertion in &self.assertions {
+            assertion = match assertion {
                 Some(result_assertion) => {
                     self.operations.push(Operation::BiOp(BiOp {
                         op: BiOperator::BitAnd,
                         input_width: 1,
                         left: result_assertion,
-                        right: *assertion,
+                        right: *partial_assertion,
                     }));
 
-                    Some(FormulaId::Operation(OperationId(self.operations.len() - 1)))
+                    Some(OperationId(self.operations.len() - 1).formula_id())
                 }
-                None => Some(*assertion),
+                None => Some(*partial_assertion),
             }
         }
 
-        let Some(assertion) = result_assertion else {
-            eprintln!("Checking satisfiability with no assertions is a no-op");
-            return;
-        };
+        let assertion = assertion.unwrap_or_else(|| {
+            // if there are no assertions, the assertion is a trivial tautology
+            self.operations.push(Operation::Constant(1, 1));
+            OperationId(self.operations.len() - 1).formula_id()
+        });
 
         // call the solver
         let problem = Problem::new(self.variables.clone(), self.operations.clone(), assertion);
