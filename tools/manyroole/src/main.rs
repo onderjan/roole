@@ -23,16 +23,14 @@ use roole::{
 use walkdir::WalkDir;
 
 struct ManyRoole {
-    input_dir: PathBuf,
-    output_dir: PathBuf,
-    solver_mode: SolverMode,
+    args: ManyRooleArgs,
 }
 
 struct Stats {
     start_instant: Instant,
     num_files: usize,
     num_processed_files: AtomicUsize,
-    progress_bar: indicatif::ProgressBar,
+    progress_bar: Option<indicatif::ProgressBar>,
     exit_value_numbers: Arc<Mutex<BTreeMap<OptionalExitValue, u64>>>,
 }
 
@@ -60,18 +58,25 @@ impl Ord for OptionalExitValue {
 struct Summary {
     file_name: String,
     status: ExitStatus,
+    output_type: String,
 }
 
 impl Stats {
-    fn new(num_files: usize) -> Self {
+    fn new(num_files: usize, silent: bool) -> Self {
         let start_instant = Instant::now();
-        let progress_bar = indicatif::ProgressBar::new(num_files as u64);
-        progress_bar.set_style(
-            indicatif::ProgressStyle::with_template(
-                "[{elapsed_precise}] {bar:40.cyan/blue} {percent}% {msg}",
-            )
-            .unwrap(),
-        );
+
+        let progress_bar = if silent {
+            None
+        } else {
+            let progress_bar = indicatif::ProgressBar::new(num_files as u64);
+            progress_bar.set_style(
+                indicatif::ProgressStyle::with_template(
+                    "[{elapsed_precise}] {bar:40.cyan/blue} {percent}% {msg}",
+                )
+                .unwrap(),
+            );
+            Some(progress_bar)
+        };
         Self {
             start_instant,
             num_files,
@@ -82,6 +87,10 @@ impl Stats {
     }
 
     fn update_progress_bar(&self) {
+        let Some(progress_bar) = &self.progress_bar else {
+            return;
+        };
+
         let num_processed_files = self.num_processed_files.load(Ordering::SeqCst);
         let current_instant = Instant::now();
 
@@ -144,13 +153,17 @@ impl Stats {
             num_processed_files, self.num_files, completion_msg
         );
 
-        self.progress_bar.set_position(num_processed_files as u64);
-        self.progress_bar.set_message(message);
+        progress_bar.set_position(num_processed_files as u64);
+        progress_bar.set_message(message);
     }
 
     fn finish(&self) {
+        let Some(progress_bar) = &self.progress_bar else {
+            return;
+        };
+
         self.update_progress_bar();
-        self.progress_bar.finish();
+        progress_bar.finish();
     }
 }
 
@@ -169,32 +182,74 @@ fn exit_value_str(exit_value: ExitValue) -> &'static str {
 }
 
 impl ManyRoole {
-    fn new(input_dir: PathBuf, output_dir: PathBuf, solver_mode: SolverMode) -> Self {
-        Self {
-            input_dir,
-            output_dir,
-            solver_mode,
-        }
-    }
-
     fn exec_roole(&self, path: &Path) -> std::process::Output {
-        let mut command = Command::new("cargo");
-        command.arg("run");
-        command.arg("--release");
-        command.arg("--bin");
-        command.arg("roole");
-        command.arg("--");
+        let mut command = if let Some(roole) = &self.args.roole_binary {
+            Command::new(roole)
+        } else {
+            let mut command = Command::new("cargo");
+            command.arg("run");
+            command.arg("--release");
+            command.arg("--bin");
+            command.arg("roole");
+            command.arg("--");
+            command
+        };
         command.arg(path);
         command.arg("--solver");
-        command.arg(self.solver_mode.to_string());
+        command.arg(self.args.solver.to_string());
         command.arg("--preprocess");
         command.arg("--hexadecimal");
 
         command.output().expect("Cargo should execute")
     }
 
-    fn process_smt2_file(&self, path: &Path, stats: &Stats, summary_sender: mpsc::Sender<Summary>) {
-        let executed = self.exec_roole(path);
+    fn compute_output_path(input_root: Option<&Path>, input_path: &Path) -> PathBuf {
+        let input_root = input_root
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| std::env::current_dir().expect("Current directory should be valid"));
+
+        let Ok(input_root) = std::path::absolute(&input_root) else {
+            panic!(
+                "Input root should be expressible as absolute: {:?}",
+                input_root
+            );
+        };
+
+        let Ok(input_path) = std::path::absolute(input_path) else {
+            panic!("Path should be expressible as absolute: {:?}", input_path);
+        };
+
+        // conver the path relative to input root
+        let Some(mut output_path) = pathdiff::diff_paths(&input_path, &input_root) else {
+            panic!(
+                "Path {:?} should be expressible relative to input root {:?}",
+                input_path, input_root
+            );
+        };
+
+        if output_path.is_absolute() {
+            panic!("Path should be relative-expressible: {:?}", output_path);
+        }
+
+        if output_path.iter().any(|a| a == "..") {
+            panic!(
+                "Path expressed relative to input root should not contain '..': {:?}",
+                output_path
+            );
+        }
+
+        output_path.set_extension("out");
+
+        output_path
+    }
+
+    fn process_smt2_file(
+        &self,
+        input_path: &Path,
+        stats: &Stats,
+        summary_sender: mpsc::Sender<Summary>,
+    ) {
+        let executed = self.exec_roole(input_path);
 
         let exit_value = executed.status.code().and_then(ExitValue::from_i32);
 
@@ -209,9 +264,8 @@ impl ManyRoole {
         }
 
         let output_type = exit_value.map(exit_value_str).unwrap_or("other");
-
-        let mut output_path = self.output_dir.clone().join(output_type).join(path);
-        output_path.set_extension("out");
+        let output_path = Self::compute_output_path(self.args.input_root.as_deref(), input_path);
+        let output_path = self.args.output_dir.join(output_type).join(output_path);
 
         let output_parent_dir = output_path
             .parent()
@@ -230,25 +284,30 @@ impl ManyRoole {
         )
         .expect("Output file should be writable");
 
-        let input_dir_relative_path = pathdiff::diff_paths(path, &self.input_dir)
+        stats.num_processed_files.fetch_add(1, Ordering::SeqCst);
+
+        /*let input_dir_relative_path = pathdiff::diff_paths(path, &self.args.input_dir)
             .expect("File path should be expressible relatively");
         let input_dir_relative_path = input_dir_relative_path
             .as_os_str()
             .to_str()
+            .expect("Relative file path should be UTF-8");*/
+        let path_str = input_path
+            .as_os_str()
+            .to_str()
             .expect("Relative file path should be UTF-8");
-
-        stats.num_processed_files.fetch_add(1, Ordering::SeqCst);
 
         summary_sender
             .send(Summary {
-                file_name: input_dir_relative_path.to_string(),
+                file_name: path_str.to_string(),
                 status: executed.status,
+                output_type: output_type.to_string(),
             })
             .expect("Should send summary");
     }
 
-    fn iterate_smt2_files(dir: PathBuf) -> impl Iterator<Item = walkdir::DirEntry> {
-        WalkDir::new(dir).into_iter().filter_map(|entry| {
+    fn iterate_smt2_path(path: &Path) -> impl Iterator<Item = walkdir::DirEntry> {
+        WalkDir::new(path).into_iter().filter_map(|entry| {
             let entry = match entry {
                 Ok(ok) => ok,
                 Err(error) => panic!("Error walking directory: {:?}", error),
@@ -262,31 +321,54 @@ impl ManyRoole {
         })
     }
 
+    fn iterate_smt2_paths(paths: &[PathBuf]) -> Box<dyn Iterator<Item = walkdir::DirEntry> + '_> {
+        let mut iterator: Box<dyn Iterator<Item = walkdir::DirEntry>> =
+            Box::new(std::iter::empty());
+        for path in paths {
+            iterator = Box::new(iterator.chain(Self::iterate_smt2_path(path)));
+        }
+        iterator
+    }
+
     fn process_summary(summary: Summary, summary_file: &mut File) {
-        writeln!(summary_file, "{}; {}", summary.file_name, summary.status)
-            .expect("Summary file should be writeable");
+        writeln!(
+            summary_file,
+            "{}; {}; {}",
+            summary.file_name, summary.status, summary.output_type
+        )
+        .expect("Summary file should be writable");
+        summary_file
+            .flush()
+            .expect("Summary file should be flushable");
     }
 
     fn execute(self) {
-        match std::fs::remove_dir_all(&self.output_dir) {
-            Ok(_) => {}
-            Err(err) => {
-                if !matches!(err.kind(), std::io::ErrorKind::NotFound) {
-                    panic!("Output directory should be removable: {:?}", err);
+        if !self.args.retain_output_dir {
+            match std::fs::remove_dir_all(&self.args.output_dir) {
+                Ok(_) => {}
+                Err(err) => {
+                    if !matches!(err.kind(), std::io::ErrorKind::NotFound) {
+                        panic!("Output directory should be removable: {:?}", err);
+                    }
                 }
             }
         }
 
-        std::fs::create_dir_all(&self.output_dir).expect("Output dir should be created");
+        std::fs::create_dir_all(&self.args.output_dir).expect("Output dir should be created");
 
-        let mut summary_file = File::create(self.output_dir.join("summary.txt"))
+        let summary_name = if let Some(instance_name) = &self.args.instance_name {
+            format!("summary_{}.txt", instance_name)
+        } else {
+            String::from("summary.txt")
+        };
+
+        let mut summary_file = File::create(self.args.output_dir.join(summary_name))
             .expect("Summary file should be created");
         let (summary_sender, summary_receiver) = mpsc::channel::<Summary>();
 
-        let input_dir = self.input_dir.clone();
-        let num_files = Self::iterate_smt2_files(input_dir.clone()).count();
+        let num_files = Self::iterate_smt2_paths(self.args.input_paths.as_slice()).count();
 
-        let stats = Stats::new(num_files);
+        let stats = Stats::new(num_files, self.args.silent);
 
         let many_roole = Arc::new(self);
         let stats = Arc::new(stats);
@@ -298,7 +380,7 @@ impl ManyRoole {
                 .build()
                 .expect("Thread pool should be built");
 
-            for entry in Self::iterate_smt2_files(input_dir) {
+            for entry in Self::iterate_smt2_paths(many_roole.args.input_paths.as_slice()) {
                 while let Ok(summary) = summary_receiver.try_recv() {
                     Self::process_summary(summary, &mut summary_file);
                 }
@@ -329,23 +411,41 @@ impl ManyRoole {
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-struct Args {
-    /// Directory where SMT-LIB2 files should be processed.
-    dir: PathBuf,
+struct ManyRooleArgs {
     /// Directory in which the outputs will be put.
+    #[arg(long, default_value = "output/manyroole")]
+    output_dir: PathBuf,
+
+    /// Whether to retain the output directory or delete it beforehand.
     #[arg(long)]
-    output_dir: Option<PathBuf>,
+    retain_output_dir: bool,
+
     /// The solver to use.
     #[arg(long, default_value_t = DEFAULT_SOLVER_MODE)]
     solver: SolverMode,
+
+    /// Name of the instance for summary printing.
+    #[arg(long)]
+    instance_name: Option<String>,
+
+    /// Input directory that will be taken as a root of the input paths for writing output files.
+    #[arg(long)]
+    input_root: Option<PathBuf>,
+
+    /// SMT-LIB2 files or directories to process.
+    #[structopt(required = true)]
+    input_paths: Vec<PathBuf>,
+
+    /// The Roole binary to use. If not set, `cargo run --package roole` will be used.
+    #[arg(long)]
+    roole_binary: Option<PathBuf>,
+
+    #[arg(long)]
+    silent: bool,
 }
 
 fn main() {
-    let args = Args::parse();
+    let args = ManyRooleArgs::parse();
 
-    let output_dir = args.output_dir.unwrap_or(PathBuf::from("output/manyroole"));
-
-    let manyroole = ManyRoole::new(args.dir, output_dir, args.solver);
-
-    manyroole.execute();
+    ManyRoole { args }.execute();
 }
