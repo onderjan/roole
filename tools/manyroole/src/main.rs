@@ -376,9 +376,11 @@ impl ManyRoole {
         stats.update_progress_bar();
 
         {
-            let thread_pool = rayon::ThreadPoolBuilder::new()
-                .build()
-                .expect("Thread pool should be built");
+            let mut builder = rayon::ThreadPoolBuilder::new();
+            if let Some(num_workers) = many_roole.args.num_workers {
+                builder = builder.num_threads(num_workers.try_into().unwrap());
+            }
+            let thread_pool = builder.build().expect("Thread pool should be built");
 
             for entry in Self::iterate_smt2_paths(many_roole.args.input_paths.as_slice()) {
                 while let Ok(summary) = summary_receiver.try_recv() {
@@ -442,6 +444,10 @@ struct ManyRooleArgs {
 
     #[arg(long)]
     silent: bool,
+
+    /// Number of worker threads that will be used for parallel computation.
+    #[arg(long)]
+    num_workers: Option<u32>,
 }
 
 fn main() {
