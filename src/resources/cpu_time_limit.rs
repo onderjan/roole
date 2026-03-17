@@ -113,7 +113,11 @@ pub fn print_used() {
     };
 
     let taken_duration = ProcessTime::now().duration_since(inner.start_time);
-    eprintln!("Used CPU time: {:?}", taken_duration);
+    eprintln!(
+        "Used CPU time: {:?} | {}",
+        taken_duration,
+        taken_duration.as_micros()
+    );
 }
 
 fn check(start_time: ProcessTime, time_limit: Duration) -> Duration {
