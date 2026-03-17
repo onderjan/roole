@@ -56,9 +56,9 @@ fn used_formulas<'a>(
             FormulaId::Operation(operation_id) => operation_id,
         };
 
-        let result = evaluator.get_operation_result_ref(operation_id);
+        let result = evaluator.operation_result_opt_ref(operation_id);
 
-        if let SymbolicDomain::Linear(linear) = result {
+        if let Some(SymbolicDomain::Linear(linear)) = result {
             // we can replace the operation
             // consider the used ids from the domain value
             stack.extend(linear.used_ids());

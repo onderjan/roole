@@ -185,17 +185,15 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
     fn result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> D {
         match formula_id {
             FormulaId::Variable(variable_id) => assignment.value(variable_id).clone(),
-            FormulaId::Operation(operation_id) => {
-                self.get_operation_result_ref(operation_id).clone()
-            }
+            FormulaId::Operation(operation_id) => self
+                .operation_result_opt_ref(operation_id)
+                .expect("Result should be present")
+                .clone(),
         }
     }
 
-    pub fn get_operation_result_ref(&self, operation_id: OperationId) -> &D {
-        &self.results[operation_id.0]
-            .as_ref()
-            .expect("Result should be present")
-            .value
+    pub fn operation_result_opt_ref(&self, operation_id: OperationId) -> Option<&D> {
+        self.results[operation_id.0].as_ref().map(|r| &r.value)
     }
 
     fn fetch_result(&self, assignment: &Assignment<D>, formula_id: FormulaId) -> D {
