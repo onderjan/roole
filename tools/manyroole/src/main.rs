@@ -191,6 +191,10 @@ impl ManyRoole {
             command.arg("--release");
             command.arg("--bin");
             command.arg("roole");
+            if matches!(self.args.solver, SolverMode::Cadical) {
+                command.arg("--features");
+                command.arg("cadical");
+            }
             command.arg("--");
             command
         };
