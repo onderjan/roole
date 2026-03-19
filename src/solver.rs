@@ -44,7 +44,7 @@ pub fn solve(problem: &Problem, settings: &SolverSettings) -> ThreeValued {
         SolverMode::Cadical => {
             #[cfg(feature = "cadical")]
             {
-                cadical::CadicalSolver::new(problem, output_dir).solve()
+                cadical::CadicalSolver::new(problem, settings.output_dir.clone()).solve()
             }
 
             #[cfg(not(feature = "cadical"))]
