@@ -25,7 +25,7 @@ pub fn iterate_smt2_paths(paths: &[PathBuf]) -> Box<dyn Iterator<Item = walkdir:
     iterator
 }
 
-pub fn compute_output_path(input_root: Option<&Path>, input_path: &Path) -> PathBuf {
+pub fn compute_output_relative(input_root: Option<&Path>, input_path: &Path) -> PathBuf {
     let input_root = input_root
         .map(Path::to_path_buf)
         .unwrap_or_else(|| std::env::current_dir().expect("Current directory should be valid"));
@@ -41,8 +41,8 @@ pub fn compute_output_path(input_root: Option<&Path>, input_path: &Path) -> Path
         panic!("Path should be expressible as absolute: {:?}", input_path);
     };
 
-    // conver the path relative to input root
-    let Some(mut output_path) = pathdiff::diff_paths(&input_path, &input_root) else {
+    // convert the path relative to input root
+    let Some(output_path) = pathdiff::diff_paths(&input_path, &input_root) else {
         panic!(
             "Path {:?} should be expressible relative to input root {:?}",
             input_path, input_root
@@ -60,7 +60,16 @@ pub fn compute_output_path(input_root: Option<&Path>, input_path: &Path) -> Path
         );
     }
 
-    output_path.set_extension("out");
-
     output_path
+}
+
+pub fn remove_output_dir(output_dir: &Path) {
+    match std::fs::remove_dir_all(output_dir) {
+        Ok(_) => {}
+        Err(err) => {
+            if !matches!(err.kind(), std::io::ErrorKind::NotFound) {
+                panic!("Output directory should be removable: {:?}", err);
+            }
+        }
+    }
 }

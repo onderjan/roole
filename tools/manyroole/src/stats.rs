@@ -58,13 +58,15 @@ impl Stats {
             );
             Some(progress_bar)
         };
-        Self {
+        let stats = Self {
             start_instant,
             num_files,
             num_processed_files: AtomicUsize::new(0),
             progress_bar,
             exit_value_numbers: Arc::new(Mutex::new(BTreeMap::new())),
-        }
+        };
+        stats.update_progress_bar();
+        stats
     }
 
     pub fn inc_exit_value(&self, exit_value: Option<ExitValue>) {
