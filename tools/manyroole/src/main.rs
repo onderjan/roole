@@ -80,6 +80,7 @@ fn process_smt2_file(
         args.solver,
         input_path,
         temp_proof_output,
+        args.preprocess,
     );
 
     let status = roole_output.status;

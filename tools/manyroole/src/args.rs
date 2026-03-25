@@ -18,6 +18,9 @@ pub struct ManyRooleArgs {
     #[arg(long, default_value_t = DEFAULT_SOLVER_MODE)]
     pub solver: SolverMode,
 
+    #[arg(short, long)]
+    pub preprocess: bool,
+
     /// Name of the instance for summary printing.
     #[arg(long)]
     pub instance_name: Option<String>,

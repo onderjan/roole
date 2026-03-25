@@ -7,6 +7,7 @@ pub fn exec_roole(
     solver: SolverMode,
     path: &Path,
     proof_output: &Path,
+    preprocess: bool,
 ) -> std::process::Output {
     let mut command = if let Some(roole) = binary {
         Command::new(roole)
@@ -26,10 +27,13 @@ pub fn exec_roole(
     command.arg(path);
     command.arg("--solver");
     command.arg(solver.to_string());
-    command.arg("--preprocess");
     command.arg("--hexadecimal");
     command.arg("--proof-output");
     command.arg(proof_output);
+
+    if preprocess {
+        command.arg("--preprocess");
+    }
 
     command.output().expect("Cargo should execute")
 }
