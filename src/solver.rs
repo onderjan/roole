@@ -17,6 +17,8 @@ mod preprocess;
 pub struct SolverSettings {
     /// Directory in which to place output artefacts.
     pub output_dir: Option<PathBuf>,
+    /// File in which to write the proof.
+    pub proof_output: Option<PathBuf>,
     /// Which solver mode to use.
     pub solver_mode: SolverMode,
     /// Whether preprocessing should be used.
@@ -37,8 +39,11 @@ pub fn solve(problem: &Problem, settings: &SolverSettings) -> ThreeValued {
     // process
     let solution = match settings.solver_mode {
         SolverMode::Internal => {
-            let solver: InternalSolver<'_, RooleLearned> =
-                InternalSolver::new(problem, settings.output_dir.as_ref());
+            let solver: InternalSolver<'_, RooleLearned> = InternalSolver::new(
+                problem,
+                settings.output_dir.as_ref(),
+                settings.proof_output.as_ref(),
+            );
             solver.solve()
         }
         SolverMode::Cadical => {

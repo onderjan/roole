@@ -11,6 +11,9 @@ pub struct Args {
 
     pub input_file: PathBuf,
 
+    #[arg(short = 'P', long)]
+    pub proof_output: Option<PathBuf>,
+
     #[arg(short, long, default_value_t = DEFAULT_SOLVER_MODE)]
     pub solver: SolverMode,
 

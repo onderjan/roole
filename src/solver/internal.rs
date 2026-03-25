@@ -25,10 +25,15 @@ pub struct InternalSolver<'a, L: Learned<RBitvector>> {
     stats: Stats,
 
     output_dir: Option<&'a PathBuf>,
+    proof_output: Option<&'a PathBuf>,
 }
 
 impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
-    pub fn new(problem: &'a Problem, output_dir: Option<&'a PathBuf>) -> Self {
+    pub fn new(
+        problem: &'a Problem,
+        output_dir: Option<&'a PathBuf>,
+        proof_output: Option<&'a PathBuf>,
+    ) -> Self {
         eprintln!("Solving SAT problem");
 
         let evaluator = Evaluator::new(problem);
@@ -42,6 +47,7 @@ impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
             learned,
             stats,
             output_dir,
+            proof_output,
         }
     }
 
@@ -74,15 +80,26 @@ impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
         };
 
         eprint!("Result: ");
-
         match &solution {
-            Solution::Satisfiable(assignment) => eprintln!("Satisfiable: {:?}", assignment),
-            Solution::Unsatisfiable(_) => eprintln!("Unsatisfiable"),
+            Solution::Satisfiable(assignment) => {
+                eprintln!("Satisfiable: {:?}", assignment);
+            }
+            Solution::Unsatisfiable(_) => {
+                eprintln!("Unsatisfiable");
+            }
         }
 
         eprintln!("Validating");
         solution.validate(self.evaluator.problem());
         eprintln!("Validated");
+
+        if let Some(proof_output) = self.proof_output {
+            eprintln!("Writing proof to {:?}", proof_output);
+            solution
+                .write_smt_proof(proof_output)
+                .expect("Proof should be writeable");
+            eprintln!("Proof written");
+        }
 
         solution
     }

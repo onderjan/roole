@@ -7,7 +7,7 @@ use crate::{
     },
     problem::{
         Assignment, Decision, Problem,
-        solution::{Proof, ProofDecisionNode, ProofNode},
+        solution::proof::{Proof, ProofDecisionNode, ProofNode},
     },
 };
 
