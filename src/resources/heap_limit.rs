@@ -34,7 +34,7 @@ pub fn print_used() {
         // do not print
         return;
     }
-    let max_allocated = HEAP_LIMIT.max_allocated.load(Ordering::SeqCst);
+    let max_allocated = HEAP_LIMIT.max_allocated.load(Ordering::Relaxed);
 
     if max_allocated < 1000 {
         // print bytes
@@ -183,7 +183,7 @@ unsafe impl GlobalAlloc for HeapLimit {
 
         // add layout size to allocated, this can wrap around
         let allocation_size = layout.size();
-        let before_allocation = self.allocated.fetch_add(allocation_size, Ordering::SeqCst);
+        let before_allocation = self.allocated.fetch_add(allocation_size, Ordering::Relaxed);
 
         let Some(after_allocation) = before_allocation.checked_add(allocation_size) else {
             // allocated must have wrapped around, signal memory exhaustion
@@ -193,7 +193,7 @@ unsafe impl GlobalAlloc for HeapLimit {
         if after_allocation > limit.get() {
             // limit was breached
             // to be able to print and exit with potential allocations, only fail when not exceeded already
-            let exceeded_previously = self.exceeded.fetch_or(true, Ordering::SeqCst);
+            let exceeded_previously = self.exceeded.fetch_or(true, Ordering::Relaxed);
 
             if !exceeded_previously {
                 // limit breached right now, print used resources, error message, and terminate
@@ -209,11 +209,11 @@ unsafe impl GlobalAlloc for HeapLimit {
 
         // if allocation failed, subtract the allocation size from allocated
         if allocated_ptr.is_null() {
-            self.allocated.fetch_sub(allocation_size, Ordering::SeqCst);
+            self.allocated.fetch_sub(allocation_size, Ordering::Relaxed);
         } else {
             // if allocation did not fail, update max_allocated to be at least after_allocation
             self.max_allocated
-                .fetch_max(after_allocation, Ordering::SeqCst);
+                .fetch_max(after_allocation, Ordering::Relaxed);
         }
 
         // return the allocated pointer
@@ -246,6 +246,6 @@ unsafe impl GlobalAlloc for HeapLimit {
         }
 
         // subtract the allocation size from allocated
-        self.allocated.fetch_sub(layout.size(), Ordering::SeqCst);
+        self.allocated.fetch_sub(layout.size(), Ordering::Relaxed);
     }
 }
