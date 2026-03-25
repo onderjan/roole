@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use roole::args::{DEFAULT_SOLVER_MODE, SolverMode};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 pub struct ManyRooleArgs {
     /// Directory in which the outputs will be put.
