@@ -2,7 +2,12 @@ use std::{fs::File, io::Write, path::Path, process::Command};
 
 use roole::args::SolverMode;
 
-pub fn exec_roole(binary: Option<&Path>, solver: SolverMode, path: &Path) -> std::process::Output {
+pub fn exec_roole(
+    binary: Option<&Path>,
+    solver: SolverMode,
+    path: &Path,
+    proof_output: &Path,
+) -> std::process::Output {
     let mut command = if let Some(roole) = binary {
         Command::new(roole)
     } else {
@@ -23,6 +28,8 @@ pub fn exec_roole(binary: Option<&Path>, solver: SolverMode, path: &Path) -> std
     command.arg(solver.to_string());
     command.arg("--preprocess");
     command.arg("--hexadecimal");
+    command.arg("--proof-output");
+    command.arg(proof_output);
 
     command.output().expect("Cargo should execute")
 }

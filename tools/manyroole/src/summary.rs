@@ -43,9 +43,13 @@ impl Summary {
     }
 
     pub fn finish(mut self) {
-        std::mem::drop(self.sender);
-        for part in self.receiver.iter() {
-            part.write(&mut self.file);
+        {
+            std::mem::drop(self.sender);
+        }
+        {
+            for part in self.receiver.iter() {
+                part.write(&mut self.file);
+            }
         }
     }
 
@@ -57,7 +61,7 @@ impl Summary {
 }
 
 impl SummarySender {
-    pub fn send(&self, file_name: String, status: ExitStatus, output_type: String) {
+    pub fn send(self, file_name: String, status: ExitStatus, output_type: String) {
         self.inner
             .send(SummaryPart {
                 file_name,

@@ -58,29 +58,31 @@ impl Stats {
             );
             Some(progress_bar)
         };
-        let stats = Self {
+        Self {
             start_instant,
             num_files,
             num_processed_files: AtomicUsize::new(0),
             progress_bar,
             exit_value_numbers: Arc::new(Mutex::new(BTreeMap::new())),
-        };
-        stats.update_progress_bar();
-        stats
+        }
     }
 
     pub fn inc_exit_value(&self, exit_value: Option<ExitValue>) {
-        let mut exit_value_numbers = self
-            .exit_value_numbers
-            .lock()
-            .expect("Exit value numbers lock should not be poisoned");
-        *exit_value_numbers
-            .entry(OptionalExitValue(exit_value))
-            .or_default() += 1;
-    }
-
-    pub fn inc_num_processed_files(&self) {
         self.num_processed_files.fetch_add(1, Ordering::SeqCst);
+
+        {
+            // drop the guard before updating the progress bar
+            // so it does not race
+            let mut exit_value_numbers = self
+                .exit_value_numbers
+                .lock()
+                .expect("Exit value numbers lock should not be poisoned");
+            *exit_value_numbers
+                .entry(OptionalExitValue(exit_value))
+                .or_default() += 1;
+        }
+
+        self.update_progress_bar();
     }
 
     pub fn update_progress_bar(&self) {
