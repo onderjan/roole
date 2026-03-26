@@ -37,6 +37,10 @@ pub struct ManyRooleArgs {
     #[arg(long)]
     pub roole_binary: Option<PathBuf>,
 
+    /// The Roolean binary to use. If set, Roolean will be used to check proofs.
+    #[arg(long)]
+    pub roolean_binary: Option<PathBuf>,
+
     #[arg(long)]
     pub silent: bool,
 

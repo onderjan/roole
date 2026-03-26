@@ -6,7 +6,7 @@ use roole::ExitValue;
 
 use crate::{
     args::ManyRooleArgs,
-    exec::{exec_roole, write_output},
+    exec::{exec_roole, exec_roolean, write_output},
     exit_value::exit_value_str,
     paths::{compute_output_relative, iterate_smt2_paths, remove_output_dir},
     stats::Stats,
@@ -57,52 +57,81 @@ fn process(args: ManyRooleArgs, stats: Arc<Stats>, summary: &mut Summary) {
     stats.update_progress_bar();
     for (index, entry) in iterate_smt2_paths(args.input_paths.as_slice()).enumerate() {
         summary.process();
-        let path = entry.path().to_path_buf();
+        let problem_file = entry.path().to_path_buf();
         let stats = Arc::clone(&stats);
         let sender = summary.sender();
         let args = args.clone();
         let temp_proof_output = temp_proof_dir.join(format!("proof_{}", index));
         thread_pool.spawn(move || {
-            process_smt2_file(&args, &path, &stats, sender, &temp_proof_output);
+            process_smt2_file(&args, &problem_file, &stats, sender, &temp_proof_output);
         });
     }
 }
 
 fn process_smt2_file(
     args: &ManyRooleArgs,
-    input_path: &Path,
+    problem_file: &Path,
     stats: &Stats,
     sender: SummarySender,
-    temp_proof_output: &Path,
+    temp_proof_file: &Path,
 ) {
     let roole_output = exec_roole(
         args.roole_binary.as_deref(),
         args.solver,
-        input_path,
-        temp_proof_output,
+        problem_file,
+        temp_proof_file,
         args.preprocess,
     );
 
     let status = roole_output.status;
     let exit_value = status.code().and_then(ExitValue::from_i32);
 
-    let output_type = exit_value.map(exit_value_str).unwrap_or("other");
-    let output_relative = compute_output_relative(args.input_root.as_deref(), input_path);
-    let output_path = args.output_dir.join(output_type).join(output_relative);
+    let mut output_type = exit_value
+        .map(exit_value_str)
+        .unwrap_or("other")
+        .to_string();
+
+    let solved = matches!(
+        exit_value,
+        Some(ExitValue::Satisfiable) | Some(ExitValue::Unsatisfiable)
+    );
+
+    let roolean_output = if let Some(roolean_binary) = &args.roolean_binary
+        && solved
+    {
+        // proof-check
+        let roolean_output = exec_roolean(roolean_binary, problem_file, temp_proof_file);
+        if roolean_output.status.success() {
+            output_type += "_proven";
+        } else {
+            output_type += "_unproven";
+        }
+        Some(roolean_output)
+    } else {
+        None
+    };
+
+    let output_relative = compute_output_relative(args.input_root.as_deref(), problem_file);
+    let output_path = args.output_dir.join(&output_type).join(output_relative);
 
     let roole_output_path = output_path.with_extension("out");
     let roole_proof_path = output_path.with_extension("proof");
 
     write_output(roole_output, &roole_output_path);
-    if temp_proof_output.is_file() {
-        std::fs::rename(temp_proof_output, roole_proof_path).expect("Proof file should be movable");
+    if let Some(roolean_output) = roolean_output {
+        let roolean_output_path = output_path.with_extension("roolean.out");
+        write_output(roolean_output, &roolean_output_path);
     }
 
-    let path_str = input_path
+    if temp_proof_file.is_file() {
+        std::fs::rename(temp_proof_file, roole_proof_path).expect("Proof file should be movable");
+    }
+
+    let path_str = problem_file
         .as_os_str()
         .to_str()
         .expect("Relative file path should be UTF-8");
 
-    sender.send(path_str.to_string(), status, output_type.to_string());
+    sender.send(path_str.to_string(), status, output_type);
     stats.inc_exit_value(exit_value);
 }
