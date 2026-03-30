@@ -12,3 +12,5 @@ indicatif = "0.18.2"
 
 roole = { path = "../.." }
 num-traits = "0.2"
+
+cargo_metadata = "0.23.1"

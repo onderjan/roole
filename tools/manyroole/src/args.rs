@@ -48,7 +48,15 @@ pub struct ManyRooleArgs {
     #[arg(long)]
     pub num_workers: Option<u32>,
 
-    /// Whether to record the CPU time and memory usage by the utility 'time'.
+    /// Whether to use the utility 'runlim'. Linux only.
     #[arg(long)]
-    pub time: bool,
+    pub runlim: bool,
+
+    /// CPU time limit (in seconds) to pass to the utility 'runlim'.
+    #[arg(long, requires = "runlim")]
+    pub runlim_time_limit: Option<u64>,
+
+    /// Memory limit (in MB) to pass to the utility 'runlim'.
+    #[arg(long, requires = "runlim")]
+    pub runlim_space_limit: Option<u64>,
 }

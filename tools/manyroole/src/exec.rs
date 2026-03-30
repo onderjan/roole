@@ -6,9 +6,15 @@ use std::{
 
 use roole::args::SolverMode;
 
+#[derive(Clone)]
+pub struct RunlimArgs {
+    pub runlim_time_limit: Option<u64>,
+    pub runlim_space_limit: Option<u64>,
+}
+
 pub fn exec_roole(
-    roole_binary: Option<&Path>,
-    time: bool,
+    roole_binary: &Path,
+    runlim: Option<RunlimArgs>,
     solver: SolverMode,
     problem_file: &Path,
     output_dir: &Path,
@@ -17,29 +23,12 @@ pub fn exec_roole(
 ) -> std::process::ExitStatus {
     let output_name = format!("{}.roole", output_name);
 
-    let mut command = if let Some(roole) = roole_binary {
-        let mut command =
-            ExecCommand::new(roole, time, output_dir.to_path_buf(), output_name.clone());
-        command.arg(roole);
-        command
-    } else {
-        let mut command = ExecCommand::new(
-            &PathBuf::from(String::from("cargo")),
-            time,
-            output_dir.to_path_buf(),
-            output_name.clone(),
-        );
-        command.arg("run");
-        command.arg("--release");
-        command.arg("--bin");
-        command.arg("roole");
-        if matches!(solver, SolverMode::Cadical) {
-            command.arg("--features");
-            command.arg("cadical");
-        }
-        command.arg("--");
-        command
-    };
+    let mut command = ExecCommand::new(
+        roole_binary,
+        runlim,
+        output_dir.to_path_buf(),
+        output_name.clone(),
+    );
     command.arg(problem_file);
     command.arg("--solver");
     command.arg(solver.to_string());
@@ -56,7 +45,7 @@ pub fn exec_roole(
 
 pub fn exec_roolean(
     roolean_binary: &Path,
-    time: bool,
+    runlim: Option<RunlimArgs>,
     problem_file: &Path,
     proof_file: &Path,
     output_dir: &Path,
@@ -65,7 +54,7 @@ pub fn exec_roolean(
     let output_name = format!("{}.roolean", output_name);
     let mut command = ExecCommand::new(
         roolean_binary,
-        time,
+        runlim,
         output_dir.to_path_buf(),
         output_name.clone(),
     );
@@ -82,15 +71,27 @@ struct ExecCommand {
 }
 
 impl ExecCommand {
-    fn new(binary: &Path, time: bool, output_dir: PathBuf, output_name: String) -> Self {
-        let command = if time {
-            let mut command = Command::new("time");
-            command.arg("--format=%S;%U;%M");
+    fn new(
+        binary: &Path,
+        runlim: Option<RunlimArgs>,
+        output_dir: PathBuf,
+        output_name: String,
+    ) -> Self {
+        let command = if let Some(runlim) = runlim {
+            let mut command = Command::new("runlim");
             command.arg("-o");
-            command.arg(output_dir.join(format!("{}.time", output_name)));
-            command.arg("-q");
-            command.arg("--");
+            command.arg(output_dir.join(format!("{}.runlim", output_name)));
+            command.arg("--propagate");
+            command.arg("--single");
+            if let Some(time_limit) = runlim.runlim_time_limit {
+                command.arg(format!("--time-limit={}", time_limit));
+            }
+            if let Some(space_limit) = runlim.runlim_space_limit {
+                command.arg(format!("--space-limit={}", space_limit));
+            }
+
             command.arg(binary);
+
             command
         } else {
             Command::new(binary)
