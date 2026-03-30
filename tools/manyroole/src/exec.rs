@@ -1,18 +1,34 @@
-use std::{fs::File, io::Write, path::Path, process::Command};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use roole::args::SolverMode;
 
 pub fn exec_roole(
     roole_binary: Option<&Path>,
+    time: bool,
     solver: SolverMode,
     problem_file: &Path,
-    proof_output: &Path,
+    output_dir: &Path,
+    output_name: String,
     preprocess: bool,
-) -> std::process::Output {
+) -> std::process::ExitStatus {
+    let output_name = format!("{}.roole", output_name);
+
     let mut command = if let Some(roole) = roole_binary {
-        Command::new(roole)
+        let mut command =
+            ExecCommand::new(roole, time, output_dir.to_path_buf(), output_name.clone());
+        command.arg(roole);
+        command
     } else {
-        let mut command = Command::new("cargo");
+        let mut command = ExecCommand::new(
+            &PathBuf::from(String::from("cargo")),
+            time,
+            output_dir.to_path_buf(),
+            output_name.clone(),
+        );
         command.arg("run");
         command.arg("--release");
         command.arg("--bin");
@@ -29,40 +45,76 @@ pub fn exec_roole(
     command.arg(solver.to_string());
     command.arg("--hexadecimal");
     command.arg("--proof-output");
-    command.arg(proof_output);
+    command.arg(output_dir.join(format!("{}.proof", output_name)));
 
     if preprocess {
         command.arg("--preprocess");
     }
 
-    command.output().expect("Cargo should execute")
+    command.exec()
 }
 
 pub fn exec_roolean(
     roolean_binary: &Path,
+    time: bool,
     problem_file: &Path,
     proof_file: &Path,
-) -> std::process::Output {
-    let mut command = Command::new(roolean_binary);
+    output_dir: &Path,
+    output_name: String,
+) -> std::process::ExitStatus {
+    let output_name = format!("{}.roolean", output_name);
+    let mut command = ExecCommand::new(
+        roolean_binary,
+        time,
+        output_dir.to_path_buf(),
+        output_name.clone(),
+    );
     command.arg(problem_file);
     command.arg(proof_file);
 
-    command.output().expect("Cargo should execute")
+    command.exec()
 }
 
-pub fn write_output(output: std::process::Output, path: &Path) {
-    let output_parent_dir = path.parent().expect("Output file should have a parent");
-    std::fs::create_dir_all(output_parent_dir).expect("Output parent dirs should be created");
+struct ExecCommand {
+    command: Command,
+    output_dir: PathBuf,
+    output_name: String,
+}
 
-    let mut file = File::create(path).expect("Output file should be created");
+impl ExecCommand {
+    fn new(binary: &Path, time: bool, output_dir: PathBuf, output_name: String) -> Self {
+        let command = if time {
+            let mut command = Command::new("time");
+            command.arg("--format=%S;%U;%M");
+            command.arg("-o");
+            command.arg(output_dir.join(format!("{}.time", output_name)));
+            command.arg("-q");
+            command.arg("--");
+            command.arg(binary);
+            command
+        } else {
+            Command::new(binary)
+        };
 
-    let stdout = String::from_utf8(output.stdout).expect("Stdout should be UTF-8");
-    let stderr = String::from_utf8(output.stderr).expect("Stderr should be UTF-8");
+        Self {
+            command,
+            output_dir,
+            output_name,
+        }
+    }
 
-    writeln!(
-        file,
-        "Exit status: {}\n\n=== STDOUT ===\n\n{}\n\n=== STDERR ===\n\n{}",
-        output.status, stdout, stderr
-    )
-    .expect("Output file should be writable");
+    fn arg<S: AsRef<OsStr>>(&mut self, arg: S) {
+        self.command.arg(arg);
+    }
+
+    fn exec(mut self) -> std::process::ExitStatus {
+        let output = self.command.output().expect("Command should execute");
+        std::fs::write(
+            self.output_dir.join(format!("{}.stderr", self.output_name)),
+            output.stderr,
+        )
+        .expect("Stderr should be written");
+
+        output.status
+    }
 }

@@ -47,4 +47,8 @@ pub struct ManyRooleArgs {
     /// Number of worker threads that will be used for parallel computation.
     #[arg(long)]
     pub num_workers: Option<u32>,
+
+    /// Whether to record the CPU time and memory usage by the utility 'time'.
+    #[arg(long)]
+    pub time: bool,
 }

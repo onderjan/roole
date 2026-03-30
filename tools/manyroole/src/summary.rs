@@ -61,11 +61,18 @@ impl Summary {
 }
 
 impl SummarySender {
-    pub fn send(self, file_name: String, status: ExitStatus, output_type: String) {
+    pub fn send(
+        self,
+        file_name: String,
+        roole_status: ExitStatus,
+        roolean_status: Option<ExitStatus>,
+        output_type: String,
+    ) {
         self.inner
             .send(SummaryPart {
                 file_name,
-                status,
+                roole_status,
+                roolean_status,
                 output_type,
             })
             .expect("Should send summary");
@@ -74,7 +81,8 @@ impl SummarySender {
 
 struct SummaryPart {
     file_name: String,
-    status: ExitStatus,
+    roole_status: ExitStatus,
+    roolean_status: Option<ExitStatus>,
     output_type: String,
 }
 
@@ -82,8 +90,11 @@ impl SummaryPart {
     pub fn write(&self, summary_file: &mut File) {
         writeln!(
             summary_file,
-            "{}; {}; {}",
-            self.file_name, self.status, self.output_type
+            "{}; {}; {}; {}",
+            self.file_name,
+            self.roole_status,
+            self.roolean_status.and_then(|s| s.code()).unwrap_or(111),
+            self.output_type
         )
         .expect("Summary file should be writable");
         summary_file
