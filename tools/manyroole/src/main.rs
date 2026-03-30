@@ -173,7 +173,7 @@ fn process_smt2_file(
         path_str.to_string(),
         roole_status,
         roolean_status,
-        output_kind,
+        output_kind.clone(),
     );
-    stats.inc_exit_value(roole_exit_value);
+    stats.inc_kind(output_kind);
 }

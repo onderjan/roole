@@ -1,5 +1,4 @@
 use std::{
-    cmp,
     collections::BTreeMap,
     fmt::Write,
     sync::{
@@ -9,37 +8,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use roole::ExitValue;
-
-use crate::exit_value::exit_value_str;
-
 pub struct Stats {
     start_instant: Instant,
     num_files: usize,
     num_processed_files: AtomicUsize,
     progress_bar: Option<indicatif::ProgressBar>,
-    exit_value_numbers: Arc<Mutex<BTreeMap<OptionalExitValue, u64>>>,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct OptionalExitValue(Option<ExitValue>);
-
-impl PartialOrd for OptionalExitValue {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for OptionalExitValue {
-    fn cmp(&self, other: &Self) -> cmp::Ordering {
-        // make None compare higher
-        match (self.0, other.0) {
-            (None, None) => cmp::Ordering::Equal,
-            (None, Some(_)) => cmp::Ordering::Greater,
-            (Some(_), None) => cmp::Ordering::Less,
-            (Some(a), Some(b)) => a.cmp(&b),
-        }
-    }
+    exit_value_numbers: Arc<Mutex<BTreeMap<String, u64>>>,
 }
 
 impl Stats {
@@ -67,7 +41,7 @@ impl Stats {
         }
     }
 
-    pub fn inc_exit_value(&self, exit_value: Option<ExitValue>) {
+    pub fn inc_kind(&self, kind: String) {
         self.num_processed_files.fetch_add(1, Ordering::SeqCst);
 
         {
@@ -77,9 +51,7 @@ impl Stats {
                 .exit_value_numbers
                 .lock()
                 .expect("Exit value numbers lock should not be poisoned");
-            *exit_value_numbers
-                .entry(OptionalExitValue(exit_value))
-                .or_default() += 1;
+            *exit_value_numbers.entry(kind).or_default() += 1;
         }
 
         self.update_progress_bar();
@@ -134,12 +106,7 @@ impl Stats {
                     let _ = write!(msg, ", ");
                 }
 
-                let _ = write!(
-                    msg,
-                    "{} {}",
-                    number,
-                    exit_value.0.map(exit_value_str).unwrap_or("other")
-                );
+                let _ = write!(msg, "{} {}", number, exit_value);
             }
 
             msg
