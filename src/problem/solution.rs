@@ -6,14 +6,14 @@ use crate::{
         concr::ConcreteBitvector,
     },
     problem::{
-        Evaluator,
-        assignment::Assignment,
-        evaluator::EvaluableDomain,
-        solution::proof::{Proof, UnsatValidator},
+        Evaluator, assignment::Assignment, evaluator::EvaluableDomain,
+        solution::proof::UnsatValidator,
     },
 };
 
 pub mod proof;
+
+pub use proof::Proof;
 
 use super::Problem;
 
