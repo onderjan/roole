@@ -22,3 +22,13 @@ for name in "${names[@]}"; do
     sort -n "time.$name.data" | awk '{sum+=$0;printf "%s\t%s\n",sum,NR}' > "time.$name.points"
     sort -n "space.$name.data" | awk '{printf "%s\t%s\n",$0,NR}' > "space.$name.points"
 done
+
+:>"proof.data"
+find "$1" -name "*.proof" | while read i; do
+    #echo "$i"
+    SIZE=`wc -c "$i"`
+    #echo "Size: $SIZE"
+    echo "$SIZE" >> "proof.data"
+done
+
+sort -n "proof.data" | cut -d' ' -f1 | awk '{printf "%s\t%s\n",$0,NR}' > "proof.points"
