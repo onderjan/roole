@@ -1,24 +1,14 @@
 #!/bin/bash
 
 
-if [ $# -ne 1 ]; then
-    echo "Usage: plot.sh <directory>"
+if [ $# -ne 2 ]; then
+    echo "Usage: plot.sh <directory> <name>"
     exit 1
 fi
 
+NAME="$2"
+
 SCRIPT_DIR=$(dirname "$0")
-
-tee << EOF 
-set terminal pdfcairo size 20cm, 15cm
-set output "running_time.pdf"
-set decimalsign '.'
-
-set xlabel "Running total time [s]"
-set ylabel "Number of instances"
-set title 'Solving time (running total)'
-set key right bottom
-plot '$1/time.roole.points' using 1:2 with linespoints title "Roole", '$1/time.roolean.points' using 1:2 with linespoints title "Roolean"
-EOF
 
 gnuplot << EOF
 set terminal pdfcairo size 20cm, 15cm
@@ -27,7 +17,7 @@ set decimalsign '.'
 
 set xlabel "Running total time [s]"
 set ylabel "Number of instances"
-set title 'Solving time (running total)'
+set title '$NAME: Solving time (running total)'
 set key right bottom
 plot '$1/time.roole.points' using 1:2 with linespoints title "Roole", '$1/time.roolean.points' using 1:2 with linespoints title "Roolean"
 EOF
@@ -40,7 +30,7 @@ set decimalsign '.'
 
 set xlabel "Running total time [s]"
 set ylabel "Number of instances"
-set title 'Solving time (running total), log-linear'
+set title '$NAME: Solving time (running total), log-linear'
 set logscale x 10
 set key right bottom
 set yrange [*<0:1<*]
@@ -54,7 +44,7 @@ set decimalsign '.'
 
 set xlabel "Used memory [MB]"
 set ylabel "Number of instances"
-set title 'Memory usage'
+set title '$NAME: Memory usage'
 set key right bottom
 plot '$1/space.roole.points' with linespoints title "Roole", '$1/space.roolean.points' with linespoints title "Roolean"
 EOF
@@ -66,7 +56,7 @@ set decimalsign '.'
 
 set xlabel "Proof size [MB]"
 set ylabel "Number of instances"
-set title 'Proof sizes'
+set title '$NAME: Proof sizes'
 set key right bottom
 plot '$1/proof.points' using ((\$1)/1000000):2 with linespoints title 'Proof size'
 EOF
