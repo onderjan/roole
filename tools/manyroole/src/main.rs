@@ -103,6 +103,7 @@ fn process_smt2_file(
 
     let runlim = if args.runlim {
         Some(RunlimArgs {
+            binary: args.runlim_binary.clone(),
             runlim_time_limit: args.runlim_time_limit,
             runlim_space_limit: args.runlim_space_limit,
         })

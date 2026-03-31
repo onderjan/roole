@@ -52,6 +52,10 @@ pub struct ManyRooleArgs {
     #[arg(long)]
     pub runlim: bool,
 
+    /// The path to the utility 'runlim'.
+    #[arg(long, requires = "runlim", default_value = "runlim")]
+    pub runlim_binary: PathBuf,
+
     /// CPU time limit (in seconds) to pass to the utility 'runlim'.
     #[arg(long, requires = "runlim")]
     pub runlim_time_limit: Option<u64>,

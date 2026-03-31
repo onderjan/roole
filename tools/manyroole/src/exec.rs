@@ -8,6 +8,7 @@ use roole::args::SolverMode;
 
 #[derive(Clone)]
 pub struct RunlimArgs {
+    pub binary: PathBuf,
     pub runlim_time_limit: Option<u64>,
     pub runlim_space_limit: Option<u64>,
 }
@@ -78,7 +79,7 @@ impl ExecCommand {
         output_name: String,
     ) -> Self {
         let command = if let Some(runlim) = runlim {
-            let mut command = Command::new("runlim");
+            let mut command = Command::new(runlim.binary);
             command.arg("-o");
             command.arg(output_dir.join(format!("{}.runlim", output_name)));
             command.arg("--propagate");
