@@ -13,7 +13,7 @@ use super::{
 /// and maximum value in the same half-plane.
 /// It is required that min <= max, which means the interval
 /// does not support wrapping nor representing an empty set.
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignlessInterval<B: BitvectorBound> {
     min: ConcreteBitvector<B>,
     max: ConcreteBitvector<B>,
@@ -25,13 +25,17 @@ impl<B: BitvectorBound> SignlessInterval<B> {
         // comparison will panic on different bound values
         // we must convert to either signed or unsigned to have comparisons available
         // since the sign bits are the same, it is irrelevant which one
-        assert!(min.as_unsigned() <= max.as_unsigned());
+        let min = min.into_unsigned();
+        let max = max.into_unsigned();
+        assert!(min <= max);
+        let min = min.cast_bitvector();
+        let max = max.cast_bitvector();
         Self { min, max }
     }
 
     pub fn from_value(value: ConcreteBitvector<B>) -> Self {
         Self {
-            min: value,
+            min: value.clone(),
             max: value,
         }
     }
@@ -62,13 +66,13 @@ impl<B: BitvectorBound> SignlessInterval<B> {
 
     pub fn contains_value(&self, value: &ConcreteBitvector<B>) -> bool {
         // we can use either interpretation
-        let value = value.as_unsigned();
-        self.min.as_unsigned() <= value && value <= self.max.as_unsigned()
+        let value = value.clone().into_unsigned();
+        self.min.clone().into_unsigned() <= value && value <= self.max.clone().into_unsigned()
     }
 
     pub fn concrete_value(&self) -> Option<ConcreteBitvector<B>> {
         if self.min == self.max {
-            return Some(self.min);
+            return Some(self.min.clone());
         }
         None
     }
@@ -76,8 +80,8 @@ impl<B: BitvectorBound> SignlessInterval<B> {
     pub fn intersection(self, other: Self) -> Option<Self> {
         assert_eq!(self.bound(), other.bound());
         assert_eq!(self.min.is_sign_bit_set(), other.min.is_sign_bit_set());
-        let min = self.min.as_unsigned().max(other.min.as_unsigned());
-        let max = self.max.as_unsigned().min(other.max.as_unsigned());
+        let min = self.min.into_unsigned().max(other.min.into_unsigned());
+        let max = self.max.into_unsigned().min(other.max.into_unsigned());
         if min <= max {
             Some(Self {
                 min: min.cast_bitvector(),
@@ -94,13 +98,13 @@ impl<B: BitvectorBound> SignlessInterval<B> {
         Self {
             min: self
                 .min
-                .as_unsigned()
-                .min(other.min.as_unsigned())
+                .into_unsigned()
+                .min(other.min.into_unsigned())
                 .cast_bitvector(),
             max: self
                 .max
-                .as_unsigned()
-                .max(other.max.as_unsigned())
+                .into_unsigned()
+                .max(other.max.into_unsigned())
                 .cast_bitvector(),
         }
     }
@@ -114,11 +118,11 @@ impl<B: BitvectorBound> SignlessInterval<B> {
         }
     }
 
-    pub fn min(&self) -> ConcreteBitvector<B> {
-        self.min
+    pub fn min(&self) -> &ConcreteBitvector<B> {
+        &self.min
     }
-    pub fn max(&self) -> ConcreteBitvector<B> {
-        self.max
+    pub fn max(&self) -> &ConcreteBitvector<B> {
+        &self.max
     }
 
     pub fn into_wrapping(self) -> WrappingInterval<B> {
@@ -126,11 +130,11 @@ impl<B: BitvectorBound> SignlessInterval<B> {
     }
 
     pub fn into_unsigned(self) -> UnsignedInterval<B> {
-        UnsignedInterval::new(self.min.as_unsigned(), self.max.as_unsigned())
+        UnsignedInterval::new(self.min.into_unsigned(), self.max.into_unsigned())
     }
 
     pub fn into_signed(self) -> SignedInterval<B> {
-        SignedInterval::new(self.min.as_signed(), self.max.as_signed())
+        SignedInterval::new(self.min.into_signed(), self.max.into_signed())
     }
 
     #[allow(dead_code)]
@@ -152,7 +156,7 @@ impl<B: BitvectorBound> SignlessInterval<B> {
                         return None;
                     }
 
-                    Some(SignlessInterval::new(min, max))
+                    Some(SignlessInterval::new(min.clone(), max))
                 });
                 Some(result)
             })
@@ -164,8 +168,8 @@ impl<B: BitvectorBound> SignlessInterval<B> {
         if self.min.is_sign_bit_set() != other.min.is_sign_bit_set() {
             return false;
         }
-        self.min.as_unsigned() <= other.min.as_unsigned()
-            && other.max.as_unsigned() <= self.max.as_unsigned()
+        self.min.clone().into_unsigned() <= other.min.clone().into_unsigned()
+            && other.max.clone().into_unsigned() <= self.max.clone().into_unsigned()
     }
 }
 
@@ -189,10 +193,10 @@ impl<const W: u32> SignlessInterval<CBound<W>> {
         }
     }
 
-    pub(crate) fn to_runtime(self) -> SignlessInterval<RBound> {
+    pub(crate) fn into_runtime(self) -> SignlessInterval<RBound> {
         SignlessInterval {
-            min: self.min.as_runtime_bitvector(),
-            max: self.max.as_runtime_bitvector(),
+            min: self.min.into_runtime_bitvector(),
+            max: self.max.into_runtime_bitvector(),
         }
     }
 }

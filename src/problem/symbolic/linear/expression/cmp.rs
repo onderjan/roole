@@ -29,7 +29,8 @@ impl LinearExpression {
             }
 
             let polynomial = rhs.bit_not();
-            let slack = not_lhs.sub(ConcreteBitvector::new_one(not_lhs.bound()));
+            let not_lhs_bound = not_lhs.bound();
+            let slack = not_lhs.sub(ConcreteBitvector::new_one(not_lhs_bound));
 
             let relation = LinearRelation::new(polynomial, slack);
 
@@ -50,7 +51,8 @@ impl LinearExpression {
             }
 
             let polynomial = lhs;
-            let slack = rhs.sub(ConcreteBitvector::new_one(rhs.bound()));
+            let rhs_bound = rhs.bound();
+            let slack = rhs.sub(ConcreteBitvector::new_one(rhs_bound));
 
             let relation = LinearRelation::new(polynomial, slack);
 

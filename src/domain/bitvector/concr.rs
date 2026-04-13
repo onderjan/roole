@@ -14,7 +14,7 @@ mod unsigned;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ConcreteBitvector<B: BitvectorBound> {
     bound: B,
     value: u64,

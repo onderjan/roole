@@ -51,9 +51,9 @@ impl LinearPolynomial {
             }
 
             let abs_coefficient = if write_as_negative {
-                coefficient.arith_neg()
+                coefficient.clone().arith_neg()
             } else {
-                *coefficient
+                coefficient.clone()
             };
             if !abs_coefficient.is_one() {
                 if hex {
@@ -70,9 +70,9 @@ impl LinearPolynomial {
             let write_as_negative =
                 !hex && (self.constant_term.is_sign_bit_set() && !self.constant_term.is_overhalf());
             let abs_constant_term = if write_as_negative {
-                self.constant_term.arith_neg()
+                self.constant_term.clone().arith_neg()
             } else {
-                self.constant_term
+                self.constant_term.clone()
             };
 
             match (is_first, write_as_negative) {
@@ -90,7 +90,7 @@ impl LinearPolynomial {
 
             Some(abs_constant_term)
         } else if is_first {
-            Some(self.constant_term)
+            Some(self.constant_term.clone())
         } else {
             None
         };

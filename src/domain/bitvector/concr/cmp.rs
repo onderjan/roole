@@ -9,25 +9,25 @@ impl<B: BitvectorBound> TypedCmp for ConcreteBitvector<B> {
 
     fn slt(self, rhs: Self) -> Self::Output {
         assert_eq!(self.bound, rhs.bound);
-        let result = self.as_signed() < rhs.as_signed();
+        let result = self.into_signed() < rhs.into_signed();
         Self::Output::new(result as u64, B::single_bit_bound())
     }
 
     fn ult(self, rhs: Self) -> Self::Output {
         assert_eq!(self.bound, rhs.bound);
-        let result = self.as_unsigned() < rhs.as_unsigned();
+        let result = self.into_unsigned() < rhs.into_unsigned();
         Self::Output::new(result as u64, B::single_bit_bound())
     }
 
     fn sle(self, rhs: Self) -> Self::Output {
         assert_eq!(self.bound, rhs.bound);
-        let result = self.as_signed() <= rhs.as_signed();
+        let result = self.into_signed() <= rhs.into_signed();
         Self::Output::new(result as u64, B::single_bit_bound())
     }
 
     fn ule(self, rhs: Self) -> Self::Output {
         assert_eq!(self.bound, rhs.bound);
-        let result = self.as_unsigned() <= rhs.as_unsigned();
+        let result = self.into_unsigned() <= rhs.into_unsigned();
         Self::Output::new(result as u64, B::single_bit_bound())
     }
 }

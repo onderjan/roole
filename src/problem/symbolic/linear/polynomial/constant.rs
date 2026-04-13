@@ -12,7 +12,7 @@ use crate::{
 impl LinearPolynomial {
     pub fn constant_value(&self) -> Option<ConcreteBitvector<RBound>> {
         if self.linear_terms.is_empty() {
-            Some(self.constant_term)
+            Some(self.constant_term.clone())
         } else {
             None
         }
@@ -34,7 +34,7 @@ impl LinearPolynomial {
         // assume slice is equal to arithmetic negation of the constant term
         // this will force the polynomial to zero
         let assumption_slice = assumption_monomial.slice;
-        let value = assumption.constant_term.arith_neg();
+        let value = assumption.constant_term.clone().arith_neg();
 
         self.assume_slice_value(assumption_slice, value);
     }
@@ -55,7 +55,7 @@ impl LinearPolynomial {
                 return true;
             }
 
-            let mut slice_value = assumed_value;
+            let mut slice_value = assumed_value.clone();
 
             if slice.lsb > assumed_slice.lsb {
                 // unsigned-shift assumed value right to drop bits below slice lsb
@@ -79,7 +79,8 @@ impl LinearPolynomial {
             // convert to constant term
             self.constant_term = self
                 .constant_term
-                .add(slice_value.mul(monomial.coefficient));
+                .clone()
+                .add(slice_value.mul(monomial.coefficient.clone()));
             false
         });
     }
@@ -88,12 +89,12 @@ impl LinearPolynomial {
         &self,
     ) -> Option<(Option<LinearMonomial>, ConcreteBitvector<RBound>)> {
         if self.linear_terms.is_empty() {
-            return Some((None, self.constant_term));
+            return Some((None, self.constant_term.clone()));
         }
         let Ok(monomial) = self.linear_terms.iter().exactly_one() else {
             return None;
         };
 
-        Some((Some(monomial.clone()), self.constant_term))
+        Some((Some(monomial.clone()), self.constant_term.clone()))
     }
 }

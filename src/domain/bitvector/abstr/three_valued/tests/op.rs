@@ -85,7 +85,7 @@ pub(super) fn exec_uni_check<const W: u32, const X: u32>(
     concr_func: fn(CConcreteBitvector<W>) -> CConcreteBitvector<X>,
 ) {
     for a in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
-        let abstr_result = abstr_func(a);
+        let abstr_result = abstr_func(a.clone());
         let equiv_result = join_concr_iter(
             CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                 .filter(|c| a.contains_concrete(c))
@@ -107,14 +107,14 @@ pub(super) fn exec_bi_check<const W: u32, const X: u32>(
 ) {
     for a in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
         for b in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
-            let abstr_result = abstr_func(a, b);
+            let abstr_result = abstr_func(a.clone(), b.clone());
 
             let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                 .filter(|c| a.contains_concrete(c));
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
                 CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                     .filter(|c| b.contains_concrete(c))
-                    .map(move |b_concr| concr_func(a_concr, b_concr))
+                    .map(move |b_concr| concr_func(a_concr.clone(), b_concr))
             }));
 
             if exact {
@@ -150,14 +150,14 @@ pub(super) fn exec_comparison_check<const W: u32>(
 ) {
     for a in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
         for b in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
-            let abstr_result = abstr_func(a, b);
+            let abstr_result = abstr_func(a.clone(), b.clone());
 
             let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                 .filter(|c| a.contains_concrete(c));
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
                 CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                     .filter(|c| b.contains_concrete(c))
-                    .map(move |b_concr| concr_func(a_concr, b_concr))
+                    .map(move |b_concr| concr_func(a_concr.clone(), b_concr))
             }));
 
             if exact {
@@ -192,7 +192,7 @@ pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
 ) {
     for a in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
         for b in CThreeValuedBitvector::<W>::all_with_bound_iter(CBound) {
-            let abstr_result = abstr_func(a, b);
+            let abstr_result = abstr_func(a.clone(), b.clone());
 
             let a_concr_iter = CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                 .filter(|c| a.contains_concrete(c));
@@ -200,7 +200,7 @@ pub(super) fn exec_divrem_check<const W: u32, const X: u32>(
             let equiv_result = join_concr_iter(a_concr_iter.flat_map(|a_concr| {
                 CConcreteBitvector::<W>::all_with_bound_iter(CBound)
                     .filter(|c| b.contains_concrete(c))
-                    .map(move |b_concr| concr_func(a_concr, b_concr))
+                    .map(move |b_concr| concr_func(a_concr.clone(), b_concr))
             }));
 
             if !abstr_result.contains(&equiv_result) {

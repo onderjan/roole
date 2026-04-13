@@ -33,7 +33,11 @@ impl LinearSlice {
 
     pub(super) fn from_mask(formula_id: FormulaId, mask: ConcreteBitvector<RBound>) -> Self {
         // the mask must have continguous ones
-        let turned_off_rightmost_ones = mask.bit_and(mask.bit_not()).add(mask).bit_and(mask);
+        let turned_off_rightmost_ones = mask
+            .clone()
+            .bit_and(mask.clone().bit_not())
+            .add(mask.clone())
+            .bit_and(mask.clone());
         assert!(turned_off_rightmost_ones.is_nonzero());
 
         let lsb = mask.to_u64().trailing_zeros();

@@ -30,7 +30,8 @@ impl<B: BitvectorBound> Bitwise for ThreeValuedBitvector<B> {
         // logical XOR
         // zeros ... if exactly zero or exactly two can be set (both zeros set or both ones set)
         // ones ... if exactly one can be set (lhs zero set and rhs one set or rhs zero set and lhs one set)
-        let zeros = (self.zeros.bit_and(rhs.zeros)).bit_or(self.ones.bit_and(rhs.ones));
+        let zeros = (self.zeros.clone().bit_and(rhs.zeros.clone()))
+            .bit_or(self.ones.clone().bit_and(rhs.ones.clone()));
         let ones = (self.zeros.bit_and(rhs.ones)).bit_or(self.ones.bit_and(rhs.zeros));
         Self::from_zeros_ones(zeros, ones)
     }

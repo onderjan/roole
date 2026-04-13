@@ -28,23 +28,25 @@ impl<B: BitvectorBound> HwShift for ConcreteBitvector<B> {
     }
 
     fn arith_shr(self, amount: Self) -> Self {
-        assert_eq!(self.bound, amount.bound);
+        let bound = self.bound;
+        assert_eq!(bound, amount.bound);
+
         if amount.value >= self.bound.width() as u64 {
             // fill with sign bit if the shift is too big
             if self.is_sign_bit_set() {
-                return ConcreteBitvector::from_masked_u64(!0u64, self.bound);
+                return ConcreteBitvector::from_masked_u64(!0u64, bound);
             }
-            return ConcreteBitvector::from_masked_u64(0, self.bound);
+            return ConcreteBitvector::from_masked_u64(0, bound);
         };
 
         let mut result = self.value >> amount.value;
         // copy sign bit if necessary
         if self.is_sign_bit_set() {
-            let old_mask = self.bound.mask();
+            let old_mask = bound.mask();
             let new_mask = old_mask >> amount.value;
             let sign_bit_copy_mask = old_mask & !new_mask;
             result |= sign_bit_copy_mask;
         }
-        ConcreteBitvector::from_masked_u64(result, self.bound)
+        ConcreteBitvector::from_masked_u64(result, bound)
     }
 }

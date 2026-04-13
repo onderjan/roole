@@ -8,7 +8,7 @@ use crate::{
 
 impl LinearPolynomial {
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
-        let mut value = D::single_value(self.constant_term);
+        let mut value = D::single_value(self.constant_term.clone());
         let polynomial_bound = value.bound();
 
         for monomial in &self.linear_terms {
@@ -37,7 +37,7 @@ impl LinearPolynomial {
             }
 
             // then, multiply by the coefficient
-            let term_value = formula_value.mul(D::single_value(monomial.coefficient));
+            let term_value = formula_value.mul(D::single_value(monomial.coefficient.clone()));
             value = value.add(term_value);
         }
 

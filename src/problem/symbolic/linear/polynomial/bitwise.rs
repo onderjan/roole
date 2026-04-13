@@ -12,9 +12,10 @@ use crate::domain::{
 impl LinearPolynomial {
     pub fn bit_not(self) -> Self {
         let mut result = self.arith_neg();
+        let result_bound = result.bound();
         result.constant_term = result
             .constant_term
-            .sub(ConcreteBitvector::new_one(result.bound()));
+            .sub(ConcreteBitvector::new_one(result_bound));
         result.into_normal_form()
     }
 
@@ -64,7 +65,7 @@ impl LinearPolynomial {
         let slice_output_mask = monomial.slice.output_mask(bound);
 
         // bit-shift left by the coefficient logarithm to get the monomial mask
-        let monomial_mask = slice_output_mask.logic_shl(coefficient_log2);
+        let monomial_mask = slice_output_mask.logic_shl(coefficient_log2.clone());
 
         let (new_monomial_mask, new_constant) = if conjunction {
             // bitwise AND, retain the monomial mask only where the constant operand had ones
@@ -75,7 +76,7 @@ impl LinearPolynomial {
         } else {
             // bitwise OR, retain the monomial mask only where the constant operand had zeroes
             // the new constant is exactly the constant operand
-            let new_monomial_mask = monomial_mask.bit_and(constant_operand.bit_not());
+            let new_monomial_mask = monomial_mask.bit_and(constant_operand.clone().bit_not());
             (new_monomial_mask, constant_operand)
         };
 
@@ -94,11 +95,12 @@ impl LinearPolynomial {
             // turn off the rightmost contiguous string of 1-bits
             // from Hacker's Delight Chapter 2
             let with_slice_turned_off = new_slice_output_mask
-                .bit_or(new_slice_output_mask.sub(one))
-                .add(one)
-                .bit_and(new_slice_output_mask);
+                .clone()
+                .bit_or(new_slice_output_mask.clone().sub(one.clone()))
+                .add(one.clone())
+                .bit_and(new_slice_output_mask.clone());
 
-            let turned_off_slice = new_slice_output_mask.sub(with_slice_turned_off);
+            let turned_off_slice = new_slice_output_mask.sub(with_slice_turned_off.clone());
 
             // construct the monomial from the turned-off slice
             let mut turned_off_slice =
@@ -107,7 +109,7 @@ impl LinearPolynomial {
             let turned_off_lsb = ConcreteBitvector::new(turned_off_slice.lsb.into(), bound);
 
             // we must compensate possibly non-zero lsb of the turned-off slice by shifting the coefficient by it
-            let turned_off_coefficient = coefficient.logic_shl(turned_off_lsb);
+            let turned_off_coefficient = coefficient.clone().logic_shl(turned_off_lsb);
 
             // add the original lsb to the turned off slice
             turned_off_slice.lsb += monomial.slice.lsb;

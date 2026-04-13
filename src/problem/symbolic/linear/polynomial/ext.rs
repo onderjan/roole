@@ -24,7 +24,7 @@ impl LinearPolynomial {
         polynomial.constant_term = polynomial.constant_term.uext(new_bound);
 
         for monomial in polynomial.linear_terms.iter_mut() {
-            monomial.coefficient = monomial.coefficient.uext(new_bound);
+            monomial.coefficient = monomial.coefficient.clone().uext(new_bound);
         }
 
         Ok(polynomial)
@@ -63,7 +63,7 @@ impl LinearPolynomial {
         self.constant_term = self.constant_term.uext(new_bound);
 
         for monomial in self.linear_terms.iter_mut() {
-            monomial.coefficient = monomial.coefficient.uext(new_bound);
+            monomial.coefficient = monomial.coefficient.clone().uext(new_bound);
         }
 
         self.into_normal_form()

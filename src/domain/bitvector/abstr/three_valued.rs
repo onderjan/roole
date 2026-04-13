@@ -9,7 +9,7 @@ mod ext;
 mod shift;
 mod support;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ThreeValuedBitvector<B: BitvectorBound> {
     zeros: ConcreteBitvector<B>,
     ones: ConcreteBitvector<B>,

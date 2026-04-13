@@ -40,7 +40,7 @@ impl LinearRelation {
 
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
         let value = self.polynomial.evaluate(&fetch);
-        let slack = D::single_value(*self.slack());
+        let slack = D::single_value(self.slack().clone());
 
         // we are determining value <= slack
         value.ule(slack)

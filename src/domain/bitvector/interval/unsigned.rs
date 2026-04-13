@@ -14,7 +14,7 @@ use super::{
 ///
 /// It is required that min <= max, which means the interval
 /// does not support wrapping nor representing an empty set.
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct UnsignedInterval<B: BitvectorBound> {
     min: UnsignedBitvector<B>,
     max: UnsignedBitvector<B>,
@@ -38,8 +38,8 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
     // the canonical full interval is from umin (zero) to umax (full mask)
     pub fn new_full(bound: B) -> Self {
         Self {
-            min: ConcreteBitvector::new_zero(bound).as_unsigned(),
-            max: ConcreteBitvector::new_all_ones(bound).as_unsigned(),
+            min: ConcreteBitvector::new_zero(bound).into_unsigned(),
+            max: ConcreteBitvector::new_all_ones(bound).into_unsigned(),
         }
     }
 
@@ -48,11 +48,15 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
         self.min.bound()
     }
 
-    pub fn min(&self) -> UnsignedBitvector<B> {
-        self.min
+    pub fn min(&self) -> &UnsignedBitvector<B> {
+        &self.min
     }
-    pub fn max(&self) -> UnsignedBitvector<B> {
-        self.max
+    pub fn max(&self) -> &UnsignedBitvector<B> {
+        &self.max
+    }
+
+    pub fn into_min_max(self) -> (UnsignedBitvector<B>, UnsignedBitvector<B>) {
+        (self.min, self.max)
     }
 
     pub fn ext<X: BitvectorBound>(self, new_bound: X) -> UnsignedInterval<X> {
@@ -60,23 +64,23 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
             // clearly, we can extend
             let ext_value = self.min.ext(new_bound);
             return UnsignedInterval {
-                min: ext_value,
+                min: ext_value.clone(),
                 max: ext_value,
             };
         }
 
         // if we narrow the interval and disregarded a bound, saturate
-        let mut ext_min: UnsignedBitvector<X> = self.min.ext(new_bound);
-        let mut ext_max: UnsignedBitvector<X> = self.max.ext(new_bound);
+        let mut ext_min: UnsignedBitvector<X> = self.min.clone().ext(new_bound);
+        let mut ext_max: UnsignedBitvector<X> = self.max.clone().ext(new_bound);
 
         let old_bound = self.bound();
-        let min_diff: UnsignedBitvector<B> = self.min - ext_min.ext(old_bound);
-        let max_diff: UnsignedBitvector<B> = self.max - ext_max.ext(old_bound);
+        let min_diff: UnsignedBitvector<B> = self.min - ext_min.clone().ext(old_bound);
+        let max_diff: UnsignedBitvector<B> = self.max - ext_max.clone().ext(old_bound);
 
         if min_diff != max_diff {
             // we disregarded a bound, saturate
-            ext_min = ConcreteBitvector::new_zero(new_bound).as_unsigned();
-            ext_max = ConcreteBitvector::new_all_ones(new_bound).as_unsigned();
+            ext_min = ConcreteBitvector::new_zero(new_bound).into_unsigned();
+            ext_max = ConcreteBitvector::new_all_ones(new_bound).into_unsigned();
         }
         UnsignedInterval {
             min: ext_min,
@@ -85,26 +89,25 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
     }
 
     pub fn try_into_signless(self) -> Option<SignlessInterval<B>> {
-        if self.min.cast_bitvector().is_sign_bit_set()
-            == self.max.cast_bitvector().is_sign_bit_set()
-        {
-            Some(SignlessInterval::new(
-                self.min.cast_bitvector(),
-                self.max.cast_bitvector(),
-            ))
+        let min = self.min.cast_bitvector();
+        let max = self.max.cast_bitvector();
+
+        if min.is_sign_bit_set() == max.is_sign_bit_set() {
+            Some(SignlessInterval::new(min, max))
         } else {
             None
         }
     }
 
     pub fn arith_neg(self) -> Self {
-        let new_max = self.min.cast_bitvector().arith_neg().as_unsigned();
-        let new_min = self.max.cast_bitvector().arith_neg().as_unsigned();
+        let bound = self.bound();
+        let new_max = self.min.cast_bitvector().arith_neg().into_unsigned();
+        let new_min = self.max.cast_bitvector().arith_neg().into_unsigned();
         // it is possible this will no longer be unsigned, make full in that case
         if let Ok(result) = Self::try_new(new_min, new_max) {
             result
         } else {
-            Self::new_full(self.bound())
+            Self::new_full(bound)
         }
     }
 
@@ -134,8 +137,8 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
         };
 
         Self::new(
-            ConcreteBitvector::new(min, bound).as_unsigned(),
-            ConcreteBitvector::new(max, bound).as_unsigned(),
+            ConcreteBitvector::new(min, bound).into_unsigned(),
+            ConcreteBitvector::new(max, bound).into_unsigned(),
         )
     }
 
@@ -168,8 +171,8 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
         let max = x_q | y_q | mask_from_leading_one(x_q & y_q & diff_mask);
 
         Self::new(
-            ConcreteBitvector::new(min, bound).as_unsigned(),
-            ConcreteBitvector::new(max, bound).as_unsigned(),
+            ConcreteBitvector::new(min, bound).into_unsigned(),
+            ConcreteBitvector::new(max, bound).into_unsigned(),
         )
     }
 
@@ -199,8 +202,8 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
 
         // we need to mask max
         Self::new(
-            ConcreteBitvector::from_masked_u64(min, bound).as_unsigned(),
-            ConcreteBitvector::from_masked_u64(max, bound).as_unsigned(),
+            ConcreteBitvector::from_masked_u64(min, bound).into_unsigned(),
+            ConcreteBitvector::from_masked_u64(max, bound).into_unsigned(),
         )
     }
 
@@ -217,8 +220,8 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
             if divisor_umax.is_zero() {
                 // always division by zero
                 // this function produces all-ones bitvector on division by zero
-                let all_ones = ConcreteBitvector::new_all_ones(bound).as_unsigned();
-                return Self::new(all_ones, all_ones);
+                let all_ones = ConcreteBitvector::new_all_ones(bound).into_unsigned();
+                return Self::new(all_ones.clone(), all_ones);
             }
 
             // compute division from 1 up
@@ -230,7 +233,7 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
 
         if can_be_div_by_zero {
             // this function produces all-ones bitvector on division by zero
-            max_division_result = ConcreteBitvector::new_all_ones(bound).as_unsigned();
+            max_division_result = ConcreteBitvector::new_all_ones(bound).into_unsigned();
         }
 
         UnsignedInterval::new(min_division_result, max_division_result)
@@ -240,7 +243,7 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
         assert_eq!(self.bound(), rhs.bound());
         let bound = self.bound();
 
-        let (dividend_umin, dividend_umax) = (self.min, self.max);
+        let (dividend_umin, dividend_umax) = (self.min.clone(), self.max.clone());
         let (mut divisor_umin, divisor_umax) = (rhs.min, rhs.max);
 
         let can_be_div_by_zero = divisor_umin.is_zero();
@@ -256,13 +259,17 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
             divisor_umin = UnsignedBitvector::one(bound);
         }
 
-        let min_division_result = dividend_umin.div_wrapping_or_full(divisor_umax);
-        let max_division_result = dividend_umax.div_wrapping_or_full(divisor_umin);
+        let min_division_result = dividend_umin
+            .clone()
+            .div_wrapping_or_full(divisor_umax.clone());
+        let max_division_result = dividend_umax
+            .clone()
+            .div_wrapping_or_full(divisor_umin.clone());
 
         let mut remainder = if min_division_result == max_division_result {
             // only one division result, compute remainder
-            let min_remainder = dividend_umin.rem_wrapping_or_dividend(divisor_umax);
-            let max_remainder = dividend_umax.rem_wrapping_or_dividend(divisor_umin);
+            let min_remainder = dividend_umin.clone().rem_wrapping_or_dividend(divisor_umax);
+            let max_remainder = dividend_umax.clone().rem_wrapping_or_dividend(divisor_umin);
             Self::new(min_remainder, max_remainder)
         } else {
             // more than one division result, return fully unknown remainder
@@ -285,8 +292,8 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
     }
 
     #[allow(dead_code)]
-    pub fn contains_value(&self, value: UnsignedBitvector<B>) -> bool {
-        self.min <= value && value <= self.max
+    pub fn contains_value(&self, value: &UnsignedBitvector<B>) -> bool {
+        &self.min <= value && value <= &self.max
     }
 }
 

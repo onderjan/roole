@@ -12,7 +12,7 @@ use crate::domain::{
 
 use super::ConcreteBitvector;
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UnsignedBitvector<B: BitvectorBound>(ConcreteBitvector<B>);
 
 impl<B: BitvectorBound> UnsignedBitvector<B> {
@@ -44,7 +44,7 @@ impl<B: BitvectorBound> UnsignedBitvector<B> {
         self.0
     }
 
-    pub fn to_u64(self) -> u64 {
+    pub fn to_u64(&self) -> u64 {
         self.0.to_u64()
     }
 
@@ -63,13 +63,13 @@ impl<B: BitvectorBound> UnsignedBitvector<B> {
     pub fn div_wrapping_or_full(self, rhs: Self) -> Self {
         self.cast_bitvector()
             .udiv_wrapping_or_all_ones(rhs.cast_bitvector())
-            .as_unsigned()
+            .into_unsigned()
     }
 
     pub fn rem_wrapping_or_dividend(self, rhs: Self) -> Self {
         self.cast_bitvector()
             .urem_wrapping_or_dividend(rhs.cast_bitvector())
-            .as_unsigned()
+            .into_unsigned()
     }
 }
 

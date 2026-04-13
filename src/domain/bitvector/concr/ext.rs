@@ -14,10 +14,11 @@ impl<B: BitvectorBound, X: BitvectorBound> BExt<X> for ConcreteBitvector<B> {
     }
 
     fn sext(self, new_bound: X) -> ConcreteBitvector<X> {
+        let bound = self.bound;
         let mut value = self.value;
         // copy sign bit to higher positions
         if self.is_sign_bit_set() {
-            let old_mask = self.bound.mask();
+            let old_mask = bound.mask();
             let new_mask = new_bound.mask();
             let lengthening_mask = !old_mask & new_mask;
             value |= lengthening_mask;

@@ -11,7 +11,7 @@ impl LinearPolynomial {
     pub fn arith_neg(mut self) -> LinearPolynomial {
         self.constant_term = self.constant_term.arith_neg();
         for monomial in self.linear_terms.iter_mut() {
-            monomial.coefficient = monomial.coefficient.arith_neg();
+            monomial.coefficient = monomial.coefficient.clone().arith_neg();
         }
 
         self.into_normal_form()
@@ -90,8 +90,8 @@ impl LinearPolynomial {
             let a_mask = a.slice.formula_mask(bound);
             let b_mask = b.slice.formula_mask(bound);
 
-            let only_a = a_mask.bit_and(b_mask.bit_not());
-            let a_and_b = a_mask.bit_and(b_mask);
+            let only_a = a_mask.clone().bit_and(b_mask.clone().bit_not());
+            let a_and_b = a_mask.clone().bit_and(b_mask.clone());
             let only_b = b_mask.bit_and(a_mask.bit_not());
 
             // as they overlap, a_and_b is always nonzero
@@ -100,8 +100,10 @@ impl LinearPolynomial {
             if only_a.is_nonzero() {
                 // consume only_a
                 // this must have the same coefficient as a
-                let only_a =
-                    LinearMonomial::new(a.coefficient, LinearSlice::from_mask(formula_id, only_a));
+                let only_a = LinearMonomial::new(
+                    a.coefficient.clone(),
+                    LinearSlice::from_mask(formula_id, only_a),
+                );
 
                 linear_terms.push(only_a);
             }
@@ -114,15 +116,18 @@ impl LinearPolynomial {
                 let scaling_a = a_and_b.lsb - a.slice.lsb;
                 let scaling_b = a_and_b.lsb - b.slice.lsb;
 
-                let scaled_coeff_a = a.coefficient.logic_shl(ConcreteBitvector::new(
-                    scaling_a.into(),
-                    a.coefficient.bound(),
-                ));
+                let a_bound = a.coefficient.bound();
 
-                let scaled_coeff_b = b.coefficient.logic_shl(ConcreteBitvector::new(
-                    scaling_b.into(),
-                    b.coefficient.bound(),
-                ));
+                let scaled_coeff_a = a
+                    .coefficient
+                    .logic_shl(ConcreteBitvector::new(scaling_a.into(), a_bound));
+
+                let b_bound = b.coefficient.bound();
+
+                let scaled_coeff_b = b
+                    .coefficient
+                    .clone()
+                    .logic_shl(ConcreteBitvector::new(scaling_b.into(), b_bound));
 
                 let a_and_b_coeff = scaled_coeff_a.add(scaled_coeff_b);
 
@@ -133,7 +138,7 @@ impl LinearPolynomial {
             if only_b.is_nonzero() {
                 // retain only_b
                 let only_b = LinearSlice::from_mask(formula_id, only_b);
-                let scaled_coeff_b = b.coefficient.logic_shl(ConcreteBitvector::new(
+                let scaled_coeff_b = b.coefficient.clone().logic_shl(ConcreteBitvector::new(
                     (only_b.lsb - b.slice.lsb).into(),
                     b.coefficient.bound(),
                 ));
@@ -190,10 +195,10 @@ impl LinearPolynomial {
         let bound = self.bound();
         assert_eq!(bound, scaler.bound());
 
-        self.constant_term = self.constant_term.mul(scaler);
+        self.constant_term = self.constant_term.clone().mul(scaler.clone());
 
         for monomial in self.linear_terms.iter_mut() {
-            monomial.coefficient = monomial.coefficient.mul(scaler);
+            monomial.coefficient = monomial.coefficient.clone().mul(scaler.clone());
         }
     }
 }

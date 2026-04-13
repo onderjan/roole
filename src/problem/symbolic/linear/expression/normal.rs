@@ -45,7 +45,7 @@ impl LinearExpression {
 
         // width is above 1
 
-        let slack = *relation.slack();
+        let slack = relation.slack().clone();
 
         let Some((monomial, constant)) = relation.polynomial().monomial_and_constant_value() else {
             // cannot convert
@@ -67,7 +67,7 @@ impl LinearExpression {
             return LinearExpression::Relation(relation);
         }
 
-        let result_if_zero = constant.ule(slack);
+        let result_if_zero = constant.clone().ule(slack.clone());
         let result_if_one = coefficient.add(constant).ule(slack);
 
         if result_if_zero == result_if_one {

@@ -18,7 +18,7 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
         // shifting left logically, we need to shift in zeros from right
         let zeros_shift_fn = |value: ConcreteBitvector<B>, amount: ConcreteBitvector<B>| {
             let bit_mask = ConcreteBitvector::bit_mask(value.bound());
-            let shifted_mask = bit_mask.logic_shl(amount);
+            let shifted_mask = bit_mask.logic_shl(amount.clone());
             Bitwise::bit_or(value.logic_shl(amount), shifted_mask.bit_not())
         };
         let ones_shift_fn =
@@ -39,7 +39,7 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
         // shifting right logically, we need to shift in zeros from left
         let zeros_shift_fn = |value: ConcreteBitvector<B>, amount: ConcreteBitvector<B>| {
             let bit_mask = ConcreteBitvector::bit_mask(value.bound());
-            let shifted_mask = bit_mask.logic_shr(amount);
+            let shifted_mask = bit_mask.logic_shr(amount.clone());
             Bitwise::bit_or(value.logic_shr(amount), shifted_mask.bit_not())
         };
         let ones_shift_fn =
@@ -63,7 +63,7 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
         let sra_shift_fn = |value: ConcreteBitvector<B>, amount: ConcreteBitvector<B>| {
             if value.is_sign_bit_set() {
                 let bit_mask = ConcreteBitvector::bit_mask(value.bound());
-                let shifted_mask = bit_mask.logic_shr(amount);
+                let shifted_mask = bit_mask.logic_shr(amount.clone());
                 Bitwise::bit_or(value.logic_shr(amount), shifted_mask.bit_not())
             } else {
                 value.logic_shr(amount)
@@ -72,7 +72,7 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
 
         // the overflow value is determined by sign bit
         let overflow_zeros = if self.is_zeros_sign_bit_set() {
-            bit_mask
+            bit_mask.clone()
         } else {
             ConcreteBitvector::new(0, self.bound())
         };
@@ -100,7 +100,7 @@ fn shift<B: BitvectorBound>(
     let width = bound.width();
     if width == 0 {
         // avoid problems with zero-bound bitvectors
-        return *value;
+        return value.clone();
     }
 
     let mut zeros = ConcreteBitvector::new(0, bound);
@@ -110,8 +110,8 @@ fn shift<B: BitvectorBound>(
     // first, if it can be shifted by L or larger value, join by overflow value
     let shift_overflow = amount.umax().to_u64() >= width as u64;
     if shift_overflow {
-        zeros = zeros.bit_or(overflow_value.zeros);
-        ones = ones.bit_or(overflow_value.ones);
+        zeros = zeros.bit_or(overflow_value.zeros.clone());
+        ones = ones.bit_or(overflow_value.ones.clone());
     }
 
     // only consider the amounts smaller than L afterwards
@@ -121,8 +121,8 @@ fn shift<B: BitvectorBound>(
     for i in min_shift..=max_shift {
         let bi = ConcreteBitvector::new(i, bound);
         if amount.contains_concrete(&bi) {
-            let shifted_zeros = zeros_shift_fn(value.zeros, bi);
-            let shifted_ones = ones_shift_fn(value.ones, bi);
+            let shifted_zeros = zeros_shift_fn(value.zeros.clone(), bi.clone());
+            let shifted_ones = ones_shift_fn(value.ones.clone(), bi);
             zeros = zeros.bit_or(shifted_zeros);
             ones = ones.bit_or(shifted_ones);
         }

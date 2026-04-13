@@ -38,7 +38,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         Ok(Self { value, bound })
     }
 
-    pub fn bound(self) -> B {
+    pub fn bound(&self) -> B {
         self.bound
     }
 
@@ -74,11 +74,11 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         Self { value, bound }
     }
 
-    pub fn to_u64(self) -> u64 {
+    pub fn to_u64(&self) -> u64 {
         self.value
     }
 
-    pub fn to_i64(self) -> i64 {
+    pub fn to_i64(&self) -> i64 {
         let mut result = self.value;
         let sign_bit_mask = self.bound.sign_bit_mask();
         if self.value & sign_bit_mask != 0 {
@@ -88,7 +88,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         result as i64
     }
 
-    pub fn is_sign_bit_set(self) -> bool {
+    pub fn is_sign_bit_set(&self) -> bool {
         self.value & self.bound.sign_bit_mask() != 0
     }
 
@@ -120,11 +120,11 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         (0..=bound.mask()).map(move |value| Self { bound, value })
     }
 
-    pub const fn as_unsigned(self) -> UnsignedBitvector<B> {
+    pub const fn into_unsigned(self) -> UnsignedBitvector<B> {
         UnsignedBitvector::from_bitvector(self)
     }
 
-    pub const fn as_signed(self) -> SignedBitvector<B> {
+    pub const fn into_signed(self) -> SignedBitvector<B> {
         SignedBitvector::from_bitvector(self)
     }
 
@@ -151,7 +151,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         }
     }
 
-    pub fn as_runtime_bitvector(self) -> ConcreteBitvector<RBound> {
+    pub fn into_runtime_bitvector(self) -> ConcreteBitvector<RBound> {
         ConcreteBitvector {
             bound: RBound::new(self.bound.width()),
             value: self.value,
@@ -177,6 +177,8 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
 
     pub fn modular_inverse(self) -> Option<Self> {
         // TODO: more general computation of modular inverse
+        let bound = self.bound;
+
         let a = self.to_u64().into();
         let modulus = 1i128 << self.bound.width();
 
@@ -191,7 +193,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         };
         let inverse = Self::new(inverse, self.bound);
 
-        assert_eq!(inverse.mul(self), ConcreteBitvector::new_one(self.bound));
+        assert_eq!(inverse.clone().mul(self), ConcreteBitvector::new_one(bound));
 
         Some(inverse)
     }

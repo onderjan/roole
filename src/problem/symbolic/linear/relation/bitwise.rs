@@ -21,7 +21,7 @@ impl LinearRelation {
         // for left side, 0 <= (!a) < m, but for right side, -1 <= (!s)-1 < m-1
         // handle the case where (!s) == 0 specially
 
-        let bit_not_slack = self.slack().bit_not();
+        let bit_not_slack = self.slack().clone().bit_not();
         if bit_not_slack.is_zero() {
             // the relation a <= s was a tautology as s was the highest possible value
             // return contradiction

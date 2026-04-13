@@ -20,15 +20,15 @@ impl<B: BitvectorBound> Join for ThreeValuedBitvector<B> {
     fn join(self, other: &Self) -> Self {
         assert_eq!(self.bound(), other.bound());
 
-        let zeros = self.zeros.bit_or(other.zeros);
-        let ones = self.ones.bit_or(other.ones);
+        let zeros = self.zeros.bit_or(other.zeros.clone());
+        let ones = self.ones.bit_or(other.ones.clone());
 
         Self::from_zeros_ones(zeros, ones)
     }
 
     fn apply_join(&mut self, other: &Self) {
-        // copyable, just overwrite self with join result
-        *self = self.join(other)
+        // overwrite self with join result for now
+        *self = self.clone().join(other)
     }
 
     fn contains(&self, contained: &Self) -> bool {
@@ -63,10 +63,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     pub fn from_zeros_ones(zeros: ConcreteBitvector<B>, ones: ConcreteBitvector<B>) -> Self {
         match Self::try_from_zeros_ones(zeros, ones) {
             Ok(ok) => ok,
-            Err(_) => panic!(
-                "Invalid zeros-ones with some unset bits (zeros {}, ones {})",
-                zeros, ones
-            ),
+            Err(_) => panic!("Invalid zeros-ones with some unset bits"),
         }
     }
 
@@ -78,7 +75,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         let bound = zeros.bound();
 
         // the used bits must be set in zeros, ones, or both
-        if Bitwise::bit_or(zeros, ones) != ConcreteBitvector::bit_mask(bound) {
+        if Bitwise::bit_or(zeros.clone(), ones.clone()) != ConcreteBitvector::bit_mask(bound) {
             return Err(InvalidZerosOnes);
         }
         Ok(Self { zeros, ones })
@@ -86,7 +83,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
     pub fn from_concrete_value(value: ConcreteBitvector<B>) -> Self {
         // bit-negate for zeros
-        let zeros = Bitwise::bit_not(value);
+        let zeros = Bitwise::bit_not(value.clone());
         // leave as-is for ones
         let ones = value;
 
@@ -106,8 +103,8 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     #[must_use]
     pub fn contains_concrete(&self, a: &ConcreteBitvector<B>) -> bool {
         // value zeros must be within our zeros and value ones must be within our ones
-        let excessive_rhs_zeros = a.bit_not().bit_and(self.zeros.bit_not());
-        let excessive_rhs_ones = a.bit_and(self.ones.bit_not());
+        let excessive_rhs_zeros = a.clone().bit_not().bit_and(self.zeros.clone().bit_not());
+        let excessive_rhs_ones = a.clone().bit_and(self.ones.clone().bit_not());
         excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
     }
 
@@ -120,13 +117,13 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     }
 
     #[must_use]
-    pub fn get_possibly_one_flags(&self) -> ConcreteBitvector<B> {
-        self.ones
+    pub fn get_possibly_one_flags(&self) -> &ConcreteBitvector<B> {
+        &self.ones
     }
 
     #[must_use]
-    pub fn get_possibly_zero_flags(&self) -> ConcreteBitvector<B> {
-        self.zeros
+    pub fn get_possibly_zero_flags(&self) -> &ConcreteBitvector<B> {
+        &self.zeros
     }
 
     #[must_use]
@@ -137,14 +134,14 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
     #[must_use]
     pub fn new_value_unknown(value: ConcreteBitvector<B>, unknown: ConcreteBitvector<B>) -> Self {
-        let zeros = Bitwise::bit_or(Bitwise::bit_not(value), unknown);
+        let zeros = Bitwise::bit_or(Bitwise::bit_not(value.clone()), unknown.clone());
         let ones = Bitwise::bit_or(value, unknown);
         Self::from_zeros_ones(zeros, ones)
     }
 
     #[must_use]
-    pub fn get_unknown_bits(&self) -> ConcreteBitvector<B> {
-        Bitwise::bit_and(self.zeros, self.ones)
+    pub fn unknown_bits(self) -> ConcreteBitvector<B> {
+        Bitwise::bit_and(self.zeros.clone(), self.ones.clone())
     }
 
     #[allow(dead_code)]
@@ -152,24 +149,25 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         let zeros_iter = ConcreteBitvector::<B>::all_with_bound_iter(bound);
         zeros_iter.flat_map(move |zeros| {
             let ones_iter = ConcreteBitvector::<B>::all_with_bound_iter(bound);
-            ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros, ones).ok())
+            ones_iter.filter_map(move |ones| Self::try_from_zeros_ones(zeros.clone(), ones).ok())
         })
     }
 
     #[must_use]
     pub fn from_unsigned_interval(interval: UnsignedInterval<B>) -> Self {
-        let min = interval.min().cast_bitvector();
-        let max = interval.max().cast_bitvector();
+        let bound = interval.bound();
+        let (min, max) = interval.into_min_max();
+        let min = min.cast_bitvector();
+        let max = max.cast_bitvector();
 
         // make positions where min and max agree known
-        let xor = min.bit_xor(max);
+        let xor = min.clone().bit_xor(max);
         let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
             // min is equal to max
             return Self::from_concrete_value(min);
         };
 
-        let unknown_mask =
-            ConcreteBitvector::from_ones_width(unknown_positions + 1, interval.bound());
+        let unknown_mask = ConcreteBitvector::from_ones_width(unknown_positions + 1, bound);
         Self::new_value_unknown(min, unknown_mask)
     }
 
@@ -183,18 +181,20 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     pub fn set_bit_to_three_valued(&mut self, bit_index: u32, three_valued: ThreeValued) {
         let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
 
+        // TODO: more performant
+
         match three_valued {
             ThreeValued::False => {
-                self.zeros = self.zeros.bit_or(bit_mask);
-                self.ones = self.ones.bit_and(bit_mask.bit_not());
+                self.zeros = self.zeros.clone().bit_or(bit_mask.clone());
+                self.ones = self.ones.clone().bit_and(bit_mask.bit_not());
             }
             ThreeValued::True => {
-                self.zeros = self.zeros.bit_and(bit_mask.bit_not());
-                self.ones = self.ones.bit_or(bit_mask);
+                self.zeros = self.zeros.clone().bit_and(bit_mask.clone().bit_not());
+                self.ones = self.ones.clone().bit_or(bit_mask);
             }
             ThreeValued::Unknown => {
-                self.zeros = self.zeros.bit_or(bit_mask);
-                self.ones = self.ones.bit_or(bit_mask);
+                self.zeros = self.zeros.clone().bit_or(bit_mask.clone());
+                self.ones = self.ones.clone().bit_or(bit_mask);
             }
         }
     }
@@ -202,8 +202,8 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     pub fn three_valued_from_bit(&self, bit_index: u32) -> ThreeValued {
         let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
 
-        let masked_zeros = self.zeros.bit_and(bit_mask);
-        let masked_ones = self.ones.bit_and(bit_mask);
+        let masked_zeros = self.zeros.clone().bit_and(bit_mask.clone());
+        let masked_ones = self.ones.clone().bit_and(bit_mask);
 
         match (masked_zeros.is_nonzero(), masked_ones.is_nonzero()) {
             (true, true) => ThreeValued::Unknown,
@@ -248,12 +248,12 @@ impl<B: BitvectorBound> BitvectorDomain for ThreeValuedBitvector<B> {
 
     fn concrete_value(&self) -> Option<ConcreteBitvector<B>> {
         // all bits must be equal
-        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones, self.zeros));
+        let nxor = Bitwise::bit_not(Bitwise::bit_xor(self.ones.clone(), self.zeros.clone()));
         if !nxor.is_zero() {
             return None;
         }
         // ones then contain the value
-        Some(self.ones)
+        Some(self.ones.clone())
     }
 }
 
@@ -261,20 +261,20 @@ impl<B: BitvectorBound> ExtendedBitvectorDomain for ThreeValuedBitvector<B> {
     type General<X: BitvectorBound> = ThreeValuedBitvector<X>;
 
     fn meet(self, rhs: &Self) -> Option<Self> {
-        let zeros = self.zeros.bit_and(rhs.zeros);
-        let ones = self.ones.bit_and(rhs.ones);
+        let zeros = self.zeros.bit_and(rhs.zeros.clone());
+        let ones = self.ones.bit_and(rhs.ones.clone());
 
         Self::try_from_zeros_ones(zeros, ones).ok()
     }
 
     fn umin(&self) -> UnsignedBitvector<Self::Bound> {
         // unsigned min value is value of bit-negated zeros (one only where it must be)
-        Bitwise::bit_not(self.zeros).as_unsigned()
+        Bitwise::bit_not(self.zeros.clone()).into_unsigned()
     }
 
     fn umax(&self) -> UnsignedBitvector<Self::Bound> {
         // unsigned max value is value of ones (one everywhere it can be)
-        self.ones.as_unsigned()
+        self.ones.clone().into_unsigned()
     }
 
     fn smin(&self) -> SignedBitvector<B> {
@@ -287,7 +287,7 @@ impl<B: BitvectorBound> ExtendedBitvectorDomain for ThreeValuedBitvector<B> {
         if self.is_ones_sign_bit_set() {
             result = result.bit_or(sign_bit_mask)
         }
-        result.as_signed()
+        result.into_signed()
     }
 
     fn smax(&self) -> SignedBitvector<B> {
@@ -300,7 +300,7 @@ impl<B: BitvectorBound> ExtendedBitvectorDomain for ThreeValuedBitvector<B> {
         if self.is_zeros_sign_bit_set() {
             result = result.bit_and(sign_bit_mask.bit_not());
         }
-        result.as_signed()
+        result.into_signed()
     }
 
     fn display(&self) -> BitvectorDisplay {

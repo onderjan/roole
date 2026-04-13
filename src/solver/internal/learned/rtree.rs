@@ -442,7 +442,7 @@ pub fn volume(assignment: &Assignment<RBitvector>) -> u64 {
     let mut count = 0;
 
     for our_value in assignment.values().iter() {
-        count += our_value.get_unknown_bits().to_u64().count_ones() as u64;
+        count += our_value.clone().unknown_bits().to_u64().count_ones() as u64;
     }
 
     count

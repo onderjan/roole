@@ -18,13 +18,16 @@ pub fn support() {
     let cafe = CThreeValuedBitvector::<16>::new(0xCAFE, CBound);
     assert_eq!(
         cafe.get_possibly_zero_flags(),
-        CConcreteBitvector::new(0x3501, CBound)
+        &CConcreteBitvector::new(0x3501, CBound)
     );
     assert_eq!(
         cafe.get_possibly_one_flags(),
-        CConcreteBitvector::new(0xCAFE, CBound)
+        &CConcreteBitvector::new(0xCAFE, CBound)
     );
-    assert_eq!(cafe.get_unknown_bits(), CConcreteBitvector::new(0, CBound));
+    assert_eq!(
+        cafe.clone().unknown_bits(),
+        CConcreteBitvector::new(0, CBound)
+    );
     assert_eq!(
         cafe.concrete_value(),
         Some(CConcreteBitvector::new(0xCAFE, CBound))
@@ -35,14 +38,14 @@ pub fn support() {
     let unknown = CThreeValuedBitvector::<16>::new_unknown(CBound);
     assert_eq!(
         unknown.get_possibly_zero_flags(),
-        CConcreteBitvector::<16>::new(0xFFFF, CBound)
+        &CConcreteBitvector::<16>::new(0xFFFF, CBound)
     );
     assert_eq!(
         unknown.get_possibly_one_flags(),
-        CConcreteBitvector::<16>::new(0xFFFF, CBound)
+        &CConcreteBitvector::<16>::new(0xFFFF, CBound)
     );
     assert_eq!(
-        unknown.get_unknown_bits(),
+        unknown.clone().unknown_bits(),
         CConcreteBitvector::new(0xFFFF, CBound)
     );
     assert_eq!(unknown.concrete_value(), None);
@@ -55,14 +58,14 @@ pub fn support() {
     );
     assert_eq!(
         partially_known.get_possibly_zero_flags(),
-        CConcreteBitvector::<16>::new(0xEFCF, CBound)
+        &CConcreteBitvector::<16>::new(0xEFCF, CBound)
     );
     assert_eq!(
         partially_known.get_possibly_one_flags(),
-        CConcreteBitvector::<16>::new(0x1F3F, CBound)
+        &CConcreteBitvector::<16>::new(0x1F3F, CBound)
     );
     assert_eq!(
-        partially_known.get_unknown_bits(),
+        partially_known.clone().unknown_bits(),
         CConcreteBitvector::new(0x0F0F, CBound)
     );
     assert_eq!(partially_known.concrete_value(), None);

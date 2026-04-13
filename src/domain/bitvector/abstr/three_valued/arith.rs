@@ -151,16 +151,16 @@ fn handle_by_quadrants<B: BitvectorBound>(
         UnsignedInterval::urem_wrapping_or_full
     };
 
-    if let (Some(a), Some(b)) = (dividend_zpos_half, divisor_zpos_half) {
+    if let (Some(a), Some(b)) = (dividend_zpos_half.clone(), divisor_zpos_half.clone()) {
         // perform unsigned operation normally
         combine_result((op)(a, b))
     }
-    if let (Some(a), Some(b)) = (dividend_neg_half, divisor_zpos_half) {
+    if let (Some(a), Some(b)) = (dividend_neg_half.clone(), divisor_zpos_half) {
         // (-) / (+)
         // negate dividend, perform operation, then negate result
         combine_result((op)(a.arith_neg(), b).arith_neg())
     }
-    if let (Some(a), Some(b)) = (dividend_zpos_half, divisor_neg_half) {
+    if let (Some(a), Some(b)) = (dividend_zpos_half, divisor_neg_half.clone()) {
         // (+) / (-)
 
         if is_division {
@@ -185,10 +185,12 @@ fn handle_by_quadrants<B: BitvectorBound>(
     result.expect("Signed division/remainder must have at least one quadrant")
 }
 
+type ZetaFn<B> = fn(&ThreeValuedBitvector<B>, &ThreeValuedBitvector<B>, u32) -> (u64, u64);
+
 fn minmax_compute<B: BitvectorBound>(
     lhs: ThreeValuedBitvector<B>,
     rhs: ThreeValuedBitvector<B>,
-    zeta_k_fn: fn(ThreeValuedBitvector<B>, ThreeValuedBitvector<B>, u32) -> (u64, u64),
+    zeta_k_fn: ZetaFn<B>,
 ) -> ThreeValuedBitvector<B> {
     let bound = lhs.bound();
     let width = bound.width();
@@ -201,7 +203,7 @@ fn minmax_compute<B: BitvectorBound>(
     // iterate over output bits
     for k in 0..width {
         // compute h_k extremes
-        let (zeta_k_min, zeta_k_max) = zeta_k_fn(lhs, rhs, k);
+        let (zeta_k_min, zeta_k_max) = zeta_k_fn(&lhs, &rhs, k);
 
         // see if minimum and maximum differs
         if zeta_k_min != zeta_k_max {

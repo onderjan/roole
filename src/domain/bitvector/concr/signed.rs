@@ -10,7 +10,7 @@ use crate::domain::{
 
 use super::ConcreteBitvector;
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct SignedBitvector<B: BitvectorBound>(ConcreteBitvector<B>);
 
 impl<B: BitvectorBound> SignedBitvector<B> {
@@ -46,7 +46,7 @@ impl<B: BitvectorBound> SignedBitvector<B> {
         SignedBitvector(bitvector)
     }
 
-    pub fn cast_bitvector(&self) -> ConcreteBitvector<B> {
+    pub fn cast_bitvector(self) -> ConcreteBitvector<B> {
         self.0
     }
 
@@ -54,7 +54,7 @@ impl<B: BitvectorBound> SignedBitvector<B> {
         self.0.bound
     }
 
-    pub fn to_i64(self) -> i64 {
+    pub fn to_i64(&self) -> i64 {
         self.0.to_i64()
     }
 
