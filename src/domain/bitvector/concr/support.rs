@@ -139,14 +139,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn is_zero(&self) -> bool {
-        match &self.value {
-            ConcreteValue::Small(value) => *value == 0,
-            ConcreteValue::Big(elems) => elems.iter().all(|e| *e == 0),
-        }
-    }
-
-    pub fn is_nonzero(&self) -> bool {
-        !self.is_zero()
+        self.value.is_zero()
     }
 
     pub fn is_one(&self) -> bool {
@@ -154,20 +147,11 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
             return true;
         }
 
-        match &self.value {
-            ConcreteValue::Small(value) => *value == 0,
-            ConcreteValue::Big(elems) => {
-                let mut first = true;
-                for e in elems {
-                    let expected = if first { 1 } else { 0 };
-                    if *e != expected {
-                        return false;
-                    }
-                    first = false;
-                }
-                true
-            }
-        }
+        self.value.is_one()
+    }
+
+    pub fn is_nonzero(&self) -> bool {
+        !self.is_zero()
     }
 
     pub fn is_overhalf(&self) -> bool {

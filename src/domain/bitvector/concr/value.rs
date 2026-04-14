@@ -412,4 +412,24 @@ impl ConcreteValue {
             }
         }
     }
+
+    pub fn is_zero(&self) -> bool {
+        match &self {
+            ConcreteValue::Small(value) => *value == 0,
+            ConcreteValue::Big(elems) => elems.iter().all(|e| *e == 0),
+        }
+    }
+
+    pub fn is_one(&self) -> bool {
+        if !self.is_zero_above_lowest_word() {
+            return false;
+        }
+
+        let first_word = match &self {
+            ConcreteValue::Small(value) => *value,
+            ConcreteValue::Big(elems) => elems[0],
+        };
+
+        first_word == 1
+    }
 }
