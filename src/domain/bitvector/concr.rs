@@ -8,6 +8,7 @@ mod eq;
 mod ext;
 mod shift;
 mod support;
+mod value;
 
 mod signed;
 mod unsigned;
@@ -15,9 +16,15 @@ mod unsigned;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum ConcreteValue {
+    Small(u64),
+    Big(Box<[u64]>),
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ConcreteBitvector<B: BitvectorBound> {
     bound: B,
-    value: u64,
+    value: ConcreteValue,
 }
 
 pub use signed::SignedBitvector;

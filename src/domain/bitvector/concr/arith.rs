@@ -4,30 +4,27 @@ use super::ConcreteBitvector;
 
 impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
     fn arith_neg(self) -> Self {
-        let result = self.value.wrapping_neg();
-        Self::from_masked_u64(result, self.bound)
+        Self::from_masked(-self.value, self.bound)
     }
 
     fn add(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        let result = self.value.wrapping_add(rhs.value);
-        Self::from_masked_u64(result, self.bound)
+        Self::from_masked(self.value + rhs.value, self.bound)
     }
 
     fn sub(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        let result = self.value.wrapping_sub(rhs.value);
-        Self::from_masked_u64(result, self.bound)
+        Self::from_masked(self.value - rhs.value, self.bound)
     }
 
     fn mul(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        let result = self.value.wrapping_mul(rhs.value);
-        Self::from_masked_u64(result, self.bound)
+        Self::from_masked(self.value * rhs.value, self.bound)
     }
 
     fn udiv_wrapping_or_all_ones(self, rhs: Self) -> Self {
-        let bound = self.bound;
+        todo!("Udiv");
+        /*let bound = self.bound;
         assert_eq!(bound, rhs.bound);
 
         if rhs.is_zero() {
@@ -39,11 +36,12 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
         let divisor = rhs.to_u64();
         let result = dividend.wrapping_div(divisor);
 
-        Self::from_masked_u64(result, bound)
+        Self::from_masked_u64(result, bound)*/
     }
 
     fn urem_wrapping_or_dividend(self, rhs: Self) -> Self {
-        let bound = self.bound;
+        todo!("Urem");
+        /*let bound = self.bound;
         assert_eq!(bound, rhs.bound);
 
         if rhs.is_zero() {
@@ -54,10 +52,12 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
         let dividend = self.to_u64();
         let divisor = rhs.to_u64();
         let result = dividend.wrapping_rem(divisor);
-        Self::from_masked_u64(result, bound)
+        Self::from_masked_u64(result, bound)*/
     }
 
     fn sdiv_wrapping_by_quadrants(self, rhs: Self) -> Self {
+        todo!("Sdiv");
+        /*
         let bound = self.bound;
         assert_eq!(bound, rhs.bound);
 
@@ -77,9 +77,12 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
 
         let result = dividend.wrapping_div(divisor);
         Self::from_masked_u64(result as u64, bound)
+        */
     }
 
     fn srem_wrapping_by_quadrants(self, rhs: Self) -> Self {
+        todo!("Srem");
+        /*
         let bound = self.bound;
         assert_eq!(bound, rhs.bound);
 
@@ -93,9 +96,11 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
 
         let result = dividend.wrapping_rem(divisor);
         Self::from_masked_u64(result as u64, bound)
+        */
     }
 }
 
+/*
 impl<B: BitvectorBound> ConcreteBitvector<B> {
     pub(crate) fn checked_add(self, rhs: Self) -> Option<Self> {
         assert_eq!(self.bound, rhs.bound);
@@ -115,3 +120,4 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         Some(Self::new(result, self.bound))
     }
 }
+*/

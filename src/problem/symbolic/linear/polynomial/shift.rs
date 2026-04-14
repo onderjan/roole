@@ -19,9 +19,12 @@ impl LinearPolynomial {
         // logical shift left with a constant value is just scaling
         // by the given power of 2
 
-        let amount = amount.to_u64();
-        let multiplier = 1u64 << amount;
-        let multiplier = ConcreteBitvector::from_masked_u64(multiplier, bound);
+        let multiplier = if let Some(amount) = amount.try_to_u32() {
+            ConcreteBitvector::single_bit(amount, bound)
+        } else {
+            // the shift will inevitably shift everything out, this is the same as scaling by zero
+            ConcreteBitvector::new_zero(bound)
+        };
 
         self.scale(multiplier);
 

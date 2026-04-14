@@ -72,10 +72,9 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
         ones: ConcreteBitvector<B>,
     ) -> Result<Self, InvalidZerosOnes> {
         assert_eq!(zeros.bound(), ones.bound());
-        let bound = zeros.bound();
 
         // the used bits must be set in zeros, ones, or both
-        if Bitwise::bit_or(zeros.clone(), ones.clone()) != ConcreteBitvector::bit_mask(bound) {
+        if !Bitwise::bit_or(zeros.clone(), ones.clone()).is_full_mask() {
             return Err(InvalidZerosOnes);
         }
         Ok(Self { zeros, ones })
@@ -111,8 +110,8 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     #[must_use]
     pub fn new_unknown(bound: B) -> Self {
         // all zeros and ones set within mask
-        let zeros = ConcreteBitvector::bit_mask(bound);
-        let ones = ConcreteBitvector::bit_mask(bound);
+        let zeros = ConcreteBitvector::new_all_ones(bound);
+        let ones = ConcreteBitvector::new_all_ones(bound);
         Self::from_zeros_ones(zeros, ones)
     }
 
@@ -278,27 +277,23 @@ impl<B: BitvectorBound> ExtendedBitvectorDomain for ThreeValuedBitvector<B> {
     }
 
     fn smin(&self) -> SignedBitvector<B> {
-        let bound = self.bound();
-        let sign_bit_mask = ConcreteBitvector::<B>::sign_bit_mask(bound);
         // take the unsigned minimum
         let mut result = self.umin().cast_bitvector();
         // but the signed value is smaller when the sign bit is one
         // if it is possible to set it to one, set it
         if self.is_ones_sign_bit_set() {
-            result = result.bit_or(sign_bit_mask)
+            result.set_sign_bit(true);
         }
         result.into_signed()
     }
 
     fn smax(&self) -> SignedBitvector<B> {
-        let bound = self.bound();
-        let sign_bit_mask = ConcreteBitvector::<B>::sign_bit_mask(bound);
         // take the unsigned maximum
         let mut result = self.umax().cast_bitvector();
         // but the signed value is bigger when the sign bit is zero
         // if it is possible to set it to zero, set it
         if self.is_zeros_sign_bit_set() {
-            result = result.bit_and(sign_bit_mask.bit_not());
+            result.set_sign_bit(false);
         }
         result.into_signed()
     }

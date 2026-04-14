@@ -8,6 +8,7 @@ use crate::domain::bitvector::CBound;
 use crate::domain::bitvector::RBound;
 use crate::domain::bitvector::bound::compute_u64_mask;
 use crate::domain::bitvector::concr::ConcreteBitvector;
+use crate::domain::bitvector::concr::ConcreteValue;
 use crate::domain::bitvector::concr::OutsideBound;
 use crate::domain::bitvector::concr::SignedBitvector;
 use crate::domain::bitvector::concr::UnsignedBitvector;
@@ -35,53 +36,95 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
             });
         }
 
-        Ok(Self { value, bound })
+        Ok(Self {
+            value: ConcreteValue::Small(value),
+            bound,
+        })
     }
 
     pub fn bound(&self) -> B {
         self.bound
     }
 
+    pub fn value(self) -> ConcreteValue {
+        self.value
+    }
+
     pub fn new_zero(bound: B) -> Self {
-        Self { value: 0, bound }
+        Self {
+            value: ConcreteValue::Small(0),
+            bound,
+        }
     }
 
     pub fn new_one(bound: B) -> Self {
         // if width is zero, one is the same element as zero
         if bound.width() > 0 {
-            Self { value: 1, bound }
+            Self {
+                value: ConcreteValue::Small(1),
+                bound,
+            }
         } else {
-            Self { value: 0, bound }
+            Self {
+                value: ConcreteValue::Small(0),
+                bound,
+            }
         }
     }
 
-    pub fn bit_mask(bound: B) -> Self {
-        Self {
-            value: bound.mask(),
-            bound,
-        }
-    }
+    pub fn single_bit(bit: u32, bound: B) -> Self {
+        assert!(bit < bound.width());
+        let mut value = ConcreteValue::new_with_zeros(bound);
+        value.set_bit(bit, true);
 
-    pub fn sign_bit_mask(bound: B) -> Self {
-        Self {
-            value: bound.sign_bit_mask(),
-            bound,
-        }
-    }
-
-    pub fn from_masked_u64(value: u64, bound: B) -> Self {
-        let value = value & bound.mask();
         Self { value, bound }
     }
 
+    pub fn set_sign_bit(&mut self, set_value: bool) {
+        if let Some(sign_bit) = self.bound.highest_bit() {
+            self.value.set_bit(sign_bit, set_value);
+        }
+    }
+
+    pub fn from_masked(value: ConcreteValue, bound: B) -> Self {
+        let value = value.make_bounded(bound);
+        Self { value, bound }
+    }
+
+    /*pub fn from_masked_u64(value: u64, bound: B) -> Self {
+        let value = value & bound.mask();
+        Self { value, bound }
+    }*/
+
+    pub fn try_to_u32(&self) -> Option<u32> {
+        self.value.try_to_u32()
+    }
+
     pub fn to_u64(&self) -> u64 {
-        self.value
+        // TODO: never convert to u64
+        if self.bound.width() > 64 {
+            panic!("Bound too big to convert");
+        }
+
+        match &self.value {
+            ConcreteValue::Small(value) => *value,
+            ConcreteValue::Big(items) => items.first().cloned().unwrap_or(0),
+        }
     }
 
     pub fn to_i64(&self) -> i64 {
-        let mut result = self.value;
+        // TODO: never convert to u64
+        if self.bound.width() > 64 {
+            panic!("Bound too big to convert");
+        }
+
+        let mut result = match &self.value {
+            ConcreteValue::Small(value) => *value,
+            ConcreteValue::Big(items) => items.first().cloned().unwrap_or(0),
+        };
+
         let sign_bit_mask = self.bound.sign_bit_mask();
-        if self.value & sign_bit_mask != 0 {
+        if result & sign_bit_mask != 0 {
             // add signed extension
             result |= !self.bound.mask();
         }
@@ -89,35 +132,61 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn is_sign_bit_set(&self) -> bool {
-        self.value & self.bound.sign_bit_mask() != 0
+        if let Some(sign_bit) = self.bound.highest_bit() {
+            self.value.is_bit_set(sign_bit)
+        } else {
+            false
+        }
     }
 
     pub fn is_zero(&self) -> bool {
-        self.value == 0
+        match &self.value {
+            ConcreteValue::Small(value) => *value == 0,
+            ConcreteValue::Big(elems) => elems.iter().all(|e| *e == 0),
+        }
     }
 
     pub fn is_nonzero(&self) -> bool {
-        self.value != 0
+        !self.is_zero()
     }
 
     pub fn is_one(&self) -> bool {
         if self.bound.width() == 0 {
-            true
-        } else {
-            self.value == 1
+            return true;
+        }
+
+        match &self.value {
+            ConcreteValue::Small(value) => *value == 0,
+            ConcreteValue::Big(elems) => {
+                let mut first = true;
+                for e in elems {
+                    let expected = if first { 1 } else { 0 };
+                    if *e != expected {
+                        return false;
+                    }
+                    first = false;
+                }
+                true
+            }
         }
     }
 
     pub fn is_overhalf(&self) -> bool {
-        self.value == self.bound.sign_bit_mask()
+        // TODO: make faster
+        //self.value == self.bound.sign_bit_mask()
+        self == &Self::new_overhalf(self.bound)
     }
 
     pub fn is_full_mask(&self) -> bool {
-        self.value == self.bound.mask()
+        //self.value == self.bound.mask()
+        // TODO: make faster
+        self == &Self::new_all_ones(self.bound)
     }
 
     pub fn all_with_bound_iter(bound: B) -> impl Iterator<Item = Self> {
-        (0..=bound.mask()).map(move |value| Self { bound, value })
+        //(0..=bound.mask()).map(move |value| Self { bound, value })
+        todo!("All with bound iter");
+        std::iter::empty()
     }
 
     pub const fn into_unsigned(self) -> UnsignedBitvector<B> {
@@ -129,18 +198,26 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn new_underhalf(bound: B) -> Self {
-        let value = bound.mask() ^ bound.sign_bit_mask();
-        Self::from_masked_u64(value, bound)
+        // construct all-ones and unset the sign bit
+        let mut value = ConcreteValue::new_with_ones(bound);
+        if let Some(sign_bit) = bound.highest_bit() {
+            value.set_bit(sign_bit, false);
+        }
+        Self { value, bound }
     }
 
     pub fn new_overhalf(bound: B) -> Self {
-        let value = bound.sign_bit_mask();
-        Self::from_masked_u64(value, bound)
+        // construct all-zeros and set the sign bit
+        let mut value = ConcreteValue::new_with_zeros(bound);
+        if let Some(sign_bit) = bound.highest_bit() {
+            value.set_bit(sign_bit, true);
+        }
+        Self { value, bound }
     }
 
     pub fn new_all_ones(bound: B) -> Self {
-        let value = bound.mask();
-        Self::from_masked_u64(value, bound)
+        let value = ConcreteValue::new_with_ones(bound);
+        Self { value, bound }
     }
 
     pub fn new_bool_masked(value: bool, bound: B) -> Self {
@@ -165,74 +242,59 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn num_needed_bits(&self) -> u32 {
-        if let Some(ilog2) = self.value.checked_ilog2() {
+        todo!("Num needed bits")
+        /*if let Some(ilog2) = self.value.checked_ilog2() {
             // N + 1 bits are needed to represent a number
             // with the highest set one at position N
             ilog2 + 1
         } else {
             // zero bits are needed to represent zero
             0
-        }
+        }*/
     }
 
-    pub fn modular_inverse(self) -> Option<Self> {
-        // TODO: more general computation of modular inverse
-        let bound = self.bound;
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, upper_hex: bool) -> std::fmt::Result {
+        let width = self.bound.width();
 
-        let a = self.to_u64().into();
-        let modulus = 1i128 << self.bound.width();
-
-        let (g, x, _) = Self::extended_euclidean(a, modulus);
-        if g != 1 {
-            return None;
+        if width == 0 {
+            return write!(f, "0x0");
         }
 
-        let inverse = ((x % modulus) + modulus) % modulus;
-        let Ok(inverse) = inverse.try_into() else {
-            panic!("Modular inverse does not fit in u64");
-        };
-        let inverse = Self::new(inverse, self.bound);
+        let last_nibble = width.div_ceil(4);
 
-        assert_eq!(inverse.clone().mul(self), ConcreteBitvector::new_one(bound));
+        match &self.value {
+            ConcreteValue::Small(value) => {
+                write!(f, "0x")?;
 
-        Some(inverse)
-    }
+                for nibble_index in (0..=last_nibble).rev() {
+                    let nibble = (value >> nibble_index) & 0xF;
 
-    fn extended_euclidean(a: i128, b: i128) -> (i128, i128, i128) {
-        if a == 0 || b == 0 {
-            panic!("Extended Euclidean algorithm cannot be used with zero");
-        }
-        eprintln!("Extended euclidean: {}, {}", a, b);
-
-        let mut x = 1;
-        let mut y = 0;
-        let mut x1 = 0;
-        let mut y1 = 1;
-        let mut a1 = a;
-        let mut b1 = b;
-        loop {
-            if b1 == 0 {
-                let gcd = x * a + y * b;
-                eprintln!("GCD: {} = {}*{} + {}*{}", gcd, x, a, y, b);
-
-                return (gcd, x, y);
+                    if upper_hex {
+                        write!(f, "{:X}", nibble)?;
+                    } else {
+                        write!(f, "{:x}", nibble)?;
+                    }
+                }
             }
+            ConcreteValue::Big(elems) => {
+                for nibble_index in (0..=last_nibble).rev() {
+                    let elem_index = nibble_index / 8;
+                    let nibble_index = nibble_index % 8;
 
-            let q = a1 / b1;
-            (x, x1) = (x1, x - q * x1);
-            (y, y1) = (y1, y - q * y1);
-            (a1, b1) = (b1, a1 - q * b1);
+                    let elem = elems.get(elem_index as usize).cloned().unwrap_or(0);
+                    let nibble = (elem >> nibble_index) & 0xF;
+
+                    if upper_hex {
+                        write!(f, "{:X}", nibble)?;
+                    } else {
+                        write!(f, "{:x}", nibble)?;
+                    }
+                }
+            }
         }
-    }
-}
 
-fn extended_gcd(a: u64, b: u64) -> (u64, u64, u64) {
-    if a == 0 {
-        return (b, 0, 1);
+        Ok(())
     }
-    let (g, x, y) = extended_gcd(b % a, a);
-    let next = y - (b / a) * x;
-    (g, next, x)
 }
 
 impl<B: BitvectorBound<SingleBit = B>> ConcreteBitvector<B> {
@@ -254,22 +316,20 @@ impl<const W: u32> ConcreteBitvector<CBound<W>> {
 
 impl<B: BitvectorBound> Debug for ConcreteBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // ignore bound
-        std::fmt::Debug::fmt(&self.value, f)
+        // TODO: print in decimal
+        self.format(f, true)
     }
 }
 
 impl<B: BitvectorBound> LowerHex for ConcreteBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // ignore bound
-        std::fmt::LowerHex::fmt(&self.value, f)
+        self.format(f, false)
     }
 }
 
 impl<B: BitvectorBound> UpperHex for ConcreteBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // ignore bound
-        std::fmt::UpperHex::fmt(&self.value, f)
+        self.format(f, true)
     }
 }
 

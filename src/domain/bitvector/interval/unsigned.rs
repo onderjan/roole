@@ -111,7 +111,7 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
         }
     }
 
-    pub fn bit_and(self, rhs: Self) -> Self {
+    /*pub fn bit_and(self, rhs: Self) -> Self {
         assert_eq!(self.bound(), rhs.bound());
         let bound = self.bound();
 
@@ -205,7 +205,7 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
             ConcreteBitvector::from_masked_u64(min, bound).into_unsigned(),
             ConcreteBitvector::from_masked_u64(max, bound).into_unsigned(),
         )
-    }
+    }*/
 
     pub fn udiv_wrapping_or_full(self, rhs: Self) -> Self {
         let bound = self.bound();

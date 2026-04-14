@@ -14,6 +14,18 @@ pub trait BitvectorBound: Clone + Copy + PartialEq + Eq + Hash + Debug {
         value <= self.mask()
     }
 
+    fn word_len(&self) -> u32 {
+        self.width().div_ceil(64)
+    }
+
+    fn highest_bit(&self) -> Option<u32> {
+        if self.width() != 0 {
+            Some(self.width() - 1)
+        } else {
+            None
+        }
+    }
+
     fn single_bit_bound() -> Self::SingleBit;
 }
 

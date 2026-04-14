@@ -136,7 +136,7 @@ impl<B: BitvectorBound> WrappingInterval<B> {
         }
     }
 
-    pub fn hw_mul(self, rhs: Self) -> Self {
+    /*pub fn hw_mul(self, rhs: Self) -> Self {
         assert_eq!(self.bound(), rhs.bound());
         let bound = self.bound();
 
@@ -166,7 +166,7 @@ impl<B: BitvectorBound> WrappingInterval<B> {
         let end = start.clone().add(result_len);
 
         Self { start, end }
-    }
+    }*/
 
     fn is_addsub_full(&self, rhs: &Self) -> bool {
         assert_eq!(self.bound(), rhs.bound());
