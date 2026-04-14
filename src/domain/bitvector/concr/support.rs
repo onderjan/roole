@@ -272,18 +272,19 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     fn format(&self, f: &mut std::fmt::Formatter<'_>, upper_hex: bool) -> std::fmt::Result {
         let width = self.bound.width();
 
+        write!(f, "0x")?;
+
         if width == 0 {
-            return write!(f, "0x0");
+            return write!(f, "0");
         }
 
-        let last_nibble = width.div_ceil(4);
+        let num_nibbles = width.div_ceil(4);
 
         match &self.value {
             ConcreteValue::Small(value) => {
-                write!(f, "0x")?;
-
-                for nibble_index in (0..=last_nibble).rev() {
-                    let nibble = (value >> nibble_index) & 0xF;
+                for nibble_index in (0..num_nibbles).rev() {
+                    let bit_index = nibble_index * 4;
+                    let nibble = (value >> bit_index) & 0xF;
 
                     if upper_hex {
                         write!(f, "{:X}", nibble)?;
@@ -293,12 +294,13 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
                 }
             }
             ConcreteValue::Big(elems) => {
-                for nibble_index in (0..=last_nibble).rev() {
+                for nibble_index in (0..num_nibbles).rev() {
                     let elem_index = nibble_index / 8;
                     let nibble_index = nibble_index % 8;
+                    let bit_index = nibble_index * 4;
 
                     let elem = elems.get(elem_index as usize).cloned().unwrap_or(0);
-                    let nibble = (elem >> nibble_index) & 0xF;
+                    let nibble = (elem >> bit_index) & 0xF;
 
                     if upper_hex {
                         write!(f, "{:X}", nibble)?;
@@ -308,6 +310,8 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
                 }
             }
         }
+
+        write!(f, "'{}", self.bound.width())?;
 
         Ok(())
     }
