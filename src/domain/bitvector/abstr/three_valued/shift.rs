@@ -15,11 +15,9 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
     fn logic_shl(self, amount: Self) -> Self {
         assert_eq!(self.bound(), amount.bound());
 
-        todo!("Lshl3");
-        /*
         // shifting left logically, we need to shift in zeros from right
         let zeros_shift_fn = |value: ConcreteBitvector<B>, amount: ConcreteBitvector<B>| {
-            let bit_mask = ConcreteBitvector::bit_mask(value.bound());
+            let bit_mask = ConcreteBitvector::new_all_ones(value.bound());
             let shifted_mask = bit_mask.logic_shl(amount.clone());
             Bitwise::bit_or(value.logic_shl(amount), shifted_mask.bit_not())
         };
@@ -33,17 +31,14 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
             ones_shift_fn,
             &Self::new(0, self.bound()),
         )
-        */
     }
 
     fn logic_shr(self, amount: Self) -> Self {
         assert_eq!(self.bound(), amount.bound());
 
-        todo!("Lshr3");
-        /*
         // shifting right logically, we need to shift in zeros from left
         let zeros_shift_fn = |value: ConcreteBitvector<B>, amount: ConcreteBitvector<B>| {
-            let bit_mask = ConcreteBitvector::bit_mask(value.bound());
+            let bit_mask = ConcreteBitvector::new_all_ones(value.bound());
             let shifted_mask = bit_mask.logic_shr(amount.clone());
             Bitwise::bit_or(value.logic_shr(amount), shifted_mask.bit_not())
         };
@@ -57,20 +52,17 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
             ones_shift_fn,
             &Self::new(0, self.bound()),
         )
-        */
     }
 
     fn arith_shr(self, amount: Self) -> Self {
         assert_eq!(self.bound(), amount.bound());
-        todo!("Ashr3");
-        /*
         let bound = self.bound();
-        let bit_mask = ConcreteBitvector::bit_mask(bound);
+        let bit_mask = ConcreteBitvector::new_all_ones(bound);
 
         // shifting right arithmetically, we need to shift in the sign bit from left
         let sra_shift_fn = |value: ConcreteBitvector<B>, amount: ConcreteBitvector<B>| {
             if value.is_sign_bit_set() {
-                let bit_mask = ConcreteBitvector::bit_mask(value.bound());
+                let bit_mask = ConcreteBitvector::new_all_ones(value.bound());
                 let shifted_mask = bit_mask.logic_shr(amount.clone());
                 Bitwise::bit_or(value.logic_shr(amount), shifted_mask.bit_not())
             } else {
@@ -93,7 +85,6 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
         let overflow_value = Self::from_zeros_ones(overflow_zeros, overflow_ones);
 
         shift(&self, &amount, sra_shift_fn, sra_shift_fn, &overflow_value)
-        */
     }
 }
 
