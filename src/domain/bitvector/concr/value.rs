@@ -85,6 +85,19 @@ impl ConcreteValue {
         }
     }
 
+    pub fn bi_small(self, rhs: Self, fun: impl Fn(u64, u64) -> u64) -> Self {
+        match (self, rhs) {
+            (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => {
+                ConcreteValue::Small(fun(lhs, rhs))
+            }
+            (ConcreteValue::Big(_), ConcreteValue::Big(_)) => {
+                // TODO: implement all operations for arbitrary sizes
+                panic!("Operation only supported for at most 64-bit bitvectors");
+            }
+            _ => panic!("Values must have same storage"),
+        }
+    }
+
     pub fn mul(self, rhs: Self) -> Self {
         match (self, rhs) {
             (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => {

@@ -32,36 +32,28 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
     }
 
     fn udiv_wrapping_or_all_ones(self, rhs: Self) -> Self {
-        todo!("Udiv");
-        /*let bound = self.bound;
-        assert_eq!(bound, rhs.bound);
-
-        if rhs.is_zero() {
-            // return full bitvector
-            return ConcreteBitvector::new_all_ones(self.bound);
-        }
-
-        let dividend = self.to_u64();
-        let divisor = rhs.to_u64();
-        let result = dividend.wrapping_div(divisor);
-
-        Self::from_masked_u64(result, bound)*/
+        assert_eq!(self.bound, rhs.bound);
+        let value = self.value.bi_small(rhs.value, |a, b| {
+            if b != 0 {
+                a.wrapping_div(b)
+            } else {
+                // return all ones
+                u64::MAX
+            }
+        });
+        Self::from_masked(value, self.bound)
     }
 
     fn urem_wrapping_or_dividend(self, rhs: Self) -> Self {
-        todo!("Urem");
-        /*let bound = self.bound;
-        assert_eq!(bound, rhs.bound);
-
-        if rhs.is_zero() {
-            // return dividend
-            return self;
-        }
-
-        let dividend = self.to_u64();
-        let divisor = rhs.to_u64();
-        let result = dividend.wrapping_rem(divisor);
-        Self::from_masked_u64(result, bound)*/
+        let value = self.value.bi_small(rhs.value, |a, b| {
+            if b != 0 {
+                a.wrapping_rem(b)
+            } else {
+                // return dividend
+                a
+            }
+        });
+        Self::from_masked(value, self.bound)
     }
 
     fn sdiv_wrapping_by_quadrants(self, rhs: Self) -> Self {
