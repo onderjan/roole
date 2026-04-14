@@ -4,22 +4,31 @@ use super::ConcreteBitvector;
 
 impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
     fn arith_neg(self) -> Self {
-        Self::from_masked(-self.value, self.bound)
+        let value = self
+            .value
+            .uni_upwards(|a, borrow| 0u64.borrowing_sub(a, borrow), false);
+        Self::from_masked(value, self.bound)
     }
 
     fn add(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        Self::from_masked(self.value + rhs.value, self.bound)
+        let value = self
+            .value
+            .bi_upwards(rhs.value, |a, b, carry| a.carrying_add(b, carry), false);
+        Self::from_masked(value, self.bound)
     }
 
     fn sub(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        Self::from_masked(self.value - rhs.value, self.bound)
+        let value =
+            self.value
+                .bi_upwards(rhs.value, |a, b, borrow| a.borrowing_sub(b, borrow), false);
+        Self::from_masked(value, self.bound)
     }
 
     fn mul(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        Self::from_masked(self.value * rhs.value, self.bound)
+        Self::from_masked(self.value.mul(rhs.value), self.bound)
     }
 
     fn udiv_wrapping_or_all_ones(self, rhs: Self) -> Self {

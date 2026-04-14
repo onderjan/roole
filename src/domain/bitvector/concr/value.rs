@@ -1,105 +1,4 @@
-use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Neg, Not, Sub};
-
 use crate::domain::bitvector::{BitvectorBound, bound::compute_u64_mask, concr::ConcreteValue};
-
-impl Not for ConcreteValue {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
-        match self {
-            ConcreteValue::Small(value) => ConcreteValue::Small(!value),
-            ConcreteValue::Big(values) => {
-                ConcreteValue::Big(Box::from_iter(values.iter().map(|e| !e)))
-            }
-        }
-    }
-}
-
-impl BitAnd for ConcreteValue {
-    type Output = Self;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        self.bitwise_fn(rhs, |a, b, _| (a & b, ()), ())
-    }
-}
-
-impl BitOr for ConcreteValue {
-    type Output = Self;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        self.bitwise_fn(rhs, |a, b, _| (a | b, ()), ())
-    }
-}
-
-impl BitXor for ConcreteValue {
-    type Output = Self;
-
-    fn bitxor(self, rhs: Self) -> Self::Output {
-        self.bitwise_fn(rhs, |a, b, _| (a ^ b, ()), ())
-    }
-}
-
-impl Neg for ConcreteValue {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        match self {
-            ConcreteValue::Small(value) => ConcreteValue::Small(0u64.wrapping_sub(value)),
-            ConcreteValue::Big(words) => {
-                let mut borrow = false;
-                ConcreteValue::Big(Box::from_iter(words.iter().map(|word| {
-                    let (value, new_borrow) = 0u64.borrowing_sub(*word, borrow);
-                    borrow = new_borrow;
-                    value
-                })))
-            }
-        }
-    }
-}
-
-impl Add for ConcreteValue {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        self.bitwise_fn(rhs, |a, b, carry| a.carrying_add(b, carry), false)
-    }
-}
-
-impl Sub for ConcreteValue {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        self.bitwise_fn(rhs, |a, b, borrow| a.borrowing_sub(b, borrow), false)
-    }
-}
-
-impl Mul for ConcreteValue {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => {
-                ConcreteValue::Small(lhs.wrapping_mul(rhs))
-            }
-            (ConcreteValue::Big(lhs), ConcreteValue::Big(rhs)) => {
-                let num_words = lhs.len();
-                assert_eq!(num_words, rhs.len());
-                let mut result = vec![0u64; num_words].into_boxed_slice();
-
-                // classic quadratic multiplication
-                for j in 0..num_words {
-                    let mut carry = 0;
-                    for i in 0..(num_words - j) {
-                        (result[j + i], carry) =
-                            lhs[i].carrying_mul_add(rhs[j], result[j + i], carry);
-                    }
-                }
-                ConcreteValue::Big(result)
-            }
-            _ => panic!("Values must have same storage"),
-        }
-    }
-}
 
 impl ConcreteValue {
     pub fn new_with_zeros<B: BitvectorBound>(bound: B) -> Self {
@@ -146,7 +45,28 @@ impl ConcreteValue {
         assert_eq!(self.len(), bound.word_len())
     }
 
-    fn bitwise_fn<A: Copy>(self, rhs: Self, fun: fn(u64, u64, A) -> (u64, A), mut acc: A) -> Self {
+    pub fn uni_upwards<A: Copy>(self, fun: fn(u64, A) -> (u64, A), mut acc: A) -> Self {
+        match self {
+            ConcreteValue::Small(small) => {
+                let (value, _new_acc) = fun(small, acc);
+                ConcreteValue::Small(value)
+            }
+            ConcreteValue::Big(words) => {
+                ConcreteValue::Big(Box::from_iter(words.iter().map(|word| {
+                    let (value, new_acc) = fun(*word, acc);
+                    acc = new_acc;
+                    value
+                })))
+            }
+        }
+    }
+
+    pub fn bi_upwards<A: Copy>(
+        self,
+        rhs: Self,
+        fun: fn(u64, u64, A) -> (u64, A),
+        mut acc: A,
+    ) -> Self {
         match (self, rhs) {
             (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => {
                 let (value, _new_acc) = fun(lhs, rhs, acc);
@@ -160,6 +80,30 @@ impl ConcreteValue {
 
                     value
                 })))
+            }
+            _ => panic!("Values must have same storage"),
+        }
+    }
+
+    pub fn mul(self, rhs: Self) -> Self {
+        match (self, rhs) {
+            (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => {
+                ConcreteValue::Small(lhs.wrapping_mul(rhs))
+            }
+            (ConcreteValue::Big(lhs), ConcreteValue::Big(rhs)) => {
+                let num_words = lhs.len();
+                assert_eq!(num_words, rhs.len());
+                let mut result = vec![0u64; num_words].into_boxed_slice();
+
+                // classic quadratic multiplication
+                for j in 0..num_words {
+                    let mut carry = 0;
+                    for i in 0..(num_words - j) {
+                        (result[j + i], carry) =
+                            lhs[i].carrying_mul_add(rhs[j], result[j + i], carry);
+                    }
+                }
+                ConcreteValue::Big(result)
             }
             _ => panic!("Values must have same storage"),
         }
