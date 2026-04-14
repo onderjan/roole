@@ -12,6 +12,7 @@ use crate::domain::bitvector::concr::ConcreteValue;
 use crate::domain::bitvector::concr::OutsideBound;
 use crate::domain::bitvector::concr::SignedBitvector;
 use crate::domain::bitvector::concr::UnsignedBitvector;
+use crate::domain::traits::forward::HwArith;
 
 impl<B: BitvectorBound> ConcreteBitvector<B> {
     pub fn new(value: u64, bound: B) -> Self {
@@ -182,9 +183,26 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn all_with_bound_iter(bound: B) -> impl Iterator<Item = Self> {
-        //(0..=bound.mask()).map(move |value| Self { bound, value })
-        todo!("All with bound iter");
-        std::iter::empty()
+        struct BoundIter<B: BitvectorBound>(Option<ConcreteBitvector<B>>);
+
+        impl<B: BitvectorBound> Iterator for BoundIter<B> {
+            type Item = ConcreteBitvector<B>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                match self.0.take() {
+                    Some(value) => {
+                        let next_value = value.clone().add(ConcreteBitvector::new_one(value.bound));
+                        if !next_value.is_zero() {
+                            self.0 = Some(next_value);
+                        }
+                        Some(value)
+                    }
+                    None => None,
+                }
+            }
+        }
+
+        BoundIter(Some(ConcreteBitvector::new_zero(bound)))
     }
 
     pub const fn into_unsigned(self) -> UnsignedBitvector<B> {
