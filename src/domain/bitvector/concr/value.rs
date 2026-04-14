@@ -109,6 +109,144 @@ impl ConcreteValue {
         }
     }
 
+    pub fn unbounded_shl(self, rhs: Self) -> Self {
+        let Some(rhs) = rhs.try_to_u32() else {
+            // shift too big, the result is zero
+            return match self {
+                ConcreteValue::Small(_) => ConcreteValue::Small(0),
+                ConcreteValue::Big(lhs) => {
+                    ConcreteValue::Big(vec![0u64; lhs.len()].into_boxed_slice())
+                }
+            };
+        };
+
+        match self {
+            ConcreteValue::Small(lhs) => ConcreteValue::Small(lhs.unbounded_shl(rhs)),
+            ConcreteValue::Big(lhs) => Self::unbounded_shl_big(&lhs, rhs),
+        }
+    }
+
+    fn unbounded_shl_big(lhs: &[u64], rhs: u32) -> Self {
+        let num_words = lhs.len();
+        let mut result = vec![0u64; num_words].into_boxed_slice();
+        // usually, each result word will combine two words from lhs
+        // those words will have indices lower or equal to the result word
+
+        // go from the highest to lowest so we can break once there are no more bits to process
+        for i in (0..num_words.try_into().unwrap()).rev() {
+            let i_usize: usize = i.try_into().unwrap();
+            let lowest_dest_bit: u32 = i * 64;
+            let highest_dest_bit = lowest_dest_bit + 63;
+
+            let Some(highest_src_bit) = highest_dest_bit.checked_sub(rhs) else {
+                // the highest source bit is under the available bits, we can break
+                break;
+            };
+
+            let Some(lowest_src_bit) = lowest_dest_bit.checked_sub(rhs) else {
+                // the lowest source bit is under the available bits
+                // the highest source bit must be within the lowest source word
+                // move from there
+                let mask = compute_u64_mask(highest_src_bit);
+                let src_value = lhs[0] & mask;
+                // we have to move the source value up to account for the bits under
+                let num_under = rhs - lowest_dest_bit;
+                result[i_usize] = src_value << num_under;
+                // we will have the source bits under available bits in next iterations, break
+                break;
+            };
+
+            // both the highest and lowest source bit are available
+            let word_lo = lowest_src_bit / 64;
+            let word_hi = highest_dest_bit / 64;
+            let word_lo: usize = word_lo.try_into().unwrap();
+            let word_hi: usize = word_hi.try_into().unwrap();
+            if word_lo == word_hi {
+                // just copy the word
+                result[i_usize] = lhs[word_lo];
+            } else {
+                // the lower part is in a word one lower than the higher part
+                let bit_lo = lowest_src_bit % 64;
+                let bit_hi = highest_src_bit % 64;
+
+                let width_lo = 64 - bit_lo;
+
+                // make source masks for bits at and above bit_lo and at and below bit_hi
+                // note that bit_hi must be below 63
+                let mask_lo = !compute_u64_mask(bit_lo);
+                let mask_hi = compute_u64_mask(bit_hi + 1);
+
+                // combine values
+                let value_lo = (lhs[word_lo] & mask_lo) >> bit_lo;
+                let value_hi = (lhs[word_hi] & mask_hi) << width_lo;
+                result[i_usize] = value_lo | value_hi;
+            }
+        }
+
+        ConcreteValue::Big(result)
+    }
+
+    pub fn unbounded_shr(self, rhs: Self) -> Self {
+        let Some(rhs) = rhs.try_to_u32() else {
+            // shift too big, the result is zero
+            return match self {
+                ConcreteValue::Small(_) => ConcreteValue::Small(0),
+                ConcreteValue::Big(lhs) => {
+                    ConcreteValue::Big(vec![0u64; lhs.len()].into_boxed_slice())
+                }
+            };
+        };
+
+        match self {
+            ConcreteValue::Small(lhs) => ConcreteValue::Small(lhs.unbounded_shr(rhs)),
+            ConcreteValue::Big(lhs) => Self::unbounded_shl_big(&lhs, rhs),
+        }
+    }
+
+    fn unbounded_shr_big(lhs: &[u64], rhs: u32) -> Self {
+        let num_words = lhs.len();
+        let mut result = vec![0u64; num_words].into_boxed_slice();
+        // usually, each result word will combine two words from lhs
+        // those words will have indices greater or equal to the result word
+
+        // go from the lowest to highest so we can break once there are no more bits to process
+        for i in 0..num_words.try_into().unwrap() {
+            let i_usize: usize = i.try_into().unwrap();
+            let lowest_dest_bit: u32 = i * 64;
+            let highest_dest_bit = lowest_dest_bit + 63;
+
+            let lowest_src_bit = lowest_dest_bit + rhs;
+            let highest_src_bit = highest_dest_bit + rhs;
+
+            let word_lo = lowest_src_bit / 64;
+            let word_hi = highest_dest_bit / 64;
+            let word_lo: usize = word_lo.try_into().unwrap();
+            let word_hi: usize = word_hi.try_into().unwrap();
+            if word_lo == word_hi {
+                // just copy the word or fill with zero if above the available
+                result[i_usize] = lhs.get(word_lo).copied().unwrap_or(0);
+            } else {
+                // the lower part is in a word one lower than the higher part
+                let bit_lo = lowest_src_bit % 64;
+                let bit_hi = highest_src_bit % 64;
+
+                let width_lo = 64 - bit_lo;
+
+                // make source masks for bits at and above bit_lo and at and below bit_hi
+                // note that bit_hi must be below 63
+                let mask_lo = !compute_u64_mask(bit_lo);
+                let mask_hi = compute_u64_mask(bit_hi + 1);
+
+                // combine values, fill with zero if not available
+                let value_lo = (lhs.get(word_lo).copied().unwrap_or(0) & mask_lo) >> bit_lo;
+                let value_hi = (lhs.get(word_hi).copied().unwrap_or(0) & mask_hi) << width_lo;
+                result[i_usize] = value_lo | value_hi;
+            }
+        }
+
+        ConcreteValue::Big(result)
+    }
+
     pub(super) fn make_bounded<B: BitvectorBound>(self, bound: B) -> Self {
         let width = bound.width();
 
@@ -192,19 +330,31 @@ impl ConcreteValue {
     }
 
     pub fn try_to_u32(&self) -> Option<u32> {
-        let word = match self {
+        // all words above the lowest must be zero
+        if !self.is_zero_above_lowest_word() {
+            return None;
+        }
+
+        let lowest_word = match self {
             ConcreteValue::Small(small) => *small,
-            ConcreteValue::Big(words) => {
-                // all words other than zero word must be zero
-                for i in 1..words.len() {
-                    if words[i] != 0 {
-                        return None;
-                    }
-                }
-                words[0]
-            }
+            ConcreteValue::Big(words) => words[0],
         };
 
-        word.try_into().ok()
+        lowest_word.try_into().ok()
+    }
+
+    pub fn is_zero_above_lowest_word(&self) -> bool {
+        // all words other than zero word must be zero
+        match self {
+            ConcreteValue::Small(_) => true,
+            ConcreteValue::Big(words) => {
+                for i in 1..words.len() {
+                    if words[i] != 0 {
+                        return false;
+                    }
+                }
+                true
+            }
+        }
     }
 }

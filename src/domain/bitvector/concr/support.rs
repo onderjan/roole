@@ -12,7 +12,6 @@ use crate::domain::bitvector::concr::ConcreteValue;
 use crate::domain::bitvector::concr::OutsideBound;
 use crate::domain::bitvector::concr::SignedBitvector;
 use crate::domain::bitvector::concr::UnsignedBitvector;
-use crate::domain::traits::forward::HwArith;
 
 impl<B: BitvectorBound> ConcreteBitvector<B> {
     pub fn new(value: u64, bound: B) -> Self {

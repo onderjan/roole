@@ -6,27 +6,15 @@ impl<B: BitvectorBound> HwShift for ConcreteBitvector<B> {
     type Output = Self;
 
     fn logic_shl(self, amount: Self) -> Self {
-        todo!("Lshl")
-        /*assert_eq!(self.bound, amount.bound);
-        if amount.value >= self.bound.width() as u64 {
-            // zero if the shift is too big
-            ConcreteBitvector::from_masked_u64(0, self.bound)
-        } else {
-            // apply mask after shifting
-            let res = self.value << amount.value;
-            ConcreteBitvector::from_masked_u64(res, self.bound)
-        }*/
+        assert_eq!(self.bound, amount.bound);
+        let value = self.value.unbounded_shl(amount.value);
+        Self::from_masked(value, self.bound)
     }
 
     fn logic_shr(self, amount: Self) -> Self {
-        todo!("Lshr")
-        /*assert_eq!(self.bound, amount.bound);
-        if amount.value >= self.bound.width() as u64 {
-            // zero if the shift is too big
-            ConcreteBitvector::from_masked_u64(0, self.bound)
-        } else {
-            ConcreteBitvector::from_masked_u64(self.value >> amount.value, self.bound)
-        }*/
+        assert_eq!(self.bound, amount.bound);
+        let value = self.value.unbounded_shr(amount.value);
+        Self::from_masked(value, self.bound)
     }
 
     fn arith_shr(self, amount: Self) -> Self {
