@@ -22,7 +22,7 @@ impl<B: BitvectorBound, X: BitvectorBound> BExt<X> for ConcreteBitvector<B> {
         // set the sign bit in higher positions if needed
         if should_set_sign_bit {
             let num_set_bits = new_width - old_width;
-            if let Some(hi) = self.bound.highest_bit() {
+            if let Some(hi) = new_bound.highest_bit() {
                 let lo = hi.saturating_sub(num_set_bits - 1);
                 result.set_bits(lo, hi, true);
             }
