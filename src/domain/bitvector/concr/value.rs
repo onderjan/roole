@@ -318,7 +318,10 @@ impl ConcreteValue {
         let bit_in_word = bit % 64;
 
         let word = match self {
-            ConcreteValue::Small(value) => value,
+            ConcreteValue::Small(value) => {
+                assert_eq!(word_index, 0);
+                value
+            }
             ConcreteValue::Big(words) => &mut words[word_index],
         };
 
@@ -326,6 +329,45 @@ impl ConcreteValue {
             *word |= 1 << bit_in_word;
         } else {
             *word &= !(1 << bit_in_word);
+        }
+    }
+
+    pub fn set_bits(&mut self, lo: u32, hi: u32, set_value: bool) {
+        assert!(lo <= hi);
+        let lo_word_index: usize = (lo / 64).try_into().unwrap();
+        let hi_word_index: usize = (hi / 64).try_into().unwrap();
+
+        let bit_lo = lo % 64;
+        let bit_hi = hi % 64;
+
+        let mask_lo = !compute_u64_mask(bit_lo);
+        let mask_hi = compute_u64_mask(bit_hi + 1);
+
+        let set_word_value = |word: &mut u64, mask: u64, set_value| {
+            *word = if set_value {
+                *word | mask
+            } else {
+                *word & !mask
+            }
+        };
+
+        match self {
+            ConcreteValue::Small(value) => {
+                assert_eq!(hi_word_index, 0);
+                set_word_value(value, mask_lo & mask_hi, set_value);
+            }
+            ConcreteValue::Big(words) => {
+                if lo_word_index == hi_word_index {
+                    set_word_value(&mut words[lo_word_index], mask_lo & mask_hi, set_value);
+                } else {
+                    // use lo mask in lo word, full mask in words inbetween, hi mask in hi word
+                    set_word_value(&mut words[lo_word_index], mask_lo, set_value);
+                    for i in lo_word_index + 1..hi_word_index {
+                        set_word_value(&mut words[i], u64::MAX, set_value);
+                    }
+                    set_word_value(&mut words[hi_word_index], mask_hi, set_value);
+                }
+            }
         }
     }
 

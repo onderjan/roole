@@ -85,15 +85,14 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         }
     }
 
+    pub fn set_bits(&mut self, lo: u32, hi: u32, set_value: bool) {
+        self.value.set_bits(lo, hi, set_value);
+    }
+
     pub fn from_masked(value: ConcreteValue, bound: B) -> Self {
         let value = value.make_bounded(bound);
         Self { value, bound }
     }
-
-    /*pub fn from_masked_u64(value: u64, bound: B) -> Self {
-        let value = value & bound.mask();
-        Self { value, bound }
-    }*/
 
     pub fn try_to_u32(&self) -> Option<u32> {
         self.value.try_to_u32()

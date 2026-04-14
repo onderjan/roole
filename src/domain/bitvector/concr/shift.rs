@@ -18,26 +18,39 @@ impl<B: BitvectorBound> HwShift for ConcreteBitvector<B> {
     }
 
     fn arith_shr(self, amount: Self) -> Self {
-        todo!("Ashr")
-        /*let bound = self.bound;
+        let bound = self.bound;
         assert_eq!(bound, amount.bound);
 
-        if amount.value >= self.bound.width() as u64 {
-            // fill with sign bit if the shift is too big
-            if self.is_sign_bit_set() {
-                return ConcreteBitvector::from_masked_u64(!0u64, bound);
-            }
-            return ConcreteBitvector::from_masked_u64(0, bound);
+        let Some(hi) = bound.highest_bit() else {
+            // zero width
+            return self;
         };
 
-        let mut result = self.value >> amount.value;
-        // copy sign bit if necessary
-        if self.is_sign_bit_set() {
-            let old_mask = bound.mask();
-            let new_mask = old_mask >> amount.value;
-            let sign_bit_copy_mask = old_mask & !new_mask;
-            result |= sign_bit_copy_mask;
+        let sign_bit_set = self.is_sign_bit_set();
+
+        let Some(amount_value) = amount.value.try_to_u32() else {
+            // the shift much too big, fill with sign bit
+            return if sign_bit_set {
+                ConcreteBitvector::new_all_ones(bound)
+            } else {
+                ConcreteBitvector::new_zero(bound)
+            };
+        };
+
+        if amount_value == 0 {
+            // no shift
+            return self;
         }
-        ConcreteBitvector::from_masked_u64(result, bound)*/
+
+        // perform logical shift right
+        let mut value = self.value.unbounded_shr(amount.value);
+
+        // if the sign bit was set, set the shifted-in bits
+        if sign_bit_set {
+            let lo = hi.saturating_sub(amount_value - 1);
+            value.set_bits(lo, hi, true);
+        }
+
+        Self::from_masked(value, bound)
     }
 }
