@@ -1,5 +1,5 @@
 use crate::domain::{
-    bitvector::{BitvectorBound, CBound, abstr::BitvectorDomain, concr::ConcreteBitvector},
+    bitvector::{BitvectorBound, CBound, abstr::BitvectorDomain},
     traits::forward::{BExt, Ext},
 };
 
@@ -9,62 +9,37 @@ impl<B: BitvectorBound, X: BitvectorBound> BExt<X> for ThreeValuedBitvector<B> {
     type Output = ThreeValuedBitvector<X>;
 
     fn uext(self, new_bound: X) -> Self::Output {
-        let old_mask = self.bound().mask();
-        let new_mask = new_bound.mask();
+        let old_width = self.bound().width();
+        let new_width = new_bound.width();
 
-        // shorten if needed
-        let shortened_zeros = self.zeros.to_u64() & new_mask;
-        let shortened_ones = self.ones.to_u64() & new_mask;
+        // set width first
+        let mut zeros = self.zeros.uext(new_bound);
+        let ones = self.ones.uext(new_bound);
 
-        // the mask for lengthening is comprised of bits
-        // that were not in the old mask but are in the new mask
-        let lengthening_mask = !old_mask & new_mask;
+        // if extending, extend zeros by 1s
+        if new_width > old_width {
+            let num_set_bits = new_width - old_width;
+            if let Some(hi) = new_bound.highest_bit() {
+                let lo = hi.saturating_sub(num_set_bits - 1);
+                zeros.set_bits(lo, hi, true);
+            }
+        }
 
-        // for lengthening, we need to add zeros
-        let zeros = shortened_zeros | lengthening_mask;
-        let ones = shortened_ones;
-
-        // shorten if needed, lengthening is fine
-        ThreeValuedBitvector::from_zeros_ones(
-            ConcreteBitvector::new(zeros, new_bound),
-            ConcreteBitvector::new(ones, new_bound),
-        )
+        ThreeValuedBitvector::from_zeros_ones(zeros, ones)
     }
 
     fn sext(self, new_bound: X) -> Self::Output {
+        // we need to extend both by their highest bit
         if self.bound().width() == 0 {
             // no zeros nor ones, handle specially by returning zero
+            // (with all zeros filled)
             return ThreeValuedBitvector::new(0, new_bound);
         }
 
-        let old_mask = self.bound().mask();
-        let new_mask = new_bound.mask();
+        let zeros = self.zeros.sext(new_bound);
+        let ones = self.ones.sext(new_bound);
 
-        // shorten if needed
-        let shortened_zeros = self.zeros.to_u64() & new_mask;
-        let shortened_ones = self.ones.to_u64() & new_mask;
-
-        // the mask for lengthening is comprised of bits
-        // that were not in the old mask but are in the new mask
-        let lengthening_mask = !old_mask & new_mask;
-
-        // for lengthening, we need to extend whatever may be in the sign bit
-        let zeros = if self.is_zeros_sign_bit_set() {
-            shortened_zeros | lengthening_mask
-        } else {
-            shortened_zeros
-        };
-
-        let ones = if self.is_ones_sign_bit_set() {
-            shortened_ones | lengthening_mask
-        } else {
-            shortened_ones
-        };
-
-        ThreeValuedBitvector::from_zeros_ones(
-            ConcreteBitvector::new(zeros, new_bound),
-            ConcreteBitvector::new(ones, new_bound),
-        )
+        ThreeValuedBitvector::from_zeros_ones(zeros, ones)
     }
 }
 

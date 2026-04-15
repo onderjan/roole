@@ -106,12 +106,6 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         self.value.try_to_u32()
     }
 
-    pub fn to_u64(&self) -> u64 {
-        // TODO: never infallibly convert to u64
-        self.try_to_u64()
-            .expect("Bound should be small enough to convert")
-    }
-
     pub fn try_to_u64(&self) -> Option<u64> {
         // TODO: never convert to u64
         if self.bound.width() > 64 {

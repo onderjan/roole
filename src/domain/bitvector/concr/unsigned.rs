@@ -44,10 +44,6 @@ impl<B: BitvectorBound> UnsignedBitvector<B> {
         self.0
     }
 
-    pub fn to_u64(&self) -> u64 {
-        self.0.to_u64()
-    }
-
     pub fn is_zero(&self) -> bool {
         self.0.is_zero()
     }
