@@ -137,6 +137,11 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         }
     }
 
+    pub fn is_bit_set(&self, pos: u32) -> bool {
+        assert!(pos < self.bound.width());
+        self.value.is_bit_set(pos)
+    }
+
     pub fn is_zero(&self) -> bool {
         self.value.is_zero()
     }

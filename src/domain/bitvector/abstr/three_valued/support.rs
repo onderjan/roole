@@ -167,10 +167,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     }
 
     pub fn write_nonenclosed(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let zeros = self.zeros.to_u64();
-        let ones = self.ones.to_u64();
-
-        format_zeros_ones(f, self.bound().width(), zeros, ones, false)
+        format_zeros_ones(f, self.bound().width(), &self.zeros, &self.ones, false)
     }
 
     pub fn set_bit_to_three_valued(&mut self, bit_index: u32, three_valued: ThreeValued) {
@@ -302,10 +299,7 @@ impl<B: BitvectorBound> ExtendedBitvectorDomain for ThreeValuedBitvector<B> {
 
 impl<B: BitvectorBound> Debug for ThreeValuedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let zeros = self.zeros.to_u64();
-        let ones = self.ones.to_u64();
-
-        format_zeros_ones(f, self.bound().width(), zeros, ones, true)
+        format_zeros_ones(f, self.bound().width(), &self.zeros, &self.ones, true)
     }
 }
 
@@ -322,15 +316,14 @@ impl<B: BitvectorBound> Display for ThreeValuedBitvector<B> {
     }
 }
 
-pub fn format_zeros_ones(
+pub fn format_zeros_ones<B: BitvectorBound>(
     f: &mut std::fmt::Formatter<'_>,
     bit_width: u32,
-    zeros: u64,
-    ones: u64,
+    zeros: &ConcreteBitvector<B>,
+    ones: &ConcreteBitvector<B>,
     enclosed: bool,
 ) -> std::fmt::Result {
-    let nxor = !(ones ^ zeros);
-    if nxor == 0 {
+    if ones.clone().bit_xor(zeros.clone()).is_full_mask() {
         // concrete value
         return write!(f, "{:?}", ones);
     }
@@ -340,8 +333,8 @@ pub fn format_zeros_ones(
     }
     for little_k in 0..bit_width {
         let big_k = bit_width - little_k - 1;
-        let zero = (zeros >> (big_k as usize)) & 1 != 0;
-        let one = (ones >> (big_k as usize)) & 1 != 0;
+        let zero = zeros.is_bit_set(big_k);
+        let one = ones.is_bit_set(big_k);
         let c = match (zero, one) {
             (true, true) => 'X',
             (true, false) => '0',
