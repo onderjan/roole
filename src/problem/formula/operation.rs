@@ -21,7 +21,7 @@ pub use bi::{BiOp, BiOperator};
 /// being represented in memory as a tree / directed graph.
 #[derive(Clone)]
 pub enum Operation {
-    Constant(u64, u32),
+    Constant(ConcreteBitvector<RBound>),
     UniOp(UniOp),
     BiOp(BiOp),
     ExtOp(ExtOp),
@@ -86,10 +86,7 @@ pub enum UniOperator {
 impl Operation {
     pub fn evaluate<D: EvaluableDomain>(&self, fetch: impl Fn(FormulaId) -> D) -> D {
         match self {
-            Operation::Constant(value, width) => {
-                let concrete = ConcreteBitvector::new(*value, RBound::new(*width));
-                D::single_value(concrete)
-            }
+            Operation::Constant(bv) => D::single_value(bv.clone()),
             Operation::UniOp(UniOp {
                 op,
                 input_width: _,
@@ -144,7 +141,7 @@ impl Operation {
 
                 // shift left by right width
                 let right_width_bitvector =
-                    ConcreteBitvector::new(concat_op.right_width as u64, result_bound);
+                    ConcreteBitvector::from_u32(concat_op.right_width, result_bound);
                 let left = left.logic_shl(D::single_value(right_width_bitvector));
 
                 // bit-or both
@@ -157,7 +154,7 @@ impl Operation {
 
                 // shift right by lsb
                 // it should not matter which shift it is, perform it unsigned
-                let concrete_rhs = ConcreteBitvector::new(extract_op.lsb.into(), inner.bound());
+                let concrete_rhs = ConcreteBitvector::from_u32(extract_op.lsb, inner.bound());
                 let inner = inner.logic_shr(D::single_value(concrete_rhs));
 
                 // narrow to extraction width
@@ -182,14 +179,10 @@ impl Operation {
                 let left_shift_amount = amount;
                 let right_shift_amount = width - amount;
 
-                let left_shift_amount = D::single_value(ConcreteBitvector::new(
-                    left_shift_amount.into(),
-                    inner_bound,
-                ));
-                let right_shift_amount = D::single_value(ConcreteBitvector::new(
-                    right_shift_amount.into(),
-                    inner_bound,
-                ));
+                let left_shift_amount =
+                    D::single_value(ConcreteBitvector::from_u32(left_shift_amount, inner_bound));
+                let right_shift_amount =
+                    D::single_value(ConcreteBitvector::from_u32(right_shift_amount, inner_bound));
 
                 let left_shifted = inner.clone().logic_shl(left_shift_amount);
                 let right_shifted = inner.logic_shr(right_shift_amount);
@@ -204,7 +197,7 @@ impl Operation {
 
     pub fn result_width(&self) -> u32 {
         match self {
-            Operation::Constant(_value, width) => *width,
+            Operation::Constant(bv) => bv.bound().width(),
             Operation::UniOp(uni_op) => uni_op.input_width,
             Operation::BiOp(bi_op) => bi_op.result_width(),
             Operation::ExtOp(ext_op) => ext_op.output_width,
@@ -218,7 +211,7 @@ impl Operation {
 
     pub fn used_ids(&self) -> Vec<FormulaId> {
         match self {
-            Operation::Constant(_, _) => vec![],
+            Operation::Constant(_) => vec![],
             Operation::UniOp(uni_op) => vec![uni_op.inner],
             Operation::BiOp(bi_op) => vec![bi_op.left, bi_op.right],
             Operation::ExtOp(ext_op) => vec![ext_op.inner],
@@ -241,7 +234,7 @@ impl Operation {
         };
 
         match self {
-            Operation::Constant(_, _) => self.clone(),
+            Operation::Constant(_) => self.clone(),
             Operation::UniOp(uni_op) => Operation::UniOp(UniOp {
                 op: uni_op.op,
                 input_width: uni_op.input_width,
@@ -287,14 +280,8 @@ impl Operation {
 
     fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
         match self {
-            Operation::Constant(value, width) => {
-                write!(f, "bv_{}(", width)?;
-                if hex {
-                    write!(f, "{:#X}", value)?;
-                } else {
-                    write!(f, "{}", value)?;
-                }
-                write!(f, ")")
+            Operation::Constant(bv) => {
+                write!(f, "{:?}", bv)
             }
             Operation::UniOp(UniOp {
                 op,

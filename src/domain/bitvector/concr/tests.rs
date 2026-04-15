@@ -7,12 +7,12 @@ type CConcreteBitvector<const W: u32> = ConcreteBitvector<CBound<W>>;
 
 #[test]
 fn support() {
-    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
-    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
+    let a = CConcreteBitvector::<16>::from_u64(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::from_u64(0x1337, CBound);
 
-    let zero = CConcreteBitvector::<16>::new(0, CBound);
-    let full = CConcreteBitvector::<16>::new(0xFFFF, CBound);
-    let min = CConcreteBitvector::<16>::new(0x8000, CBound);
+    let zero = CConcreteBitvector::<16>::from_u64(0, CBound);
+    let full = CConcreteBitvector::<16>::from_u64(0xFFFF, CBound);
+    let min = CConcreteBitvector::<16>::from_u64(0x8000, CBound);
 
     assert_eq!(a.try_to_u64().unwrap(), 0xCAFE);
     assert_eq!(b.try_to_u64().unwrap(), 0x1337);
@@ -52,8 +52,8 @@ fn support() {
 
 #[test]
 fn eq() {
-    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
-    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
+    let a = CConcreteBitvector::<16>::from_u64(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::from_u64(0x1337, CBound);
 
     assert!(a.clone().eq(a.clone()).into_bool());
     assert!(b.clone().eq(b.clone()).into_bool());
@@ -63,8 +63,8 @@ fn eq() {
 
 #[test]
 fn cmp() {
-    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
-    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
+    let a = CConcreteBitvector::<16>::from_u64(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::from_u64(0x1337, CBound);
 
     // identity
     assert!(!a.clone().ult(a.clone()).into_bool());
@@ -87,8 +87,8 @@ fn cmp() {
 
 #[test]
 fn bitwise() {
-    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
-    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
+    let a = CConcreteBitvector::<16>::from_u64(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::from_u64(0x1337, CBound);
 
     // compare results to calculated values
     assert_eq!(a.clone().bit_not().try_to_u64().unwrap(), 0x3501);
@@ -101,8 +101,8 @@ fn bitwise() {
 
 #[test]
 fn ext() {
-    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
-    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
+    let a = CConcreteBitvector::<16>::from_u64(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::from_u64(0x1337, CBound);
 
     // longer uext will preserve unsigned value
     assert_eq!(Ext::<32>::uext(a.clone()).try_to_u64().unwrap(), 0xCAFE);
@@ -131,11 +131,11 @@ fn ext() {
 
 #[test]
 fn shift() {
-    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
-    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
-    let four = CConcreteBitvector::<16>::new(0x4, CBound);
-    let sixteen = CConcreteBitvector::<16>::new(0x16, CBound);
-    let too_much = CConcreteBitvector::<16>::new(0x42, CBound);
+    let a = CConcreteBitvector::<16>::from_u64(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::from_u64(0x1337, CBound);
+    let four = CConcreteBitvector::<16>::from_u64(0x4, CBound);
+    let sixteen = CConcreteBitvector::<16>::from_u64(0x16, CBound);
+    let too_much = CConcreteBitvector::<16>::from_u64(0x42, CBound);
 
     // shift by a reasonable value
     assert_eq!(
@@ -220,12 +220,12 @@ fn shift() {
 
 #[test]
 fn arith() {
-    let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
-    let b = CConcreteBitvector::<16>::new(0x1337, CBound);
-    let c = CConcreteBitvector::<16>::new(0x4000, CBound);
-    let d = CConcreteBitvector::<16>::new(0xBADA, CBound);
+    let a = CConcreteBitvector::<16>::from_u64(0xCAFE, CBound);
+    let b = CConcreteBitvector::<16>::from_u64(0x1337, CBound);
+    let c = CConcreteBitvector::<16>::from_u64(0x4000, CBound);
+    let d = CConcreteBitvector::<16>::from_u64(0xBADA, CBound);
 
-    let zero = CConcreteBitvector::<16>::new(0, CBound);
+    let zero = CConcreteBitvector::<16>::from_u64(0, CBound);
 
     // add, sub, mul do not have corner cases except wrapping
     // compare results to calculated values
@@ -439,8 +439,8 @@ fn arith() {
     // because the minimum value is not representable in positive
     // in that case, we expect the minimum value remain in divisor
     // and no remainder
-    let min = CConcreteBitvector::<16>::new(0x8000, CBound);
-    let minus_one = CConcreteBitvector::<16>::new(0xFFFF, CBound);
+    let min = CConcreteBitvector::<16>::from_u64(0x8000, CBound);
+    let minus_one = CConcreteBitvector::<16>::from_u64(0xFFFF, CBound);
     assert_eq!(
         min.clone().sdiv_wrapping_by_quadrants(minus_one.clone()),
         min

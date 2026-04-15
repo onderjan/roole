@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::domain::{
-    bitvector::{BitvectorBound, concr::OutsideBound},
+    bitvector::BitvectorBound,
     traits::forward::{BExt, Bitwise, HwArith, HwShift},
 };
 
@@ -16,24 +16,16 @@ use super::ConcreteBitvector;
 pub struct UnsignedBitvector<B: BitvectorBound>(ConcreteBitvector<B>);
 
 impl<B: BitvectorBound> UnsignedBitvector<B> {
-    pub fn new(value: u64, bound: B) -> Self {
-        UnsignedBitvector(ConcreteBitvector::new(value, bound))
-    }
-
-    pub fn try_new(value: u64, bound: B) -> Result<Self, OutsideBound<u64>> {
-        ConcreteBitvector::try_new(value, bound).map(UnsignedBitvector)
-    }
-
     pub fn bound(&self) -> B {
         self.0.bound
     }
 
-    pub fn zero(bound: B) -> Self {
-        UnsignedBitvector(ConcreteBitvector::new(0, bound))
+    pub fn new_zero(bound: B) -> Self {
+        UnsignedBitvector(ConcreteBitvector::new_zero(bound))
     }
 
-    pub fn one(bound: B) -> Self {
-        UnsignedBitvector(ConcreteBitvector::new(1, bound))
+    pub fn new_one(bound: B) -> Self {
+        UnsignedBitvector(ConcreteBitvector::new_one(bound))
     }
 
     pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<B>) -> Self {

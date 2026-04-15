@@ -18,61 +18,61 @@ pub fn support() {
     let cafe = CThreeValuedBitvector::<16>::new(0xCAFE, CBound);
     assert_eq!(
         cafe.get_possibly_zero_flags(),
-        &CConcreteBitvector::new(0x3501, CBound)
+        &CConcreteBitvector::from_u64(0x3501, CBound)
     );
     assert_eq!(
         cafe.get_possibly_one_flags(),
-        &CConcreteBitvector::new(0xCAFE, CBound)
+        &CConcreteBitvector::from_u64(0xCAFE, CBound)
     );
     assert_eq!(
         cafe.clone().unknown_bits(),
-        CConcreteBitvector::new(0, CBound)
+        CConcreteBitvector::from_u64(0, CBound)
     );
     assert_eq!(
         cafe.concrete_value(),
-        Some(CConcreteBitvector::new(0xCAFE, CBound))
+        Some(CConcreteBitvector::from_u64(0xCAFE, CBound))
     );
-    assert!(cafe.contains_concrete(&CConcreteBitvector::new(0xCAFE, CBound)));
-    assert!(!cafe.contains_concrete(&CConcreteBitvector::new(0xCAFF, CBound)));
+    assert!(cafe.contains_concrete(&CConcreteBitvector::from_u64(0xCAFE, CBound)));
+    assert!(!cafe.contains_concrete(&CConcreteBitvector::from_u64(0xCAFF, CBound)));
 
     let unknown = CThreeValuedBitvector::<16>::new_unknown(CBound);
     assert_eq!(
         unknown.get_possibly_zero_flags(),
-        &CConcreteBitvector::<16>::new(0xFFFF, CBound)
+        &CConcreteBitvector::<16>::from_u64(0xFFFF, CBound)
     );
     assert_eq!(
         unknown.get_possibly_one_flags(),
-        &CConcreteBitvector::<16>::new(0xFFFF, CBound)
+        &CConcreteBitvector::<16>::from_u64(0xFFFF, CBound)
     );
     assert_eq!(
         unknown.clone().unknown_bits(),
-        CConcreteBitvector::new(0xFFFF, CBound)
+        CConcreteBitvector::from_u64(0xFFFF, CBound)
     );
     assert_eq!(unknown.concrete_value(), None);
-    assert!(unknown.contains_concrete(&CConcreteBitvector::new(0xCAFE, CBound)));
-    assert!(unknown.contains_concrete(&CConcreteBitvector::new(0xCAFF, CBound)));
+    assert!(unknown.contains_concrete(&CConcreteBitvector::from_u64(0xCAFE, CBound)));
+    assert!(unknown.contains_concrete(&CConcreteBitvector::from_u64(0xCAFF, CBound)));
 
     let partially_known = CThreeValuedBitvector::<16>::new_value_known(
-        CConcreteBitvector::new(0x1337, CBound),
-        CConcreteBitvector::new(0xF0F0, CBound),
+        CConcreteBitvector::from_u64(0x1337, CBound),
+        CConcreteBitvector::from_u64(0xF0F0, CBound),
     );
     assert_eq!(
         partially_known.get_possibly_zero_flags(),
-        &CConcreteBitvector::<16>::new(0xEFCF, CBound)
+        &CConcreteBitvector::<16>::from_u64(0xEFCF, CBound)
     );
     assert_eq!(
         partially_known.get_possibly_one_flags(),
-        &CConcreteBitvector::<16>::new(0x1F3F, CBound)
+        &CConcreteBitvector::<16>::from_u64(0x1F3F, CBound)
     );
     assert_eq!(
         partially_known.clone().unknown_bits(),
-        CConcreteBitvector::new(0x0F0F, CBound)
+        CConcreteBitvector::from_u64(0x0F0F, CBound)
     );
     assert_eq!(partially_known.concrete_value(), None);
-    assert!(partially_known.contains_concrete(&CConcreteBitvector::new(0x1337, CBound)));
-    assert!(partially_known.contains_concrete(&CConcreteBitvector::new(0x1D30, CBound)));
-    assert!(!partially_known.contains_concrete(&CConcreteBitvector::new(0xCAFE, CBound)));
-    assert!(!partially_known.contains_concrete(&CConcreteBitvector::new(0xCAFF, CBound)));
+    assert!(partially_known.contains_concrete(&CConcreteBitvector::from_u64(0x1337, CBound)));
+    assert!(partially_known.contains_concrete(&CConcreteBitvector::from_u64(0x1D30, CBound)));
+    assert!(!partially_known.contains_concrete(&CConcreteBitvector::from_u64(0xCAFE, CBound)));
+    assert!(!partially_known.contains_concrete(&CConcreteBitvector::from_u64(0xCAFF, CBound)));
 
     assert!(cafe.contains(&cafe));
     assert!(!cafe.contains(&partially_known));
@@ -88,11 +88,11 @@ pub fn support() {
 
     assert_eq!(
         cafe.join(&ThreeValuedBitvector::from_concrete_value(
-            CConcreteBitvector::new(0x1337, CBound)
+            CConcreteBitvector::from_u64(0x1337, CBound)
         )),
         CThreeValuedBitvector::from_zeros_ones(
-            CConcreteBitvector::new(0xFDC9, CBound),
-            CConcreteBitvector::new(0xDBFF, CBound)
+            CConcreteBitvector::from_u64(0xFDC9, CBound),
+            CConcreteBitvector::from_u64(0xDBFF, CBound)
         )
     );
 
@@ -118,8 +118,8 @@ pub fn invalid_new() {
 #[should_panic]
 pub fn invalid_zeros_ones() {
     let _ = CThreeValuedBitvector::<8>::from_zeros_ones(
-        CConcreteBitvector::new(0xFFEC, CBound),
-        CConcreteBitvector::new(0xF34F, CBound),
+        CConcreteBitvector::from_u64(0xFFEC, CBound),
+        CConcreteBitvector::from_u64(0xF34F, CBound),
     );
 }
 

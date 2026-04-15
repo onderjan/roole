@@ -60,7 +60,7 @@ impl LinearPolynomial {
             if slice.lsb > assumed_slice.lsb {
                 // unsigned-shift assumed value right to drop bits below slice lsb
                 let amount = slice.lsb - assumed_slice.lsb;
-                let amount = ConcreteBitvector::new(amount.into(), slice_value.bound());
+                let amount = ConcreteBitvector::from_u32(amount, slice_value.bound());
                 slice_value = slice_value.logic_shr(amount);
             }
 

@@ -17,7 +17,7 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
     fn arith_neg(self) -> Self {
         // arithmetic negation
         // since we use wrapping arithmetic, same as subtracting the value from 0
-        HwArith::sub(Self::new(0, self.bound()), self)
+        HwArith::sub(Self::new_zero(self.bound()), self)
     }
     fn add(self, rhs: Self) -> Self {
         // return early if one of arguments is zero
@@ -246,7 +246,7 @@ fn zeta_k_fn<B: BitvectorBound>(
         rhs_max.set_bits(lo, hi, false);
     }
 
-    let k = ConcreteBitvector::new(k.into(), result_bound);
+    let k = ConcreteBitvector::from_u32(k, result_bound);
 
     // shift right, using the overflow as well
     let zeta_k_min = func(lhs_min, rhs_min).logic_shr(k.clone());

@@ -206,7 +206,10 @@ impl<'a> UnsatValidator<'a> {
                     let eval_result = evaluator.evaluate(&assignment);
                     assert_eq!(
                         eval_result.concrete_value(),
-                        Some(ConcreteBitvector::from_bool(false))
+                        Some(ConcreteBitvector::from_bool(
+                            false,
+                            RBound::single_bit_bound()
+                        ))
                     );
                 }
             }

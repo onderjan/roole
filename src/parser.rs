@@ -12,7 +12,10 @@ use indexmap::IndexMap;
 use itertools::Itertools;
 
 use crate::{
-    domain::value::ThreeValued,
+    domain::{
+        bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
+        value::ThreeValued,
+    },
     exit::RooleResult,
     problem::{
         Problem,
@@ -200,7 +203,8 @@ impl Parser {
 
         let assertion = assertion.unwrap_or_else(|| {
             // if there are no assertions, the assertion is a trivial tautology
-            self.operations.push(Operation::Constant(1, 1));
+            let value = ConcreteBitvector::from_bool(true, RBound::single_bit_bound());
+            self.operations.push(Operation::Constant(value));
             OperationId(self.operations.len() - 1).formula_id()
         });
 
@@ -299,13 +303,14 @@ impl Parser {
                         value += bit as u64;
                     }
 
-                    self.add_operation(Operation::Constant(
-                        value,
-                        items
-                            .len()
-                            .try_into()
-                            .expect("Binary constant width too big"),
-                    ))
+                    // TODO: parse as big
+                    let width = items
+                        .len()
+                        .try_into()
+                        .expect("Binary constant width too big");
+                    let value = ConcreteBitvector::from_u64(value, RBound::new(width));
+
+                    self.add_operation(Operation::Constant(value))
                 }
                 Constant::Numeral(_) | Constant::Decimal(_) | Constant::Hexadecimal(_) => {
                     todo!("Create formula for constant {:?}", constant)
@@ -376,9 +381,14 @@ impl Parser {
                 if let Some(ident) = self.find_by_name(&name) {
                     ident
                 } else {
+                    let single_bit_bound = RBound::single_bit_bound();
                     match name.as_str() {
-                        "false" => self.add_operation(Operation::Constant(0, 1)),
-                        "true" => self.add_operation(Operation::Constant(1, 1)),
+                        "false" => self.add_operation(Operation::Constant(
+                            ConcreteBitvector::from_bool(false, single_bit_bound),
+                        )),
+                        "true" => self.add_operation(Operation::Constant(
+                            ConcreteBitvector::from_bool(true, single_bit_bound),
+                        )),
                         _ => panic!("Identifier {:?} should be in variables", name),
                     }
                 }
@@ -409,8 +419,12 @@ impl Parser {
                     panic!("Bitvector width too big");
                 };
 
+                // TODO: parse as big
+
+                let value = ConcreteBitvector::from_u64(value, RBound::new(width));
+
                 // save the constant as an operation
-                self.add_operation(Operation::Constant(value, width))
+                self.add_operation(Operation::Constant(value))
             }
         }
     }

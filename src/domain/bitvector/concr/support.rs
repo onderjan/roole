@@ -16,14 +16,28 @@ use crate::domain::traits::forward::BExt;
 use crate::domain::traits::forward::HwArith;
 
 impl<B: BitvectorBound> ConcreteBitvector<B> {
-    pub fn new(value: u64, bound: B) -> Self {
-        match Self::try_new(value, bound) {
+    pub fn from_bool(value: bool, bound: B) -> Self {
+        match Self::try_from_u64(value as u64, bound) {
             Ok(ok) => ok,
             Err(err) => panic!("{}", err),
         }
     }
 
-    pub fn try_new(value: u64, bound: B) -> Result<Self, OutsideBound<u64>> {
+    pub fn from_u32(value: u32, bound: B) -> Self {
+        match Self::try_from_u64(value.into(), bound) {
+            Ok(ok) => ok,
+            Err(err) => panic!("{}", err),
+        }
+    }
+
+    pub fn from_u64(value: u64, bound: B) -> Self {
+        match Self::try_from_u64(value, bound) {
+            Ok(ok) => ok,
+            Err(err) => panic!("{}", err),
+        }
+    }
+
+    pub fn try_from_u64(value: u64, bound: B) -> Result<Self, OutsideBound<u64>> {
         // test that the value is within bounds
         if bound.width() < 64 {
             let min_value = 0;
@@ -315,12 +329,6 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         write!(f, "'{}", self.bound.width())?;
 
         Ok(())
-    }
-}
-
-impl<B: BitvectorBound<SingleBit = B>> ConcreteBitvector<B> {
-    pub fn from_bool(value: bool) -> Self {
-        Self::new(value as u64, B::single_bit_bound())
     }
 }
 

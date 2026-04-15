@@ -42,7 +42,7 @@ impl<B: BitvectorBound> Join for ThreeValuedBitvector<B> {
 impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     #[must_use]
     pub fn new(value: u64, bound: B) -> Self {
-        Self::from_concrete_value(ConcreteBitvector::new(value, bound))
+        Self::from_concrete_value(ConcreteBitvector::from_u64(value, bound))
     }
 
     #[must_use]
@@ -171,33 +171,27 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     }
 
     pub fn set_bit_to_three_valued(&mut self, bit_index: u32, three_valued: ThreeValued) {
-        let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
-
-        // TODO: more performant
-
         match three_valued {
             ThreeValued::False => {
-                self.zeros = self.zeros.clone().bit_or(bit_mask.clone());
-                self.ones = self.ones.clone().bit_and(bit_mask.bit_not());
+                self.zeros.set_bit(bit_index, true);
+                self.ones.set_bit(bit_index, false);
             }
             ThreeValued::True => {
-                self.zeros = self.zeros.clone().bit_and(bit_mask.clone().bit_not());
-                self.ones = self.ones.clone().bit_or(bit_mask);
+                self.zeros.set_bit(bit_index, false);
+                self.ones.set_bit(bit_index, true);
             }
             ThreeValued::Unknown => {
-                self.zeros = self.zeros.clone().bit_or(bit_mask.clone());
-                self.ones = self.ones.clone().bit_or(bit_mask);
+                self.zeros.set_bit(bit_index, true);
+                self.ones.set_bit(bit_index, true);
             }
         }
     }
 
     pub fn three_valued_from_bit(&self, bit_index: u32) -> ThreeValued {
-        let bit_mask = ConcreteBitvector::new(1 << bit_index, self.bound());
+        let zeros_bit = self.zeros.is_bit_set(bit_index);
+        let ones_bit = self.ones.is_bit_set(bit_index);
 
-        let masked_zeros = self.zeros.clone().bit_and(bit_mask.clone());
-        let masked_ones = self.ones.clone().bit_and(bit_mask);
-
-        match (masked_zeros.is_nonzero(), masked_ones.is_nonzero()) {
+        match (zeros_bit, ones_bit) {
             (true, true) => ThreeValued::Unknown,
             (true, false) => ThreeValued::False,
             (false, true) => ThreeValued::True,
@@ -216,8 +210,8 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
 impl<B: BitvectorBound<SingleBit = B>> ThreeValuedBitvector<B> {
     pub fn from_bools(can_be_false: bool, can_be_true: bool) -> Self {
-        let zeros = ConcreteBitvector::from_bool(can_be_false);
-        let ones = ConcreteBitvector::from_bool(can_be_true);
+        let zeros = ConcreteBitvector::from_bool(can_be_false, B::single_bit_bound());
+        let ones = ConcreteBitvector::from_bool(can_be_true, B::single_bit_bound());
         Self::from_zeros_ones(zeros, ones)
     }
 }

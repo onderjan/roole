@@ -19,7 +19,7 @@ impl LinearPolynomial {
             // slice
             // first, unsigned shift right to lsb if nonzero
             if slice.lsb != 0 {
-                let lsb = ConcreteBitvector::new(slice.lsb.into(), bound);
+                let lsb = ConcreteBitvector::from_u32(slice.lsb, bound);
                 formula_value = formula_value.logic_shr(D::single_value(lsb));
             }
 

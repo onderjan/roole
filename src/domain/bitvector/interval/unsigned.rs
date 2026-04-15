@@ -225,7 +225,7 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
             }
 
             // compute division from 1 up
-            divisor_umin = UnsignedBitvector::one(bound);
+            divisor_umin = UnsignedBitvector::new_one(bound);
         }
 
         let min_division_result = dividend_umin.div_wrapping_or_full(divisor_umax);
@@ -256,7 +256,7 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
             }
 
             // compute division from 1 up
-            divisor_umin = UnsignedBitvector::one(bound);
+            divisor_umin = UnsignedBitvector::new_one(bound);
         }
 
         let min_division_result = dividend_umin

@@ -120,14 +120,14 @@ impl LinearPolynomial {
 
                 let scaled_coeff_a = a
                     .coefficient
-                    .logic_shl(ConcreteBitvector::new(scaling_a.into(), a_bound));
+                    .logic_shl(ConcreteBitvector::from_u32(scaling_a, a_bound));
 
                 let b_bound = b.coefficient.bound();
 
                 let scaled_coeff_b = b
                     .coefficient
                     .clone()
-                    .logic_shl(ConcreteBitvector::new(scaling_b.into(), b_bound));
+                    .logic_shl(ConcreteBitvector::from_u32(scaling_b, b_bound));
 
                 let a_and_b_coeff = scaled_coeff_a.add(scaled_coeff_b);
 
@@ -138,8 +138,8 @@ impl LinearPolynomial {
             if only_b.is_nonzero() {
                 // retain only_b
                 let only_b = LinearSlice::from_mask(formula_id, only_b);
-                let scaled_coeff_b = b.coefficient.clone().logic_shl(ConcreteBitvector::new(
-                    (only_b.lsb - b.slice.lsb).into(),
+                let scaled_coeff_b = b.coefficient.clone().logic_shl(ConcreteBitvector::from_u32(
+                    only_b.lsb - b.slice.lsb,
                     b.coefficient.bound(),
                 ));
                 let only_b = LinearMonomial::new(scaled_coeff_b, only_b);
@@ -228,20 +228,20 @@ mod tests {
             width: NonZero::new(32).unwrap(),
         };
         let a = LinearPolynomial::from_monomial_and_constant(
-            LinearMonomial::new(ConcreteBitvector::new(12, bound), slice),
-            ConcreteBitvector::new(38, bound),
+            LinearMonomial::new(ConcreteBitvector::from_u64(12, bound), slice),
+            ConcreteBitvector::from_u64(38, bound),
         );
         let b = LinearPolynomial::from_monomial_and_constant(
-            LinearMonomial::new(ConcreteBitvector::new(7, bound), slice),
-            ConcreteBitvector::new(17, bound),
+            LinearMonomial::new(ConcreteBitvector::from_u64(7, bound), slice),
+            ConcreteBitvector::from_u64(17, bound),
         );
         let add_result = LinearPolynomial::from_monomial_and_constant(
-            LinearMonomial::new(ConcreteBitvector::new(19, bound), slice),
-            ConcreteBitvector::new(55, bound),
+            LinearMonomial::new(ConcreteBitvector::from_u64(19, bound), slice),
+            ConcreteBitvector::from_u64(55, bound),
         );
         let sub_result = LinearPolynomial::from_monomial_and_constant(
-            LinearMonomial::new(ConcreteBitvector::new(5, bound), slice),
-            ConcreteBitvector::new(21, bound),
+            LinearMonomial::new(ConcreteBitvector::from_u64(5, bound), slice),
+            ConcreteBitvector::from_u64(21, bound),
         );
         assert_eq!(a.clone().add(b.clone()), add_result);
         assert_eq!(a.sub(b), sub_result);

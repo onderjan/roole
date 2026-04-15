@@ -2,6 +2,7 @@ use std::{fmt::Debug, path::Path};
 
 use crate::{
     domain::bitvector::{
+        BitvectorBound, RBound,
         abstr::{BitvectorDomain, RBitvector},
         concr::ConcreteBitvector,
     },
@@ -38,7 +39,10 @@ impl Solution<RBitvector> {
                 let eval_result = Evaluator::new(problem).evaluate(claimed_sat_assignment);
                 assert_eq!(
                     eval_result.concrete_value(),
-                    Some(ConcreteBitvector::from_bool(true))
+                    Some(ConcreteBitvector::from_bool(
+                        true,
+                        RBound::single_bit_bound()
+                    ))
                 );
             }
             Solution::Unsatisfiable(unsat_proof) => {

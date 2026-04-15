@@ -62,7 +62,7 @@ impl LinearPolynomial {
             return Err(());
         }
 
-        let coefficient_log2 = ConcreteBitvector::new(coefficient_log2.into(), bound);
+        let coefficient_log2 = ConcreteBitvector::from_u32(coefficient_log2, bound);
 
         // now, we have a constant value to be bitwise-combined with a bit-shifted slice
         // get the slice output mask
@@ -110,7 +110,7 @@ impl LinearPolynomial {
             let mut turned_off_slice =
                 LinearSlice::from_mask(monomial.slice.formula_id, turned_off_slice);
 
-            let turned_off_lsb = ConcreteBitvector::new(turned_off_slice.lsb.into(), bound);
+            let turned_off_lsb = ConcreteBitvector::from_u32(turned_off_slice.lsb, bound);
 
             // we must compensate possibly non-zero lsb of the turned-off slice by shifting the coefficient by it
             let turned_off_coefficient = coefficient.clone().logic_shl(turned_off_lsb);
@@ -153,10 +153,10 @@ mod tests {
     fn test_bitwise() {
         let bound = RBound::new(32);
 
-        let a = LinearPolynomial::from_concrete(ConcreteBitvector::new(0x4000000, bound));
+        let a = LinearPolynomial::from_concrete(ConcreteBitvector::from_u64(0x4000000, bound));
 
         let b = LinearPolynomial::from_monomial(LinearMonomial::new(
-            ConcreteBitvector::new(1, bound),
+            ConcreteBitvector::from_u64(1, bound),
             LinearSlice {
                 formula_id: FormulaId::Variable(VariableId(0)),
                 lsb: 1,
@@ -165,7 +165,7 @@ mod tests {
         ));
 
         let and_result = LinearPolynomial::from_monomial(LinearMonomial::new(
-            ConcreteBitvector::new(0x4000000, bound),
+            ConcreteBitvector::from_u64(0x4000000, bound),
             LinearSlice {
                 formula_id: FormulaId::Variable(VariableId(0)),
                 lsb: 27,
@@ -174,17 +174,17 @@ mod tests {
         ));
         let or_result = LinearPolynomial::from_monomial_and_constant(
             LinearMonomial::new(
-                ConcreteBitvector::new(1, bound),
+                ConcreteBitvector::from_u64(1, bound),
                 LinearSlice {
                     formula_id: FormulaId::Variable(VariableId(0)),
                     lsb: 1,
                     width: NonZero::new(26).unwrap(),
                 },
             ),
-            ConcreteBitvector::new(0x4000000, bound),
+            ConcreteBitvector::from_u64(0x4000000, bound),
         )
         .add(LinearPolynomial::from_monomial(LinearMonomial::new(
-            ConcreteBitvector::new(0x8000000, bound),
+            ConcreteBitvector::from_u64(0x8000000, bound),
             LinearSlice {
                 formula_id: FormulaId::Variable(VariableId(0)),
                 lsb: 28,

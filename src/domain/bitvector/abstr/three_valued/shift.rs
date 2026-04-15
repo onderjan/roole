@@ -74,13 +74,13 @@ impl<B: BitvectorBound> HwShift for ThreeValuedBitvector<B> {
         let overflow_zeros = if self.is_zeros_sign_bit_set() {
             bit_mask.clone()
         } else {
-            ConcreteBitvector::new(0, self.bound())
+            ConcreteBitvector::new_zero(self.bound())
         };
 
         let overflow_ones = if self.is_ones_sign_bit_set() {
             bit_mask
         } else {
-            ConcreteBitvector::new(0, self.bound())
+            ConcreteBitvector::new_zero(self.bound())
         };
         let overflow_value = Self::from_zeros_ones(overflow_zeros, overflow_ones);
 
@@ -103,8 +103,8 @@ fn shift<B: BitvectorBound>(
         return value.clone();
     }
 
-    let mut zeros = ConcreteBitvector::new(0, bound);
-    let mut ones = ConcreteBitvector::new(0, bound);
+    let mut zeros = ConcreteBitvector::new_zero(bound);
+    let mut ones = ConcreteBitvector::new_zero(bound);
 
     let umin = amount.umin().cast_bitvector().try_to_u32();
     let umax = amount.umax().cast_bitvector().try_to_u32();
@@ -133,7 +133,7 @@ fn shift<B: BitvectorBound>(
     let max_shift = umax.unwrap_or(max_nonoverflowing).min(max_nonoverflowing);
     // join by the other shifts iteratively
     for i in min_shift..=max_shift {
-        let bi = ConcreteBitvector::new(i.into(), bound);
+        let bi = ConcreteBitvector::from_u32(i, bound);
         if amount.contains_concrete(&bi) {
             let shifted_zeros = zeros_shift_fn(value.zeros.clone(), bi.clone());
             let shifted_ones = ones_shift_fn(value.ones.clone(), bi);

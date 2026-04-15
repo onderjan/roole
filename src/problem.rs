@@ -72,9 +72,9 @@ impl Problem {
             return ThreeValued::Unknown;
         };
         match self.operation(operation_id) {
-            Operation::Constant(value, width) => {
-                assert_eq!(*width, 1);
-                ThreeValued::from_bool(*value != 0)
+            Operation::Constant(bv) => {
+                assert_eq!(bv.bound().width(), 1);
+                ThreeValued::from_bool(bv.is_nonzero())
             }
             Operation::Linear(linear) => {
                 if let Some(value) = linear.constant_value() {
