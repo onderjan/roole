@@ -8,7 +8,6 @@ use crate::{
 pub mod bdd;
 pub mod linear;
 pub mod roole;
-pub mod rtree;
 
 pub trait Learned<D: BitvectorDomain<Bound = RBound>> {
     fn new() -> Self;

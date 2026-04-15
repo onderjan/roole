@@ -28,13 +28,13 @@ impl<D: BitvectorDomain<Bound = RBound>> Assignment<D> {
         &self.values[id.0]
     }
 
-    pub fn join(mut self, other: &Self) -> Self {
+    /*pub fn join(mut self, other: &Self) -> Self {
         for (our_value, other_value) in self.values.iter_mut().zip_eq(&other.values) {
             our_value.apply_join(other_value);
         }
 
         self
-    }
+    }*/
 
     pub fn contains(&self, other: &Self) -> bool {
         for (our_value, other_value) in self.values.iter().zip_eq(&other.values) {
