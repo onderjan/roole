@@ -106,20 +106,34 @@ fn shift<B: BitvectorBound>(
     let mut zeros = ConcreteBitvector::new(0, bound);
     let mut ones = ConcreteBitvector::new(0, bound);
 
+    let umin = amount.umin().cast_bitvector().try_to_u32();
+    let umax = amount.umax().cast_bitvector().try_to_u32();
+
     // the shift amount is also three-valued, which poses problems
     // first, if it can be shifted by L or larger value, join by overflow value
-    let shift_overflow = amount.umax().to_u64() >= width as u64;
-    if shift_overflow {
+    let shift_can_overflow = umax.is_none_or(|umax| umax >= width);
+    if shift_can_overflow {
         zeros = zeros.bit_or(overflow_value.zeros.clone());
         ones = ones.bit_or(overflow_value.ones.clone());
     }
 
-    // only consider the amounts smaller than L afterwards
-    let min_shift = amount.umin().to_u64().min((width - 1) as u64);
-    let max_shift = amount.umax().to_u64().min((width - 1) as u64);
+    let Some(umin) = umin else {
+        // only the overflow value is possible
+        return ThreeValuedBitvector::from_zeros_ones(zeros, ones);
+    };
+
+    let max_nonoverflowing = width - 1;
+    if umin > max_nonoverflowing {
+        // only the overflow value is possible
+        return ThreeValuedBitvector::from_zeros_ones(zeros, ones);
+    }
+
+    // we need to only consider the amounts smaller than width now
+    let min_shift = umin;
+    let max_shift = umax.unwrap_or(max_nonoverflowing).min(max_nonoverflowing);
     // join by the other shifts iteratively
     for i in min_shift..=max_shift {
-        let bi = ConcreteBitvector::new(i, bound);
+        let bi = ConcreteBitvector::new(i.into(), bound);
         if amount.contains_concrete(&bi) {
             let shifted_zeros = zeros_shift_fn(value.zeros.clone(), bi.clone());
             let shifted_ones = ones_shift_fn(value.ones.clone(), bi);
