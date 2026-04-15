@@ -85,7 +85,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
 
     pub fn new_zero(bound: B) -> Self {
         Self {
-            value: ConcreteValue::Small(0),
+            value: ConcreteValue::new_with_zeros(bound),
             bound,
         }
     }
@@ -94,12 +94,12 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         // if width is zero, one is the same element as zero
         if bound.width() > 0 {
             Self {
-                value: ConcreteValue::Small(1),
+                value: ConcreteValue::from_u64(1, bound),
                 bound,
             }
         } else {
             Self {
-                value: ConcreteValue::Small(0),
+                value: ConcreteValue::new_with_zeros(bound),
                 bound,
             }
         }
@@ -324,14 +324,14 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
                     }
                 }
             }
-            ConcreteValue::Big(elems) => {
+            ConcreteValue::Big(words) => {
                 for nibble_index in (0..num_nibbles).rev() {
-                    let elem_index = nibble_index / 8;
-                    let nibble_index = nibble_index % 8;
                     let bit_index = nibble_index * 4;
+                    let word_index = bit_index / 64;
+                    let bit_in_word_index = bit_index % 64;
 
-                    let elem = elems.get(elem_index as usize).cloned().unwrap_or(0);
-                    let nibble = (elem >> bit_index) & 0xF;
+                    let elem = words.get(word_index as usize).cloned().unwrap_or(0);
+                    let nibble = (elem >> bit_in_word_index) & 0xF;
 
                     if upper_hex {
                         write!(f, "{:X}", nibble)?;

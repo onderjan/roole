@@ -13,24 +13,25 @@ impl ConcreteValue {
             return Self::Small(0);
         }
 
-        Self::Big(vec![u64::MAX; num_words.try_into().unwrap()].into_boxed_slice())
+        Self::Big(vec![0; num_words.try_into().unwrap()].into_boxed_slice())
     }
 
     pub fn new_with_ones<B: BitvectorBound>(bound: B) -> Self {
         let width = bound.width();
-        let num_words = width.div_ceil(64);
-
-        let partial_width = width % 64;
-        let partial_mask = compute_u64_mask(partial_width);
-
-        if num_words <= 1 {
-            return Self::Small(partial_mask);
+        if width <= 64 {
+            let mask = compute_u64_mask(width);
+            return Self::Small(mask);
         }
+
+        let num_words = width.div_ceil(64);
 
         let mut words = vec![u64::MAX; num_words.try_into().unwrap()].into_boxed_slice();
 
+        let partial_width = width % 64;
+
         // mask the last word if needed
         if partial_width != 0 {
+            let partial_mask = compute_u64_mask(partial_width);
             let last_word = words.last_mut().unwrap();
             *last_word &= partial_mask;
         }
@@ -209,17 +210,22 @@ impl ConcreteValue {
                 let bit_lo = lowest_src_bit % 64;
                 let bit_hi = highest_src_bit % 64;
 
-                let width_lo = 64 - bit_lo;
+                if bit_lo != 0 {
+                    let width_lo = 64 - bit_lo;
 
-                // make source masks for bits at and above bit_lo and at and below bit_hi
-                // note that bit_hi must be below 63
-                let mask_lo = !compute_u64_mask(bit_lo);
-                let mask_hi = compute_u64_mask(bit_hi + 1);
+                    // make source masks for bits at and above bit_lo and at and below bit_hi
+                    // note that bit_hi must be below 63
+                    let mask_lo = !compute_u64_mask(bit_lo);
+                    let mask_hi = compute_u64_mask(bit_hi + 1);
 
-                // combine values
-                let value_lo = (lhs[word_lo] & mask_lo) >> bit_lo;
-                let value_hi = (lhs[word_hi] & mask_hi) << width_lo;
-                result[i_usize] = value_lo | value_hi;
+                    // combine values
+                    let value_lo = (lhs[word_lo] & mask_lo) >> bit_lo;
+                    let value_hi = (lhs[word_hi] & mask_hi) << width_lo;
+                    result[i_usize] = value_lo | value_hi;
+                } else {
+                    // just copy the low word
+                    result[i_usize] = lhs[word_lo];
+                }
             }
         }
 
@@ -396,14 +402,15 @@ impl ConcreteValue {
             return ConcreteValue::Small(0);
         }
 
-        let partial_width = width % 64;
-        let partial_mask = compute_u64_mask(partial_width);
-
         match self {
-            ConcreteValue::Small(value) => {
+            ConcreteValue::Small(mut value) => {
                 if num_new_words == 1 {
                     // keep the value small
-                    ConcreteValue::Small(value & partial_mask)
+                    if width < 64 {
+                        let partial_mask = compute_u64_mask(width);
+                        value &= partial_mask;
+                    }
+                    ConcreteValue::Small(value)
                 } else {
                     // make the value big, pad with zero words
                     let mut words =
@@ -416,8 +423,13 @@ impl ConcreteValue {
                 assert!(words.len() > 1);
                 if num_new_words == 1 {
                     // take the first word
-                    // the partial mask is on some word above, no need to consider it
-                    return ConcreteValue::Small(words[0]);
+                    // if the new width is below 64, use a partial mask
+                    let mut value = words[0];
+                    if width < 64 {
+                        let partial_mask = compute_u64_mask(width);
+                        value &= partial_mask;
+                    }
+                    return ConcreteValue::Small(value);
                 }
                 // resize according to the number of words
                 let num_old_words: u32 = words.len().try_into().unwrap();
@@ -431,8 +443,12 @@ impl ConcreteValue {
                     words
                 };
 
-                // mask the last word if needed
-                if partial_width != 0 {
+                let partial_width = width % 64;
+
+                // if we have the same or lesser amount of words,
+                // apply a partial mask to the last word
+                if num_new_words <= num_old_words && partial_width != 0 {
+                    let partial_mask = compute_u64_mask(partial_width);
                     let last_word = words.last_mut().unwrap();
                     *last_word &= partial_mask;
                 }

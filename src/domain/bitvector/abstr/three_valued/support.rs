@@ -59,7 +59,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     pub fn from_zeros_ones(zeros: ConcreteBitvector<B>, ones: ConcreteBitvector<B>) -> Self {
         match Self::try_from_zeros_ones(zeros, ones) {
             Ok(ok) => ok,
-            Err(_) => panic!("Invalid zeros-ones with some unset bits"),
+            Err(_) => panic!("Invalid zeros-ones"),
         }
     }
 
