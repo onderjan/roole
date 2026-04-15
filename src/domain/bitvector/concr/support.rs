@@ -111,10 +111,9 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         }
     }
 
-    pub fn to_i64(&self) -> i64 {
-        // TODO: never convert to u64
+    pub fn try_to_i64(&self) -> Option<i64> {
         if self.bound.width() > 64 {
-            panic!("Bound too big to convert");
+            return None;
         }
 
         let mut result = match &self.value {
@@ -127,7 +126,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
             // add signed extension
             result |= !self.bound.mask();
         }
-        result as i64
+        Some(result as i64)
     }
 
     pub fn is_sign_bit_set(&self) -> bool {

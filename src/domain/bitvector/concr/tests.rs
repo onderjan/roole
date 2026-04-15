@@ -20,11 +20,11 @@ fn support() {
     assert_eq!(full.to_u64(), 0xFFFF);
     assert_eq!(min.to_u64(), 0x8000);
 
-    assert_eq!(a.to_i64(), -0x3502);
-    assert_eq!(b.to_i64(), 0x1337);
-    assert_eq!(zero.to_i64(), 0);
-    assert_eq!(full.to_i64(), -1);
-    assert_eq!(min.to_i64(), -0x8000);
+    assert_eq!(a.try_to_i64().unwrap(), -0x3502);
+    assert_eq!(b.try_to_i64().unwrap(), 0x1337);
+    assert_eq!(zero.try_to_i64().unwrap(), 0);
+    assert_eq!(full.try_to_i64().unwrap(), -1);
+    assert_eq!(min.try_to_i64().unwrap(), -0x8000);
 
     assert!(a.is_nonzero());
     assert!(b.is_nonzero());
@@ -106,21 +106,21 @@ fn ext() {
 
     // longer uext will preserve unsigned value
     assert_eq!(Ext::<32>::uext(a.clone()).to_u64(), 0xCAFE);
-    assert_eq!(Ext::<32>::uext(a.clone()).to_i64(), 0xCAFE);
+    assert_eq!(Ext::<32>::uext(a.clone()).try_to_i64().unwrap(), 0xCAFE);
     assert_eq!(Ext::<32>::uext(b.clone()).to_u64(), 0x1337);
-    assert_eq!(Ext::<32>::uext(b.clone()).to_i64(), 0x1337);
+    assert_eq!(Ext::<32>::uext(b.clone()).try_to_i64().unwrap(), 0x1337);
 
     // longer sext will preserve signed value
     assert_eq!(Ext::<32>::sext(a.clone()).to_u64(), 0xFFFFCAFE);
-    assert_eq!(Ext::<32>::sext(a.clone()).to_i64(), -0x3502);
+    assert_eq!(Ext::<32>::sext(a.clone()).try_to_i64().unwrap(), -0x3502);
     assert_eq!(Ext::<32>::sext(b.clone()).to_u64(), 0x1337);
-    assert_eq!(Ext::<32>::sext(b.clone()).to_i64(), 0x1337);
+    assert_eq!(Ext::<32>::sext(b.clone()).try_to_i64().unwrap(), 0x1337);
 
     // shorter ext will always just cut
     assert_eq!(Ext::<4>::uext(a.clone()).to_u64(), 0xE);
-    assert_eq!(Ext::<4>::uext(a.clone()).to_i64(), -0x2);
+    assert_eq!(Ext::<4>::uext(a.clone()).try_to_i64().unwrap(), -0x2);
     assert_eq!(Ext::<4>::sext(a.clone()).to_u64(), 0xE);
-    assert_eq!(Ext::<4>::sext(a.clone()).to_i64(), -0x2);
+    assert_eq!(Ext::<4>::sext(a.clone()).try_to_i64().unwrap(), -0x2);
 
     // same ext will preserve value
     assert_eq!(a, Ext::<16>::uext(a.clone()));

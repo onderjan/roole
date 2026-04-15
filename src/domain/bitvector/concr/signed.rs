@@ -54,10 +54,6 @@ impl<B: BitvectorBound> SignedBitvector<B> {
         self.0.bound
     }
 
-    pub fn to_i64(&self) -> i64 {
-        self.0.to_i64()
-    }
-
     pub fn ext<X: BitvectorBound>(self, new_bound: X) -> SignedBitvector<X> {
         SignedBitvector(self.0.sext(new_bound))
     }
@@ -160,12 +156,14 @@ impl<B: BitvectorBound> Ord for SignedBitvector<B> {
 
 impl<B: BitvectorBound> Debug for SignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.to_i64())
+        // TODO: debug as signed
+        Debug::fmt(&self.0, f)
     }
 }
 
 impl<B: BitvectorBound> Display for SignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_i64())
+        // TODO: display as signed
+        Display::fmt(&self.0, f)
     }
 }
