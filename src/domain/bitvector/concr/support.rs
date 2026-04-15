@@ -100,15 +100,18 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn to_u64(&self) -> u64 {
+        // TODO: never infallibly convert to u64
+        self.try_to_u64()
+            .expect("Bound should be small enough to convert")
+    }
+
+    pub fn try_to_u64(&self) -> Option<u64> {
         // TODO: never convert to u64
         if self.bound.width() > 64 {
-            panic!("Bound too big to convert");
+            return None;
         }
 
-        match &self.value {
-            ConcreteValue::Small(value) => *value,
-            ConcreteValue::Big(items) => items.first().cloned().unwrap_or(0),
-        }
+        self.value.try_to_u64()
     }
 
     pub fn try_to_i64(&self) -> Option<i64> {

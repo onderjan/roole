@@ -479,4 +479,11 @@ impl ConcreteValue {
 
         first_word == 1
     }
+
+    pub fn try_to_u64(&self) -> Option<u64> {
+        match self {
+            ConcreteValue::Small(value) => Some(*value),
+            ConcreteValue::Big(_) => None,
+        }
+    }
 }

@@ -59,7 +59,7 @@ impl LinearPolynomial {
             return Err(());
         }
 
-        let Ok(amount) = u32::try_from(amount.to_u64()) else {
+        let Some(amount) = amount.try_to_u32() else {
             // the shift amount is greater than maximum representable width
             // this will clearly make the polynomial empty
             return Ok(Self::empty(bound));
