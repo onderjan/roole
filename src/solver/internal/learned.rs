@@ -5,7 +5,6 @@ use crate::{
     problem::Assignment,
 };
 
-pub mod bdd;
 pub mod linear;
 pub mod roole;
 
