@@ -31,15 +31,11 @@ impl<B: BitvectorBound> Join for ThreeValuedBitvector<B> {
         *self = self.clone().join(other)
     }
 
-    fn contains(&self, contained: &Self) -> bool {
+    fn contains(&self, rhs: &Self) -> bool {
         // rhs zeros must be within our zeros and rhs ones must be within our ones
-        // make faster by using the primitives directly
-        // and only asserting bound equality in debug mode
-        debug_assert_eq!(self.bound(), contained.bound());
-
-        let excessive_rhs_zeros = contained.zeros.to_u64() & (!self.zeros.to_u64());
-        let excessive_rhs_ones = contained.ones.to_u64() & (!self.ones.to_u64());
-        excessive_rhs_zeros == 0 && excessive_rhs_ones == 0
+        let excessive_rhs_zeros = rhs.zeros.clone().bit_and(self.zeros.clone().bit_not());
+        let excessive_rhs_ones = rhs.ones.clone().bit_and(self.ones.clone().bit_not());
+        excessive_rhs_zeros.is_zero() && excessive_rhs_ones.is_zero()
     }
 }
 
@@ -161,7 +157,7 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
 
         // make positions where min and max agree known
         let xor = min.clone().bit_xor(max);
-        let Some(unknown_positions) = xor.to_u64().checked_ilog2() else {
+        let Some(unknown_positions) = xor.checked_ilog2() else {
             // min is equal to max
             return Self::from_concrete_value(min);
         };

@@ -165,6 +165,10 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         self == &Self::new_all_ones(self.bound)
     }
 
+    pub fn checked_ilog2(&self) -> Option<u32> {
+        self.value.checked_ilog2()
+    }
+
     pub fn all_with_bound_iter(bound: B) -> impl Iterator<Item = Self> {
         struct BoundIter<B: BitvectorBound>(Option<ConcreteBitvector<B>>);
 
@@ -241,15 +245,14 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn num_needed_bits(&self) -> u32 {
-        todo!("Num needed bits")
-        /*if let Some(ilog2) = self.value.checked_ilog2() {
+        if let Some(ilog2) = self.checked_ilog2() {
             // N + 1 bits are needed to represent a number
             // with the highest set one at position N
             ilog2 + 1
         } else {
             // zero bits are needed to represent zero
             0
-        }*/
+        }
     }
 
     fn format(&self, f: &mut std::fmt::Formatter<'_>, upper_hex: bool) -> std::fmt::Result {

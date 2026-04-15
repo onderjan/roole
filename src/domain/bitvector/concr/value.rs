@@ -289,6 +289,24 @@ impl ConcreteValue {
         }
     }
 
+    pub fn checked_ilog2(&self) -> Option<u32> {
+        match self {
+            ConcreteValue::Small(value) => value.checked_ilog2(),
+            ConcreteValue::Big(words) => {
+                // base 2 logarithm (rounded down) searches
+                // for the highest one and returns its position
+                // iterate from the highest word to lowest
+                // once the logarithm is obtained, add the bits for lower words
+                for i in (0..words.len()).rev() {
+                    if let Some(word_ilog2) = words[i].checked_ilog2() {
+                        return Some(word_ilog2 + 64 * TryInto::<u32>::try_into(i).unwrap());
+                    }
+                }
+                None
+            }
+        }
+    }
+
     pub(super) fn make_bounded<B: BitvectorBound>(self, bound: B) -> Self {
         let width = bound.width();
 
