@@ -1,4 +1,4 @@
-use std::{ops::ControlFlow, path::PathBuf};
+use std::{ops::ControlFlow, path::PathBuf, str::FromStr};
 
 use aws_smt_ir::{
     Constant, Symbol, SyntaxBuilder,
@@ -10,6 +10,7 @@ use aws_smt_ir::{
 };
 use indexmap::IndexMap;
 use itertools::Itertools;
+use num::{BigUint, Zero};
 
 use crate::{
     domain::{
@@ -296,19 +297,21 @@ impl Parser {
     ) -> Option<FormulaId> {
         let result = match term {
             Term::Constant(constant) => match constant {
-                Constant::Binary(items) => {
-                    let mut value = 0u64;
-                    for bit in items.iter().cloned() {
-                        value = value.checked_mul(2).expect("Binary constant too big");
-                        value += bit as u64;
+                Constant::Binary(mut bits) => {
+                    let mut big = BigUint::zero();
+
+                    // make little-endian
+                    bits.reverse();
+
+                    for (bit_index, bit) in bits.iter().enumerate().rev() {
+                        big.set_bit(bit_index.try_into().unwrap(), *bit);
                     }
 
-                    // TODO: parse as big
-                    let width = items
+                    let width = bits
                         .len()
                         .try_into()
                         .expect("Binary constant width too big");
-                    let value = ConcreteBitvector::from_u64(value, RBound::new(width));
+                    let value = ConcreteBitvector::from_big(big, RBound::new(width));
 
                     self.add_operation(Operation::Constant(value))
                 }
@@ -396,17 +399,11 @@ impl Parser {
             Identifier::Indexed { symbol, indices } => {
                 // indexed identifiers are currently only supported
                 // for defining bit-vector constants
-                let Some(bitvector_width) = symbol.0.strip_prefix("bv") else {
+                let Some(value) = symbol.0.strip_prefix("bv") else {
                     panic!(
                         "Identifier {:?} with indices {:?} not supported",
                         symbol, indices
                     )
-                };
-                let Ok(value) = bitvector_width.parse() else {
-                    panic!(
-                        "Bitvector width of identifier {:?} could not be parsed",
-                        symbol.0
-                    );
                 };
 
                 assert_eq!(indices.len(), 1);
@@ -419,9 +416,16 @@ impl Parser {
                     panic!("Bitvector width too big");
                 };
 
+                let Ok(value) = BigUint::from_str(value) else {
+                    panic!(
+                        "Bitvector value of identifier {:?} could not be parsed",
+                        symbol.0
+                    );
+                };
+
                 // TODO: parse as big
 
-                let value = ConcreteBitvector::from_u64(value, RBound::new(width));
+                let value = ConcreteBitvector::from_big(value, RBound::new(width));
 
                 // save the constant as an operation
                 self.add_operation(Operation::Constant(value))

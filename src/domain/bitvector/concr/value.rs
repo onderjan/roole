@@ -1,5 +1,7 @@
 use std::cmp::Ordering;
 
+use num::BigUint;
+
 use crate::domain::bitvector::{BitvectorBound, bound::compute_u64_mask, concr::ConcreteValue};
 
 impl ConcreteValue {
@@ -42,6 +44,22 @@ impl ConcreteValue {
             ConcreteValue::Small(small) => *small = value,
             ConcreteValue::Big(words) => {
                 words[0] = value;
+            }
+        }
+        result
+    }
+
+    pub fn from_big<B: BitvectorBound>(value: BigUint, bound: B) -> Self {
+        let mut result = Self::new_with_zeros(bound);
+        match &mut result {
+            ConcreteValue::Small(small) => {
+                let value: u64 = value.try_into().expect("Big value should fit into 64 bits");
+                *small = value;
+            }
+            ConcreteValue::Big(words) => {
+                for (word_index, word_value) in value.iter_u64_digits().enumerate() {
+                    words[word_index] = word_value;
+                }
             }
         }
         result

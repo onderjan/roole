@@ -3,6 +3,9 @@ use std::fmt::Display;
 use std::fmt::LowerHex;
 use std::fmt::UpperHex;
 
+use num::BigUint;
+use num::Zero;
+
 use crate::domain::bitvector::BitvectorBound;
 use crate::domain::bitvector::CBound;
 use crate::domain::bitvector::RBound;
@@ -57,6 +60,19 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
             value: ConcreteValue::from_u64(value, bound),
             bound,
         })
+    }
+
+    pub fn from_big(value: BigUint, bound: B) -> Self {
+        let mut above = BigUint::zero();
+        above.set_bit(bound.width().into(), true);
+        if value >= above {
+            panic!("Big value {:?} does not fit width {}", value, bound.width());
+        }
+
+        Self {
+            value: ConcreteValue::from_big(value, bound),
+            bound,
+        }
     }
 
     pub fn bound(&self) -> B {
