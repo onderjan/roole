@@ -12,6 +12,7 @@ use crate::domain::bitvector::concr::ConcreteValue;
 use crate::domain::bitvector::concr::OutsideBound;
 use crate::domain::bitvector::concr::SignedBitvector;
 use crate::domain::bitvector::concr::UnsignedBitvector;
+use crate::domain::traits::forward::BExt;
 use crate::domain::traits::forward::HwArith;
 
 impl<B: BitvectorBound> ConcreteBitvector<B> {
@@ -24,20 +25,22 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
 
     pub fn try_new(value: u64, bound: B) -> Result<Self, OutsideBound<u64>> {
         // test that the value is within bounds
-        let min_value = 0;
-        let max_value = bound.mask();
+        if bound.width() < 64 {
+            let min_value = 0;
+            let max_value = compute_u64_mask(bound.width());
 
-        if value < min_value || value > max_value {
-            return Err(OutsideBound {
-                width: bound.width(),
-                value,
-                min_value,
-                max_value,
-            });
+            if value < min_value || value > max_value {
+                return Err(OutsideBound {
+                    width: bound.width(),
+                    value,
+                    min_value,
+                    max_value,
+                });
+            }
         }
 
         Ok(Self {
-            value: ConcreteValue::Small(value),
+            value: ConcreteValue::from_u64(value, bound),
             bound,
         })
     }
@@ -107,7 +110,6 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn try_to_u64(&self) -> Option<u64> {
-        // TODO: never convert to u64
         if self.bound.width() > 64 {
             return None;
         }
@@ -116,19 +118,10 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn try_to_i64(&self) -> Option<i64> {
-        if self.bound.width() > 64 {
-            return None;
-        }
+        let mut result = self.try_to_u64()?;
 
-        let mut result = match &self.value {
-            ConcreteValue::Small(value) => *value,
-            ConcreteValue::Big(items) => items.first().cloned().unwrap_or(0),
-        };
-
-        let sign_bit_mask = self.bound.sign_bit_mask();
-        if result & sign_bit_mask != 0 {
-            // add signed extension
-            result |= !self.bound.mask();
+        if self.is_sign_bit_set() {
+            result |= !compute_u64_mask(self.bound.width());
         }
         Some(result as i64)
     }
@@ -263,9 +256,7 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
     }
 
     pub fn from_ones_width(width: u32, bound: B) -> Self {
-        let value = compute_u64_mask(width);
-
-        Self::new(value, bound)
+        ConcreteBitvector::new_all_ones(RBound::new(width)).uext(bound)
     }
 
     pub fn num_needed_bits(&self) -> u32 {

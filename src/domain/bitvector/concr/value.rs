@@ -36,15 +36,22 @@ impl ConcreteValue {
         Self::Big(words)
     }
 
+    pub fn from_u64<B: BitvectorBound>(value: u64, bound: B) -> Self {
+        let mut result = Self::new_with_zeros(bound);
+        match &mut result {
+            ConcreteValue::Small(small) => *small = value,
+            ConcreteValue::Big(words) => {
+                words[0] = value;
+            }
+        }
+        result
+    }
+
     pub fn len(&self) -> u32 {
         match self {
             ConcreteValue::Small(_) => 1,
             ConcreteValue::Big(items) => items.len().try_into().unwrap(),
         }
-    }
-
-    pub fn check_bound<B: BitvectorBound>(&self, bound: B) {
-        assert_eq!(self.len(), bound.word_len())
     }
 
     pub fn uni_upwards<A: Copy>(self, fun: fn(u64, A) -> (u64, A), mut acc: A) -> Self {

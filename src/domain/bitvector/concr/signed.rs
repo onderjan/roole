@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::domain::{
-    bitvector::{BitvectorBound, concr::OutsideBound},
+    bitvector::BitvectorBound,
     traits::forward::{BExt, Bitwise as _, HwArith, HwShift},
 };
 
@@ -14,34 +14,6 @@ use super::ConcreteBitvector;
 pub struct SignedBitvector<B: BitvectorBound>(ConcreteBitvector<B>);
 
 impl<B: BitvectorBound> SignedBitvector<B> {
-    pub fn new(value: i64, bound: B) -> Self {
-        match Self::try_new(value, bound) {
-            Ok(ok) => ok,
-            Err(err) => panic!("{}", err),
-        }
-    }
-
-    pub fn try_new(value: i64, bound: B) -> Result<Self, OutsideBound<i64>> {
-        // test that the value is within bounds
-        let max_value = (bound.mask() ^ bound.sign_bit_mask()) as i64;
-        let min_value = (!bound.mask() ^ bound.sign_bit_mask()) as i64;
-
-        if value < min_value || value > max_value {
-            return Err(OutsideBound {
-                width: bound.width(),
-                value,
-                min_value,
-                max_value,
-            });
-        }
-
-        let bounded_value = (value as u64) & bound.mask();
-        Ok(SignedBitvector(ConcreteBitvector::new(
-            bounded_value,
-            bound,
-        )))
-    }
-
     pub(super) const fn from_bitvector(bitvector: ConcreteBitvector<B>) -> Self {
         SignedBitvector(bitvector)
     }

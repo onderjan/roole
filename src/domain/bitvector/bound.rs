@@ -7,16 +7,7 @@ pub trait BitvectorBound: Clone + Copy + PartialEq + Eq + Hash + Debug {
     type SingleBit: BitvectorBound<SingleBit = Self::SingleBit>;
 
     fn width(&self) -> u32;
-    fn mask(&self) -> u64;
-    fn sign_bit_mask(&self) -> u64;
-
-    fn allowed(&self, value: u64) -> bool {
-        value <= self.mask()
-    }
-
-    fn word_len(&self) -> u32 {
-        self.width().div_ceil(64)
-    }
+    fn single_bit_bound() -> Self::SingleBit;
 
     fn highest_bit(&self) -> Option<u32> {
         if self.width() != 0 {
@@ -25,8 +16,6 @@ pub trait BitvectorBound: Clone + Copy + PartialEq + Eq + Hash + Debug {
             None
         }
     }
-
-    fn single_bit_bound() -> Self::SingleBit;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
@@ -47,14 +36,6 @@ impl BitvectorBound for RBound {
         self.width
     }
 
-    fn mask(&self) -> u64 {
-        compute_u64_mask(self.width)
-    }
-
-    fn sign_bit_mask(&self) -> u64 {
-        compute_u64_sign_bit_mask(self.width)
-    }
-
     fn single_bit_bound() -> Self::SingleBit {
         RBound { width: 1 }
     }
@@ -68,13 +49,6 @@ impl<const W: u32> BitvectorBound for CBound<W> {
 
     fn width(&self) -> u32 {
         W
-    }
-    fn mask(&self) -> u64 {
-        compute_u64_mask(W)
-    }
-
-    fn sign_bit_mask(&self) -> u64 {
-        compute_u64_sign_bit_mask(W)
     }
 
     fn single_bit_bound() -> Self::SingleBit {
