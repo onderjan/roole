@@ -1,12 +1,14 @@
 use crate::domain::{
     bitvector::{
-        BitvectorBound,
+        BitvectorBound, RBound,
         abstr::{BitvectorDomain, ExtendedBitvectorDomain},
-        bound::compute_u64_mask,
         concr::{ConcreteBitvector, UnsignedBitvector},
         interval::{SignlessInterval, UnsignedInterval},
     },
-    traits::{Join, forward::HwArith},
+    traits::{
+        Join,
+        forward::{BExt, HwArith, HwShift},
+    },
 };
 
 use super::ThreeValuedBitvector;
@@ -28,13 +30,14 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
         }
 
         minmax_compute(self, rhs, |lhs, rhs, k| {
-            addsub_zeta_k_fn(
+            zeta_k_fn(
                 lhs.umin(),
                 lhs.umax(),
                 rhs.umin(),
                 rhs.umax(),
                 k,
-                |lhs, rhs| lhs.overflowing_add(rhs),
+                |w| w + 1,
+                |lhs, rhs| lhs.add(rhs),
             )
         })
     }
@@ -46,44 +49,28 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
 
         minmax_compute(self, rhs, |lhs, rhs, k| {
             // swap rhs min and max as it is applied in negative
-            addsub_zeta_k_fn(
+            zeta_k_fn(
                 lhs.umin(),
                 lhs.umax(),
                 rhs.umax(),
                 rhs.umin(),
                 k,
-                |lhs, rhs| lhs.overflowing_sub(rhs),
+                |w| w + 1,
+                |lhs, rhs| lhs.sub(rhs),
             )
         })
     }
     fn mul(self, rhs: Self) -> Self {
-        let bound = self.bound();
-        assert_eq!(bound, rhs.bound());
-
-        let is_zero = |val: ConcreteBitvector<B>| val.is_zero();
-        let is_one = |val: ConcreteBitvector<B>| val.is_one();
-        // return zero if one is zero, return the other argument if an argument is one
-        if self.concrete_value().is_some_and(is_zero) || rhs.concrete_value().is_some_and(is_one) {
-            return self;
-        }
-        if rhs.concrete_value().is_some_and(is_zero) || self.concrete_value().is_some_and(is_one) {
-            return rhs;
-        }
-
-        // use the minmax algorithm for now
         minmax_compute(self, rhs, |lhs, rhs, k| {
-            // prepare a mask that selects interval [0, k]
-            let mod_mask = compute_u64_mask(k + 1);
-
-            // convert all to u128 so there is no overflow
-            let left_min = (lhs.umin().to_u64() & mod_mask) as u128;
-            let right_min = (rhs.umin().to_u64() & mod_mask) as u128;
-            let left_max = (lhs.umax().to_u64() & mod_mask) as u128;
-            let right_max = (rhs.umax().to_u64() & mod_mask) as u128;
-
-            let zeta_k_min = ((left_min * right_min) >> k) as u64;
-            let zeta_k_max = ((left_max * right_max) >> k) as u64;
-            (zeta_k_min, zeta_k_max)
+            zeta_k_fn(
+                lhs.umin(),
+                lhs.umax(),
+                rhs.umin(),
+                rhs.umax(),
+                k,
+                |w| w * 2,
+                |lhs, rhs| lhs.mul(rhs),
+            )
         })
     }
 
@@ -185,7 +172,11 @@ fn handle_by_quadrants<B: BitvectorBound>(
     result.expect("Signed division/remainder must have at least one quadrant")
 }
 
-type ZetaFn<B> = fn(&ThreeValuedBitvector<B>, &ThreeValuedBitvector<B>, u32) -> (u64, u64);
+type ZetaFn<B> = fn(
+    &ThreeValuedBitvector<B>,
+    &ThreeValuedBitvector<B>,
+    u32,
+) -> (ConcreteBitvector<RBound>, ConcreteBitvector<RBound>);
 
 fn minmax_compute<B: BitvectorBound>(
     lhs: ThreeValuedBitvector<B>,
@@ -197,8 +188,8 @@ fn minmax_compute<B: BitvectorBound>(
     // from previous paper
 
     // start with no possibilites
-    let mut ones = 0u64;
-    let mut zeros = 0u64;
+    let mut ones = ConcreteBitvector::new_zero(bound);
+    let mut zeros = ConcreteBitvector::new_zero(bound);
 
     // iterate over output bits
     for k in 0..width {
@@ -208,39 +199,68 @@ fn minmax_compute<B: BitvectorBound>(
         // see if minimum and maximum differs
         if zeta_k_min != zeta_k_max {
             // set result bit unknown
-            zeros |= 1 << k;
-            ones |= 1 << k;
+            zeros.set_bit(k, true);
+            ones.set_bit(k, true);
         } else {
             // set value of bit k, converted to ones-zeros encoding
-            zeros |= (!zeta_k_min & 1) << k;
-            ones |= (zeta_k_min & 1) << k;
+            let value = zeta_k_min.is_bit_set(0);
+            if value {
+                ones.set_bit(k, true);
+            } else {
+                zeros.set_bit(k, true);
+            }
         }
     }
-    ThreeValuedBitvector::from_zeros_ones(
-        ConcreteBitvector::new(zeros, bound),
-        ConcreteBitvector::new(ones, bound),
-    )
+    ThreeValuedBitvector::from_zeros_ones(zeros, ones)
 }
 
-fn addsub_zeta_k_fn<B: BitvectorBound>(
+fn zeta_k_fn<B: BitvectorBound>(
     left_min: UnsignedBitvector<B>,
     left_max: UnsignedBitvector<B>,
     right_min: UnsignedBitvector<B>,
     right_max: UnsignedBitvector<B>,
     k: u32,
-    func: fn(u64, u64) -> (u64, bool),
-) -> (u64, u64) {
-    // prepare a mask that selects interval [0, k]
-    let mod_mask = compute_u64_mask(k + 1);
+    bound_func: fn(u32) -> u32,
+    func: fn(ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) -> ConcreteBitvector<RBound>,
+) -> (ConcreteBitvector<RBound>, ConcreteBitvector<RBound>) {
+    let bound = left_min.bound();
+    let width = bound.width();
+    let result_bound = RBound::new(bound_func(width));
+    if width == 0 {
+        let zero = ConcreteBitvector::new_zero(result_bound);
+        return (zero.clone(), zero);
+    }
 
-    let left_min = left_min.to_u64() & mod_mask;
-    let left_max = left_max.to_u64() & mod_mask;
-    let right_min = right_min.to_u64() & mod_mask;
-    let right_max = right_max.to_u64() & mod_mask;
+    let mut lhs_min = left_min.cast_bitvector().uext(result_bound);
+    let mut lhs_max = left_max.cast_bitvector().uext(result_bound);
+    let mut rhs_min = right_min.cast_bitvector().uext(result_bound);
+    let mut rhs_max = right_max.cast_bitvector().uext(result_bound);
+
+    eprintln!(
+        "K: {}, before lhs: [{:?},{:?}], rhs: [{:?},{:?}]",
+        k, lhs_min, lhs_max, rhs_min, rhs_max
+    );
+
+    // set all bits above the interval [0, k] to zero
+    let lo = k + 1;
+    let hi = width - 1;
+    if lo <= hi {
+        lhs_min.set_bits(lo, hi, false);
+        lhs_max.set_bits(lo, hi, false);
+        rhs_min.set_bits(lo, hi, false);
+        rhs_max.set_bits(lo, hi, false);
+    }
+
+    eprintln!(
+        "After lhs: [{:?},{:?}], rhs: [{:?},{:?}]",
+        lhs_min, lhs_max, rhs_min, rhs_max
+    );
+
+    let k = ConcreteBitvector::new(k.into(), result_bound);
 
     // shift right, using the overflow as well
-    let zeta_k_min = shr_overflowing(func(left_min, right_min), k);
-    let zeta_k_max = shr_overflowing(func(left_max, right_max), k);
+    let zeta_k_min = func(lhs_min, rhs_min).logic_shr(k.clone());
+    let zeta_k_max = func(lhs_max, rhs_max).logic_shr(k);
 
     (zeta_k_min, zeta_k_max)
 }

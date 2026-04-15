@@ -86,7 +86,14 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         }
     }
 
+    pub fn set_bit(&mut self, pos: u32, set_value: bool) {
+        assert!(pos < self.bound.width());
+        self.value.set_bit(pos, set_value);
+    }
+
     pub fn set_bits(&mut self, lo: u32, hi: u32, set_value: bool) {
+        assert!(hi < self.bound.width());
+        assert!(lo <= hi);
         self.value.set_bits(lo, hi, set_value);
     }
 
