@@ -1,6 +1,9 @@
-/*use crate::domain::{bitvector::CBound, traits::forward::Ext};
+use crate::domain::{
+    bitvector::{CBound, concr::ConcreteBitvector},
+    traits::forward::{Bitwise, Ext, HwArith, HwShift, TypedCmp, TypedEq},
+};
 
-use super::CConcreteBitvector;
+type CConcreteBitvector<const W: u32> = ConcreteBitvector<CBound<W>>;
 
 #[test]
 fn support() {
@@ -41,9 +44,6 @@ fn support() {
     assert!(full.is_sign_bit_set());
     assert!(min.is_sign_bit_set());
 
-    assert_eq!(min, CConcreteBitvector::sign_bit_mask(CBound));
-    assert_eq!(full, CConcreteBitvector::bit_mask(CBound));
-
     assert_eq!(
         CConcreteBitvector::<8>::all_with_bound_iter(CBound).count(),
         2usize.pow(8)
@@ -55,10 +55,10 @@ fn eq() {
     let a = CConcreteBitvector::<16>::new(0xCAFE, CBound);
     let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
-    assert!(a.eq(a).into_bool());
-    assert!(b.eq(b).into_bool());
-    assert!(!a.eq(b).into_bool());
-    assert!(!b.eq(a).into_bool());
+    assert!(a.clone().eq(a.clone()).into_bool());
+    assert!(b.clone().eq(b.clone()).into_bool());
+    assert!(!a.clone().eq(b.clone()).into_bool());
+    assert!(!b.clone().eq(a.clone()).into_bool());
 }
 
 #[test]
@@ -67,22 +67,22 @@ fn cmp() {
     let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
     // identity
-    assert!(!a.ult(a).into_bool());
-    assert!(a.ule(a).into_bool());
-    assert!(!a.slt(a).into_bool());
-    assert!(a.sle(a).into_bool());
+    assert!(!a.clone().ult(a.clone()).into_bool());
+    assert!(a.clone().ule(a.clone()).into_bool());
+    assert!(!a.clone().slt(a.clone()).into_bool());
+    assert!(a.clone().sle(a.clone()).into_bool());
 
     // comparison
-    assert!(!a.ult(b).into_bool());
-    assert!(!a.ule(b).into_bool());
-    assert!(a.slt(b).into_bool());
-    assert!(a.sle(b).into_bool());
+    assert!(!a.clone().ult(b.clone()).into_bool());
+    assert!(!a.clone().ule(b.clone()).into_bool());
+    assert!(a.clone().slt(b.clone()).into_bool());
+    assert!(a.clone().sle(b.clone()).into_bool());
 
     // try flipped the other way, they are not equal
-    assert!(b.ult(a).into_bool());
-    assert!(b.ule(a).into_bool());
-    assert!(!b.slt(a).into_bool());
-    assert!(!b.sle(a).into_bool());
+    assert!(b.clone().ult(a.clone()).into_bool());
+    assert!(b.clone().ule(a.clone()).into_bool());
+    assert!(!b.clone().slt(a.clone()).into_bool());
+    assert!(!b.clone().sle(a.clone()).into_bool());
 }
 
 #[test]
@@ -91,12 +91,12 @@ fn bitwise() {
     let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
     // compare results to calculated values
-    assert_eq!(a.bit_not().to_u64(), 0x3501);
-    assert_eq!(b.bit_not().to_u64(), 0xECC8);
+    assert_eq!(a.clone().bit_not().to_u64(), 0x3501);
+    assert_eq!(b.clone().bit_not().to_u64(), 0xECC8);
 
-    assert_eq!(a.bit_and(b).to_u64(), 0x0236);
-    assert_eq!(a.bit_or(b).to_u64(), 0xDBFF);
-    assert_eq!(a.bit_xor(b).to_u64(), 0xD9C9);
+    assert_eq!(a.clone().bit_and(b.clone()).to_u64(), 0x0236);
+    assert_eq!(a.clone().bit_or(b.clone()).to_u64(), 0xDBFF);
+    assert_eq!(a.clone().bit_xor(b.clone()).to_u64(), 0xD9C9);
 }
 
 #[test]
@@ -105,28 +105,28 @@ fn ext() {
     let b = CConcreteBitvector::<16>::new(0x1337, CBound);
 
     // longer uext will preserve unsigned value
-    assert_eq!(Ext::<32>::uext(a).to_u64(), 0xCAFE);
-    assert_eq!(Ext::<32>::uext(a).to_i64(), 0xCAFE);
-    assert_eq!(Ext::<32>::uext(b).to_u64(), 0x1337);
-    assert_eq!(Ext::<32>::uext(b).to_i64(), 0x1337);
+    assert_eq!(Ext::<32>::uext(a.clone()).to_u64(), 0xCAFE);
+    assert_eq!(Ext::<32>::uext(a.clone()).to_i64(), 0xCAFE);
+    assert_eq!(Ext::<32>::uext(b.clone()).to_u64(), 0x1337);
+    assert_eq!(Ext::<32>::uext(b.clone()).to_i64(), 0x1337);
 
     // longer sext will preserve signed value
-    assert_eq!(Ext::<32>::sext(a).to_u64(), 0xFFFFCAFE);
-    assert_eq!(Ext::<32>::sext(a).to_i64(), -0x3502);
-    assert_eq!(Ext::<32>::sext(b).to_u64(), 0x1337);
-    assert_eq!(Ext::<32>::sext(b).to_i64(), 0x1337);
+    assert_eq!(Ext::<32>::sext(a.clone()).to_u64(), 0xFFFFCAFE);
+    assert_eq!(Ext::<32>::sext(a.clone()).to_i64(), -0x3502);
+    assert_eq!(Ext::<32>::sext(b.clone()).to_u64(), 0x1337);
+    assert_eq!(Ext::<32>::sext(b.clone()).to_i64(), 0x1337);
 
     // shorter ext will always just cut
-    assert_eq!(Ext::<4>::uext(a).to_u64(), 0xE);
-    assert_eq!(Ext::<4>::uext(a).to_i64(), -0x2);
-    assert_eq!(Ext::<4>::sext(a).to_u64(), 0xE);
-    assert_eq!(Ext::<4>::sext(a).to_i64(), -0x2);
+    assert_eq!(Ext::<4>::uext(a.clone()).to_u64(), 0xE);
+    assert_eq!(Ext::<4>::uext(a.clone()).to_i64(), -0x2);
+    assert_eq!(Ext::<4>::sext(a.clone()).to_u64(), 0xE);
+    assert_eq!(Ext::<4>::sext(a.clone()).to_i64(), -0x2);
 
     // same ext will preserve value
-    assert_eq!(a, Ext::<16>::uext(a));
-    assert_eq!(b, Ext::<16>::uext(b));
-    assert_eq!(a, Ext::<16>::sext(a));
-    assert_eq!(b, Ext::<16>::sext(b));
+    assert_eq!(a, Ext::<16>::uext(a.clone()));
+    assert_eq!(b, Ext::<16>::uext(b.clone()));
+    assert_eq!(a, Ext::<16>::sext(a.clone()));
+    assert_eq!(b, Ext::<16>::sext(b.clone()));
 }
 
 #[test]
@@ -138,30 +138,30 @@ fn shift() {
     let too_much = CConcreteBitvector::<16>::new(0x42, CBound);
 
     // shift by a reasonable value
-    assert_eq!(a.logic_shl(four).to_u64(), 0xAFE0);
-    assert_eq!(b.logic_shl(four).to_u64(), 0x3370);
-    assert_eq!(a.logic_shr(four).to_u64(), 0x0CAF);
-    assert_eq!(b.logic_shr(four).to_u64(), 0x0133);
-    assert_eq!(a.arith_shr(four).to_u64(), 0xFCAF);
-    assert_eq!(b.arith_shr(four).to_u64(), 0x0133);
+    assert_eq!(a.clone().logic_shl(four.clone()).to_u64(), 0xAFE0);
+    assert_eq!(b.clone().logic_shl(four.clone()).to_u64(), 0x3370);
+    assert_eq!(a.clone().logic_shr(four.clone()).to_u64(), 0x0CAF);
+    assert_eq!(b.clone().logic_shr(four.clone()).to_u64(), 0x0133);
+    assert_eq!(a.clone().arith_shr(four.clone()).to_u64(), 0xFCAF);
+    assert_eq!(b.clone().arith_shr(four.clone()).to_u64(), 0x0133);
 
     // shift by exactly all bits
     // should be zero except for arith shift right of negative
-    assert_eq!(a.logic_shl(sixteen).to_u64(), 0x0000);
-    assert_eq!(b.logic_shl(sixteen).to_u64(), 0x0000);
-    assert_eq!(a.logic_shr(sixteen).to_u64(), 0x0000);
-    assert_eq!(b.logic_shr(sixteen).to_u64(), 0x0000);
-    assert_eq!(a.arith_shr(sixteen).to_u64(), 0xFFFF);
-    assert_eq!(b.arith_shr(sixteen).to_u64(), 0x0000);
+    assert_eq!(a.clone().logic_shl(sixteen.clone()).to_u64(), 0x0000);
+    assert_eq!(b.clone().logic_shl(sixteen.clone()).to_u64(), 0x0000);
+    assert_eq!(a.clone().logic_shr(sixteen.clone()).to_u64(), 0x0000);
+    assert_eq!(b.clone().logic_shr(sixteen.clone()).to_u64(), 0x0000);
+    assert_eq!(a.clone().arith_shr(sixteen.clone()).to_u64(), 0xFFFF);
+    assert_eq!(b.clone().arith_shr(sixteen.clone()).to_u64(), 0x0000);
 
     // shift by an unreasonable value
     // should give the same results as by all bits
-    assert_eq!(a.logic_shl(too_much).to_u64(), 0x0000);
-    assert_eq!(b.logic_shl(too_much).to_u64(), 0x0000);
-    assert_eq!(a.logic_shr(too_much).to_u64(), 0x0000);
-    assert_eq!(b.logic_shr(too_much).to_u64(), 0x0000);
-    assert_eq!(a.arith_shr(too_much).to_u64(), 0xFFFF);
-    assert_eq!(b.arith_shr(too_much).to_u64(), 0x0000);
+    assert_eq!(a.clone().logic_shl(too_much.clone()).to_u64(), 0x0000);
+    assert_eq!(b.clone().logic_shl(too_much.clone()).to_u64(), 0x0000);
+    assert_eq!(a.clone().logic_shr(too_much.clone()).to_u64(), 0x0000);
+    assert_eq!(b.clone().logic_shr(too_much.clone()).to_u64(), 0x0000);
+    assert_eq!(a.clone().arith_shr(too_much.clone()).to_u64(), 0xFFFF);
+    assert_eq!(b.clone().arith_shr(too_much.clone()).to_u64(), 0x0000);
 }
 
 #[test]
@@ -175,54 +175,133 @@ fn arith() {
 
     // add, sub, mul do not have corner cases except wrapping
     // compare results to calculated values
-    assert_eq!(a.add(b).to_u64(), 0xDE35);
-    assert_eq!(a.add(c).to_u64(), 0x0AFE);
-    assert_eq!(b.add(c).to_u64(), 0x5337);
-    assert_eq!(a.sub(b).to_u64(), 0xB7C7);
-    assert_eq!(a.sub(c).to_u64(), 0x8AFE);
-    assert_eq!(b.sub(c).to_u64(), 0xD337);
-    assert_eq!(a.mul(b).to_u64(), 0x7692);
-    assert_eq!(a.mul(c).to_u64(), 0x8000);
-    assert_eq!(b.mul(c).to_u64(), 0xC000);
+    assert_eq!(a.clone().add(b.clone()).to_u64(), 0xDE35);
+    assert_eq!(a.clone().add(c.clone()).to_u64(), 0x0AFE);
+    assert_eq!(b.clone().add(c.clone()).to_u64(), 0x5337);
+    assert_eq!(a.clone().sub(b.clone()).to_u64(), 0xB7C7);
+    assert_eq!(a.clone().sub(c.clone()).to_u64(), 0x8AFE);
+    assert_eq!(b.clone().sub(c.clone()).to_u64(), 0xD337);
+    assert_eq!(a.clone().mul(b.clone()).to_u64(), 0x7692);
+    assert_eq!(a.clone().mul(c.clone()).to_u64(), 0x8000);
+    assert_eq!(b.clone().mul(c.clone()).to_u64(), 0xC000);
 
     // unsigned division and remainder have division by zero
     // try out normal first
-    assert_eq!(a.udiv(b).to_u64(), 0x000A);
-    assert_eq!(a.urem(b).to_u64(), 0x0AD8);
-    assert_eq!(a.udiv(c).to_u64(), 0x0003);
-    assert_eq!(a.urem(c).to_u64(), 0x0AFE);
-    assert_eq!(b.udiv(c).to_u64(), 0x0000);
-    assert_eq!(b.urem(c).to_u64(), 0x1337);
+    assert_eq!(
+        a.clone().udiv_wrapping_or_all_ones(b.clone()).to_u64(),
+        0x000A
+    );
+    assert_eq!(
+        a.clone().urem_wrapping_or_dividend(b.clone()).to_u64(),
+        0x0AD8
+    );
+    assert_eq!(
+        a.clone().udiv_wrapping_or_all_ones(c.clone()).to_u64(),
+        0x0003
+    );
+    assert_eq!(
+        a.clone().urem_wrapping_or_dividend(c.clone()).to_u64(),
+        0x0AFE
+    );
+    assert_eq!(
+        b.clone().udiv_wrapping_or_all_ones(c.clone()).to_u64(),
+        0x0000
+    );
+    assert_eq!(
+        b.clone().urem_wrapping_or_dividend(c.clone()).to_u64(),
+        0x1337
+    );
 
     // in case of unsigned division-by-zero
     // division result is all-ones and remainder is the dividend
-    assert_eq!(a.udiv(zero).to_u64(), 0xFFFF);
-    assert_eq!(a.urem(zero).to_u64(), 0xCAFE);
-    assert_eq!(b.udiv(zero).to_u64(), 0xFFFF);
-    assert_eq!(b.urem(zero).to_u64(), 0x1337);
-    assert_eq!(c.udiv(zero).to_u64(), 0xFFFF);
-    assert_eq!(c.urem(zero).to_u64(), 0x4000);
+    assert_eq!(
+        a.clone().udiv_wrapping_or_all_ones(zero.clone()).to_u64(),
+        0xFFFF
+    );
+    assert_eq!(
+        a.clone().urem_wrapping_or_dividend(zero.clone()).to_u64(),
+        0xCAFE
+    );
+    assert_eq!(
+        b.clone().udiv_wrapping_or_all_ones(zero.clone()).to_u64(),
+        0xFFFF
+    );
+    assert_eq!(
+        b.clone().urem_wrapping_or_dividend(zero.clone()).to_u64(),
+        0x1337
+    );
+    assert_eq!(
+        c.clone().udiv_wrapping_or_all_ones(zero.clone()).to_u64(),
+        0xFFFF
+    );
+    assert_eq!(
+        c.clone().urem_wrapping_or_dividend(zero.clone()).to_u64(),
+        0x4000
+    );
 
     // signed division and remainder have four-quadrant behaviour,
     // division by zero and overflow
-    assert_eq!(c.sdiv(b).to_u64(), 0x0003); // positive / positive
-    assert_eq!(c.srem(b).to_u64(), 0x065B);
-    assert_eq!(a.sdiv(b).to_u64(), 0xFFFE); // negative / positive
-    assert_eq!(a.srem(b).to_u64(), 0xF16C);
-    assert_eq!(c.sdiv(a).to_u64(), 0xFFFF); // positive / negative
-    assert_eq!(c.srem(a).to_u64(), 0x0AFE);
-    assert_eq!(d.sdiv(a).to_u64(), 0x0001); // negative / negative
-    assert_eq!(d.srem(a).to_u64(), 0xEFDC);
+    assert_eq!(
+        c.clone().sdiv_wrapping_by_quadrants(b.clone()).to_u64(),
+        0x0003
+    ); // positive / positive
+    assert_eq!(
+        c.clone().srem_wrapping_by_quadrants(b.clone()).to_u64(),
+        0x065B
+    );
+    assert_eq!(
+        a.clone().sdiv_wrapping_by_quadrants(b.clone()).to_u64(),
+        0xFFFE
+    ); // negative / positive
+    assert_eq!(
+        a.clone().srem_wrapping_by_quadrants(b.clone()).to_u64(),
+        0xF16C
+    );
+    assert_eq!(
+        c.clone().sdiv_wrapping_by_quadrants(a.clone()).to_u64(),
+        0xFFFF
+    ); // positive / negative
+    assert_eq!(
+        c.clone().srem_wrapping_by_quadrants(a.clone()).to_u64(),
+        0x0AFE
+    );
+    assert_eq!(
+        d.clone().sdiv_wrapping_by_quadrants(a.clone()).to_u64(),
+        0x0001
+    ); // negative / negative
+    assert_eq!(
+        d.clone().srem_wrapping_by_quadrants(a.clone()).to_u64(),
+        0xEFDC
+    );
 
     // in case of signed division-by-zero
-    // division result is all-ones and remainder is the dividend
-    // (same as unsigned)
-    assert_eq!(a.sdiv(zero).to_u64(), 0xFFFF);
-    assert_eq!(a.srem(zero).to_u64(), 0xCAFE);
-    assert_eq!(b.sdiv(zero).to_u64(), 0xFFFF);
-    assert_eq!(b.srem(zero).to_u64(), 0x1337);
-    assert_eq!(c.sdiv(zero).to_u64(), 0xFFFF);
-    assert_eq!(c.srem(zero).to_u64(), 0x4000);
+    // division result is all-ones for non-negative dividend
+    // and one for negative dividend
+    // remainder is the dividend
+    assert_eq!(
+        a.clone().sdiv_wrapping_by_quadrants(zero.clone()).to_u64(),
+        0x0001
+    );
+    assert_eq!(
+        a.clone().srem_wrapping_by_quadrants(zero.clone()).to_u64(),
+        0xCAFE
+    );
+    assert_eq!(
+        b.clone().sdiv_wrapping_by_quadrants(zero.clone()).to_u64(),
+        0xFFFF
+    );
+    assert_eq!(
+        b.clone().srem_wrapping_by_quadrants(zero.clone()).to_u64(),
+        0x1337
+    );
+    assert_eq!(
+        c.clone().sdiv_wrapping_by_quadrants(zero.clone()).to_u64(),
+        0xFFFF
+    );
+    assert_eq!(
+        c.clone().srem_wrapping_by_quadrants(zero.clone()).to_u64(),
+        0x4000
+    );
 
     // overflow only happens if the minimum value is divided by minus one
     // because the minimum value is not representable in positive
@@ -230,7 +309,12 @@ fn arith() {
     // and no remainder
     let min = CConcreteBitvector::<16>::new(0x8000, CBound);
     let minus_one = CConcreteBitvector::<16>::new(0xFFFF, CBound);
-    assert_eq!(min.sdiv(minus_one), min);
-    assert_eq!(min.srem(minus_one), zero);
+    assert_eq!(
+        min.clone().sdiv_wrapping_by_quadrants(minus_one.clone()),
+        min
+    );
+    assert_eq!(
+        min.clone().srem_wrapping_by_quadrants(minus_one.clone()),
+        zero
+    );
 }
-*/

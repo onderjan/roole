@@ -352,3 +352,9 @@ impl<T: Display> Display for OutsideBound<T> {
         )
     }
 }
+
+impl ConcreteBitvector<CBound<1>> {
+    pub fn into_bool(self) -> bool {
+        !self.is_zero()
+    }
+}
