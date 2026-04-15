@@ -236,11 +236,6 @@ fn zeta_k_fn<B: BitvectorBound>(
     let mut rhs_min = right_min.cast_bitvector().uext(result_bound);
     let mut rhs_max = right_max.cast_bitvector().uext(result_bound);
 
-    eprintln!(
-        "K: {}, before lhs: [{:?},{:?}], rhs: [{:?},{:?}]",
-        k, lhs_min, lhs_max, rhs_min, rhs_max
-    );
-
     // set all bits above the interval [0, k] to zero
     let lo = k + 1;
     let hi = width - 1;
@@ -250,11 +245,6 @@ fn zeta_k_fn<B: BitvectorBound>(
         rhs_min.set_bits(lo, hi, false);
         rhs_max.set_bits(lo, hi, false);
     }
-
-    eprintln!(
-        "After lhs: [{:?},{:?}], rhs: [{:?},{:?}]",
-        lhs_min, lhs_max, rhs_min, rhs_max
-    );
 
     let k = ConcreteBitvector::new(k.into(), result_bound);
 
