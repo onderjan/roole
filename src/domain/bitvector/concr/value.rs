@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use crate::domain::bitvector::{BitvectorBound, bound::compute_u64_mask, concr::ConcreteValue};
 
 impl ConcreteValue {
@@ -258,6 +260,33 @@ impl ConcreteValue {
         }
 
         ConcreteValue::Big(result)
+    }
+
+    pub fn unsigned_cmp(&self, rhs: &Self) -> Ordering {
+        match (self, rhs) {
+            (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => lhs.cmp(rhs),
+            (ConcreteValue::Big(lhs), ConcreteValue::Big(rhs)) => {
+                assert_eq!(lhs.len(), rhs.len());
+
+                // the comparison is done from the highest to lowest element
+                for (lhs, rhs) in lhs.iter().zip(rhs).rev() {
+                    match lhs.cmp(rhs) {
+                        Ordering::Less => {
+                            return Ordering::Less;
+                        }
+                        Ordering::Equal => {
+                            // continue comparing
+                        }
+                        Ordering::Greater => {
+                            return Ordering::Greater;
+                        }
+                    }
+                }
+                // everything equal
+                Ordering::Equal
+            }
+            _ => panic!("Values must have same storage"),
+        }
     }
 
     pub(super) fn make_bounded<B: BitvectorBound>(self, bound: B) -> Self {
