@@ -329,7 +329,7 @@ impl ConcreteValue {
 
     pub fn count_ones(&self) -> u32 {
         match self {
-            ConcreteValue::Small(value) => value.trailing_zeros(),
+            ConcreteValue::Small(value) => value.count_ones(),
             ConcreteValue::Big(words) => {
                 // just sum the count of ones in the words
                 words.iter().map(|w| w.count_ones()).sum()
