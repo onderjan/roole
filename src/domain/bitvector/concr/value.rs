@@ -307,6 +307,62 @@ impl ConcreteValue {
         }
     }
 
+    pub fn trailing_zeros(&self) -> u32 {
+        match self {
+            ConcreteValue::Small(value) => value.trailing_zeros(),
+            ConcreteValue::Big(words) => {
+                // iterate from the lowest word to highest
+                // until the word where the number of trailing zeros
+                // is lesser than 64 is found
+                let mut sum = 0;
+                for word in words {
+                    let trailing = word.trailing_zeros();
+                    sum += trailing;
+                    if trailing < 64 {
+                        return sum;
+                    }
+                }
+                sum
+            }
+        }
+    }
+
+    pub fn count_ones(&self) -> u32 {
+        match self {
+            ConcreteValue::Small(value) => value.trailing_zeros(),
+            ConcreteValue::Big(words) => {
+                // just sum the count of ones in the words
+                words.iter().map(|w| w.count_ones()).sum()
+            }
+        }
+    }
+
+    pub fn is_power_of_two(&self) -> bool {
+        match self {
+            ConcreteValue::Small(value) => value.is_power_of_two(),
+            ConcreteValue::Big(words) => {
+                // exactly one word must be a power of two and others empty
+                let mut power_of_two_found = false;
+                for word in words {
+                    if word.is_power_of_two() {
+                        if power_of_two_found {
+                            // more than one power-of-two word
+                            // not a power of two as a whole
+                            return false;
+                        } else {
+                            power_of_two_found = true;
+                        }
+                    } else if *word != 0 {
+                        // not a power of two
+                        return false;
+                    }
+                }
+                // we now have at most one power-of-two word, others are zero
+                power_of_two_found
+            }
+        }
+    }
+
     pub(super) fn make_bounded<B: BitvectorBound>(self, bound: B) -> Self {
         let width = bound.width();
 

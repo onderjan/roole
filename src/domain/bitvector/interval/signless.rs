@@ -152,7 +152,7 @@ impl<B: BitvectorBound> SignlessInterval<B> {
                     if max.is_sign_bit_set() != far {
                         return None;
                     }
-                    if min.to_u64() > max.to_u64() {
+                    if min.unsigned_cmp(&max).is_gt() {
                         return None;
                     }
 

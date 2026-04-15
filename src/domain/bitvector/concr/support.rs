@@ -177,6 +177,21 @@ impl<B: BitvectorBound> ConcreteBitvector<B> {
         self.value.checked_ilog2()
     }
 
+    pub fn is_power_of_two(&self) -> bool {
+        self.value.is_power_of_two()
+    }
+
+    pub fn trailing_zeros(&self) -> u32 {
+        // make sure that the trailing zeros are at most the width
+        let width = self.bound.width();
+        let result = self.value.trailing_zeros();
+        result.min(width)
+    }
+
+    pub fn count_ones(&self) -> u32 {
+        self.value.count_ones()
+    }
+
     pub fn all_with_bound_iter(bound: B) -> impl Iterator<Item = Self> {
         struct BoundIter<B: BitvectorBound>(Option<ConcreteBitvector<B>>);
 

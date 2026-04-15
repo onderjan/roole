@@ -40,8 +40,8 @@ impl LinearSlice {
             .bit_and(mask.clone());
         assert!(turned_off_rightmost_ones.is_nonzero());
 
-        let lsb = mask.to_u64().trailing_zeros();
-        let width = mask.to_u64().count_ones();
+        let lsb = mask.trailing_zeros();
+        let width = mask.count_ones();
 
         Self {
             formula_id,

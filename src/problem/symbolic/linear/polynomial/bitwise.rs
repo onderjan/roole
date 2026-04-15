@@ -53,11 +53,15 @@ impl LinearPolynomial {
         };
 
         let coefficient = monomial.coefficient;
-        if !coefficient.to_u64().is_power_of_two() {
+
+        let Some(coefficient_log2) = coefficient.checked_ilog2() else {
+            return Err(());
+        };
+
+        if !coefficient.is_power_of_two() {
             return Err(());
         }
 
-        let coefficient_log2 = coefficient.to_u64().ilog2();
         let coefficient_log2 = ConcreteBitvector::new(coefficient_log2.into(), bound);
 
         // now, we have a constant value to be bitwise-combined with a bit-shifted slice
