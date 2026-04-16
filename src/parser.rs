@@ -311,12 +311,28 @@ impl Parser {
                         .len()
                         .try_into()
                         .expect("Binary constant width too big");
-                    let value = ConcreteBitvector::from_big(big, RBound::new(width));
 
+                    let value = ConcreteBitvector::from_big(big, RBound::new(width));
                     self.add_operation(Operation::Constant(value))
                 }
-                Constant::Numeral(_) | Constant::Decimal(_) | Constant::Hexadecimal(_) => {
-                    todo!("Create formula for constant {:?}", constant)
+                Constant::Hexadecimal(nibbles) => {
+                    // construct big uint from big-endian nibbles
+                    let mut big = BigUint::zero();
+
+                    let width = (nibbles.len() * 4)
+                        .try_into()
+                        .expect("Hexadecimal constant width too big");
+
+                    for nibble in nibbles {
+                        assert!(nibble < 16);
+                        big = (big << 4) + nibble;
+                    }
+
+                    let value = ConcreteBitvector::from_big(big, RBound::new(width));
+                    self.add_operation(Operation::Constant(value))
+                }
+                Constant::Numeral(_) | Constant::Decimal(_) => {
+                    panic!("Numeral or decimal constants not supported in QF_BV");
                 }
                 Constant::String(_) => panic!("String literal {:?} not supported", constant),
             },
