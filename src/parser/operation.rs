@@ -4,13 +4,17 @@ use aws_smt_ir::smt2parser::{
     concrete::{Identifier, QualIdentifier},
     visitors::Index,
 };
+use indexmap::IndexMap;
 use itertools::Itertools;
 
-use crate::problem::formula::{
-    FormulaId,
-    operation::{
-        BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, IteOp, Operation, RotateOp, UniOp,
-        UniOperator,
+use crate::{
+    parser::Scope,
+    problem::formula::{
+        FormulaId,
+        operation::{
+            BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, IteOp, Operation, RotateOp, UniOp,
+            UniOperator,
+        },
     },
 };
 
@@ -59,8 +63,30 @@ impl super::Parser {
 
                 "ite" => self.create_ite_op(arguments),
                 "concat" => self.create_concat_op(arguments),
-                _ => {
-                    panic!("Unsupported application '{}'", symbol.0);
+                name => {
+                    // try to see if it is in the functions
+                    let Some(func) = self.functions.get(name) else {
+                        panic!("Unsupported application '{}'", name);
+                    };
+
+                    assert_eq!(func.param_names.len(), arguments.len());
+
+                    // push a new scope with the parameters
+                    let mut names = IndexMap::new();
+                    for (param_name, arg) in func.param_names.iter().zip(arguments) {
+                        names.insert(param_name.clone(), arg);
+                    }
+
+                    let scope = Scope { names };
+
+                    self.scopes.push(scope);
+
+                    let formula = self.create_formula(func.term.clone());
+
+                    // pop the scope
+                    self.scopes.pop();
+
+                    return formula;
                 }
             },
             QualIdentifier::Simple {
@@ -135,7 +161,10 @@ impl super::Parser {
         }
 
         let Some((left, right)) = arguments.into_iter().collect_tuple() else {
-            panic!("Binary operation should have exactly two arguments");
+            panic!(
+                "Binary operation {:?} should have exactly two arguments",
+                op
+            );
         };
 
         let left_result_width = self.formula_result_width(left);

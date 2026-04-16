@@ -5,7 +5,7 @@ use aws_smt_ir::{
     smt2parser::{
         CommandStream,
         concrete::{Command, Identifier, QualIdentifier, Sort, Term},
-        visitors::{AttributeValue, Index},
+        visitors::{AttributeValue, FunctionDec, Index},
     },
 };
 use indexmap::IndexMap;
@@ -72,12 +72,20 @@ pub fn parse(
     }
 }
 
+#[derive(Debug)]
+struct Func {
+    param_names: Vec<String>,
+    term: Term,
+}
+
 /// Parser structure.
 ///
 /// Currently, only simple parsing without pushing/popping
 /// of assertion scopes is implemented.
 #[derive(Debug)]
 struct Parser {
+    /// Defined functions.
+    functions: IndexMap<String, Func>,
     /// Stack of binding scopes.
     scopes: Vec<Scope>,
     /// Bitvector variables.
@@ -122,6 +130,7 @@ enum ReversePolishElement {
 impl Parser {
     fn new(settings: SolverSettings) -> Self {
         Self {
+            functions: IndexMap::new(),
             scopes: vec![Scope::new()],
             variables: Vec::new(),
             operations: Vec::new(),
@@ -152,6 +161,7 @@ impl Parser {
             } => {
                 self.declare_fun(symbol, parameters, sort);
             }
+            Command::DefineFun { sig, term } => self.define_fun(sig, term),
             Command::Exit => {
                 return ControlFlow::Break(());
             }
@@ -408,7 +418,17 @@ impl Parser {
                         "true" => self.add_operation(Operation::Constant(
                             ConcreteBitvector::from_bool(true, single_bit_bound),
                         )),
-                        _ => panic!("Identifier {:?} should be in variables", name),
+                        _ => {
+                            // can be a call of a function with no parameters
+                            let Some(func) = self.functions.get(&name) else {
+                                panic!("Identifier {:?} should be in variables or functions", name);
+                            };
+
+                            assert_eq!(func.param_names.len(), 0);
+
+                            // replace with the term
+                            self.create_formula(func.term.clone())
+                        }
                     }
                 }
             }
@@ -456,41 +476,7 @@ impl Parser {
             panic!("Function with params not supported");
         }
 
-        let width = match sort {
-            Sort::Simple {
-                identifier:
-                    Identifier::Indexed {
-                        symbol: bitvec_symbol,
-                        indices,
-                    },
-            } => {
-                if bitvec_symbol.0 != "BitVec" {
-                    panic!("Only bitvector indexed sort supported");
-                }
-
-                if indices.len() != 1 {
-                    panic!("Bitvector sort should have exactly one index");
-                }
-
-                let Index::Numeral(length) = &indices[0] else {
-                    panic!("Bitvector width should be numeric");
-                };
-
-                let Ok(width) = std::convert::TryInto::<u32>::try_into(length) else {
-                    panic!("Bitvector width should fit into u32");
-                };
-                width
-            }
-            Sort::Simple {
-                identifier: Identifier::Simple { symbol },
-            } => {
-                if symbol.0 != "Bool" {
-                    panic!("Only bool non-indexed sort supported");
-                }
-                1
-            }
-            _ => panic!("Only bool and bitvector sort supported"),
-        };
+        let width = sort_width(sort);
 
         // this declares a bitvector variable with a given width and name
         // add the variable with given width into our variables
@@ -507,6 +493,21 @@ impl Parser {
         {
             panic!("Multiple variables with same name '{}'", fn_symbol.0);
         }
+    }
+
+    fn define_fun(&mut self, sig: FunctionDec, term: Term) {
+        let fn_name = sig.name.0;
+
+        let mut param_names = Vec::new();
+
+        for (symbol, sort) in sig.parameters {
+            let param_name = symbol.0;
+            let _param_width = sort_width(sort);
+            param_names.push(param_name);
+        }
+
+        let _result_width = sort_width(sig.result);
+        self.functions.insert(fn_name, Func { param_names, term });
     }
 
     fn current_scope_mut(&mut self) -> &mut Scope {
@@ -529,5 +530,43 @@ impl Parser {
     fn add_operation(&mut self, operation: Operation) -> FormulaId {
         self.operations.push(operation);
         FormulaId::Operation(OperationId(self.operations.len() - 1))
+    }
+}
+
+fn sort_width(sort: Sort) -> u32 {
+    match sort {
+        Sort::Simple {
+            identifier:
+                Identifier::Indexed {
+                    symbol: bitvec_symbol,
+                    indices,
+                },
+        } => {
+            if bitvec_symbol.0 != "BitVec" {
+                panic!("Only bitvector indexed sort supported");
+            }
+
+            if indices.len() != 1 {
+                panic!("Bitvector sort should have exactly one index");
+            }
+
+            let Index::Numeral(length) = &indices[0] else {
+                panic!("Bitvector width should be numeric");
+            };
+
+            let Ok(width) = std::convert::TryInto::<u32>::try_into(length) else {
+                panic!("Bitvector width should fit into u32");
+            };
+            width
+        }
+        Sort::Simple {
+            identifier: Identifier::Simple { symbol },
+        } => {
+            if symbol.0 != "Bool" {
+                panic!("Only bool non-indexed sort supported");
+            }
+            1
+        }
+        _ => panic!("Only bool and bitvector sort supported"),
     }
 }
