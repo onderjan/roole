@@ -199,7 +199,7 @@ impl ConcreteValue {
 
             // both the highest and lowest source bit are available
             let word_lo = lowest_src_bit / 64;
-            let word_hi = highest_dest_bit / 64;
+            let word_hi = highest_src_bit / 64;
             let word_lo: usize = word_lo.try_into().unwrap();
             let word_hi: usize = word_hi.try_into().unwrap();
             if word_lo == word_hi {
@@ -245,7 +245,7 @@ impl ConcreteValue {
 
         match self {
             ConcreteValue::Small(lhs) => ConcreteValue::Small(lhs.unbounded_shr(rhs)),
-            ConcreteValue::Big(lhs) => Self::unbounded_shl_big(&lhs, rhs),
+            ConcreteValue::Big(lhs) => Self::unbounded_shr_big(&lhs, rhs),
         }
     }
 
@@ -265,28 +265,37 @@ impl ConcreteValue {
             let highest_src_bit = highest_dest_bit + rhs;
 
             let word_lo = lowest_src_bit / 64;
-            let word_hi = highest_dest_bit / 64;
+            let word_hi = highest_src_bit / 64;
             let word_lo: usize = word_lo.try_into().unwrap();
             let word_hi: usize = word_hi.try_into().unwrap();
             if word_lo == word_hi {
-                // just copy the word or fill with zero if above the available
+                // just copy the word (or zero)
                 result[i_usize] = lhs.get(word_lo).copied().unwrap_or(0);
             } else {
                 // the lower part is in a word one lower than the higher part
                 let bit_lo = lowest_src_bit % 64;
                 let bit_hi = highest_src_bit % 64;
 
-                let width_lo = 64 - bit_lo;
+                if bit_lo != 0 {
+                    let width_lo = 64 - bit_lo;
 
-                // make source masks for bits at and above bit_lo and at and below bit_hi
-                // note that bit_hi must be below 63
-                let mask_lo = !compute_u64_mask(bit_lo);
-                let mask_hi = compute_u64_mask(bit_hi + 1);
+                    // make source masks for bits at and above bit_lo and at and below bit_hi
+                    // note that bit_hi must be below 63
+                    let mask_lo = !compute_u64_mask(bit_lo);
+                    let mask_hi = compute_u64_mask(bit_hi + 1);
 
-                // combine values, fill with zero if not available
-                let value_lo = (lhs.get(word_lo).copied().unwrap_or(0) & mask_lo) >> bit_lo;
-                let value_hi = (lhs.get(word_hi).copied().unwrap_or(0) & mask_hi) << width_lo;
-                result[i_usize] = value_lo | value_hi;
+                    // get the values (or zero)
+                    let value_lo = lhs.get(word_lo).copied().unwrap_or(0);
+                    let value_hi = lhs.get(word_hi).copied().unwrap_or(0);
+
+                    // combine values
+                    let value_lo = (value_lo & mask_lo) >> bit_lo;
+                    let value_hi = (value_hi & mask_hi) << width_lo;
+                    result[i_usize] = value_lo | value_hi;
+                } else {
+                    // just copy the low word (or zero)
+                    result[i_usize] = lhs.get(word_lo).copied().unwrap_or(0);
+                }
             }
         }
 
