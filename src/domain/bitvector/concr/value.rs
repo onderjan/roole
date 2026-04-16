@@ -184,48 +184,40 @@ impl ConcreteValue {
                 break;
             };
 
-            let Some(lowest_src_bit) = lowest_dest_bit.checked_sub(rhs) else {
-                // the lowest source bit is under the available bits
-                // the highest source bit must be within the lowest source word
-                // move from there
-                let mask = compute_u64_mask(highest_src_bit);
-                let src_value = lhs[0] & mask;
-                // we have to move the source value up to account for the bits under
-                let num_under = rhs - lowest_dest_bit;
-                result[i_usize] = src_value << num_under;
-                // we will have the source bits under available bits in next iterations, break
-                break;
-            };
+            let lowest_src_bit = lowest_dest_bit.checked_sub(rhs);
 
             // both the highest and lowest source bit are available
-            let word_lo = lowest_src_bit / 64;
+            let word_lo = lowest_src_bit.map(|x| x / 64);
             let word_hi = highest_src_bit / 64;
-            let word_lo: usize = word_lo.try_into().unwrap();
-            let word_hi: usize = word_hi.try_into().unwrap();
-            if word_lo == word_hi {
+            if word_lo == Some(word_hi) {
                 // just copy the word
-                result[i_usize] = lhs[word_lo];
+                let word_hi: usize = word_hi.try_into().unwrap();
+                result[i_usize] = lhs[word_hi];
             } else {
                 // the lower part is in a word one lower than the higher part
-                let bit_lo = lowest_src_bit % 64;
+
+                let word_hi: usize = word_hi.try_into().unwrap();
                 let bit_hi = highest_src_bit % 64;
+                let mask_hi = compute_u64_mask(bit_hi + 1);
+                let value_hi = (lhs[word_hi] & mask_hi) << (64 - (bit_hi + 1));
 
-                if bit_lo != 0 {
-                    let width_lo = 64 - bit_lo;
+                let mut value = value_hi;
 
+                if let Some(lowest_src_bit) = lowest_src_bit {
+                    let word_lo = lowest_src_bit / 64;
+                    let word_lo: usize = word_lo.try_into().unwrap();
+                    let bit_lo = lowest_src_bit % 64;
                     // make source masks for bits at and above bit_lo and at and below bit_hi
                     // note that bit_hi must be below 63
                     let mask_lo = !compute_u64_mask(bit_lo);
-                    let mask_hi = compute_u64_mask(bit_hi + 1);
 
                     // combine values
                     let value_lo = (lhs[word_lo] & mask_lo) >> bit_lo;
-                    let value_hi = (lhs[word_hi] & mask_hi) << width_lo;
-                    result[i_usize] = value_lo | value_hi;
-                } else {
-                    // just copy the low word
-                    result[i_usize] = lhs[word_lo];
+
+                    value |= value_lo;
                 }
+
+                result[i_usize] = value;
             }
         }
 
