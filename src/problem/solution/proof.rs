@@ -98,10 +98,11 @@ impl Proof {
         }
         let mut queue = VecDeque::from_iter([StackValue::Node(0)]);
         // we can pretty-print if we want to
+        #[allow(unused)]
         fn tab_to_column(mut f: impl std::io::Write, column: u32) -> Result<(), std::io::Error> {
-            for _ in 0..column {
+            /*for _ in 0..column {
                 write!(f, "\t")?;
-            }
+            }*/
             Ok(())
         }
         let mut column = 1;
@@ -110,9 +111,10 @@ impl Proof {
                 StackValue::Node(node_index) => match &self.nodes[node_index] {
                     ProofNode::Decision(node) => {
                         tab_to_column(&mut f, column)?;
+                        // decision 'd'
                         writeln!(
                             f,
-                            "(decision {} {} ",
+                            "(d {} {} ",
                             node.decision.variable_index(),
                             node.decision.bit_index()
                         )?;
@@ -124,8 +126,14 @@ impl Proof {
                     ProofNode::Value(value) => {
                         tab_to_column(&mut f, column)?;
                         match value.to_opt_bool() {
-                            Some(_value) => writeln!(f, "relevant")?,
-                            None => writeln!(f, "irrelevant")?,
+                            Some(_value) => {
+                                // relevant 'r'
+                                writeln!(f, "r")?
+                            }
+                            None => {
+                                // irrelevant 'i'
+                                writeln!(f, "i")?
+                            }
                         }
                     }
                 },
