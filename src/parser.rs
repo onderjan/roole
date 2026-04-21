@@ -224,6 +224,14 @@ impl Parser {
 
         let result = solver::solve(&problem, &self.settings);
 
+        // print (unsat) / (sat) / (unknown) to stdout
+        let print_value = match result {
+            ThreeValued::False => "unsat",
+            ThreeValued::True => "sat",
+            ThreeValued::Unknown => "unknown",
+        };
+        println!("{}", print_value);
+
         self.results.push(self.solver_result(result));
     }
 
