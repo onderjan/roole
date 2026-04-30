@@ -111,6 +111,19 @@ impl<B: BitvectorBound> UnsignedInterval<B> {
         }
     }
 
+    pub fn add(self, rhs: Self) -> Self {
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+
+        let new_min = self.min + rhs.min;
+        let new_max = self.max + rhs.max;
+        if new_max >= new_min {
+            UnsignedInterval::new(new_min, new_max)
+        } else {
+            Self::new_full(bound)
+        }
+    }
+
     /*pub fn bit_and(self, rhs: Self) -> Self {
         assert_eq!(self.bound(), rhs.bound());
         let bound = self.bound();

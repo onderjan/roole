@@ -87,18 +87,127 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
     }
 
     fn sdiv_wrapping_by_quadrants(self, rhs: Self) -> Self {
-        handle_by_quadrants(self, rhs, true)
+        handle_by_quadrants(self, rhs, |a, a_is_neg, b, b_is_neg| {
+            match (a_is_neg, b_is_neg) {
+                (false, false) => a.udiv_wrapping_or_full(b),
+                (true, false) => {
+                    // negate dividend, compute, then negate result
+                    a.arith_neg().udiv_wrapping_or_full(b).arith_neg()
+                }
+                (false, true) => {
+                    // negate divisor, compute, then negate result
+                    a.udiv_wrapping_or_full(b.arith_neg()).arith_neg()
+                }
+                (true, true) => {
+                    // negate both, compute
+                    a.arith_neg().udiv_wrapping_or_full(b.arith_neg())
+                }
+            }
+        })
     }
 
     fn srem_wrapping_by_quadrants(self, rhs: Self) -> Self {
-        handle_by_quadrants(self, rhs, false)
+        handle_by_quadrants(self, rhs, |a, a_is_neg, b, b_is_neg| {
+            match (a_is_neg, b_is_neg) {
+                (false, false) => a.urem_wrapping_or_full(b),
+                (true, false) => {
+                    // negate dividend, compute, then negate result
+                    a.arith_neg().urem_wrapping_or_full(b).arith_neg()
+                }
+                (false, true) => {
+                    // negate divisor, compute, but DO NOT negate the result
+                    a.urem_wrapping_or_full(b.arith_neg())
+                }
+                (true, true) => {
+                    // negate both, compute, negate the result
+                    a.arith_neg()
+                        .urem_wrapping_or_full(b.arith_neg())
+                        .arith_neg()
+                }
+            }
+        })
+    }
+
+    fn smod_wrapping_by_quadrants(self, rhs: Self) -> Self {
+        todo!("Smod for three-valued bitvectors")
+        /*eprintln!("{:?} smod {:?}", self, rhs);
+        handle_by_quadrants(self, rhs, |a, a_is_neg, b, b_is_neg| {
+            /*eprintln!(
+                "Handling quadrant ({},{}): {:?} smod {:?}",
+                a_is_neg, b_is_neg, a, b
+            );*/
+            eprintln!(
+                "Handling quadrant ({},{}): {:?} smod {:?}",
+                a_is_neg, b_is_neg, a, b
+            );
+
+            let abs_a = if a_is_neg { a.arith_neg() } else { a };
+            let abs_b = if b_is_neg {
+                b.clone().arith_neg()
+            } else {
+                b.clone()
+            };
+
+            eprintln!("Abs A: {:?}, abs B: {:?}", abs_a, abs_b);
+
+            let mut u = abs_a.urem_wrapping_or_full(abs_b.clone());
+
+            eprintln!("U: {:?}", u);
+
+            // if u only contains zero, just return it
+            if u.max().is_zero() {
+                return u;
+            }
+
+            let bound = u.bound();
+
+            // if u contains zero and others, remove the zero but remember it
+            let should_add_zero = if u.min().is_zero() {
+                u = UnsignedInterval::new(
+                    ConcreteBitvector::new_one(bound).into_unsigned(),
+                    u.max().clone(),
+                );
+                true
+            } else {
+                false
+            };
+
+            let result = match (a_is_neg, b_is_neg) {
+                (false, false) => u,
+                (true, false) => {
+                    eprintln!("U: {:?}, add: {:?}", u, b);
+                    let res = u.arith_neg().add(b);
+                    eprintln!("Res: {:?}", res);
+                    res
+                }
+                (false, true) => u.add(b),
+                (true, true) => u.arith_neg(),
+            };
+
+            eprintln!("Result: {:?}, should add zero: {}", result, should_add_zero);
+            if should_add_zero {
+                UnsignedInterval::new(
+                    ConcreteBitvector::new_zero(bound).into_unsigned(),
+                    result.max().clone(),
+                )
+            } else {
+                result
+            }
+        })*/
     }
 }
+
+type QuadrantHandler<B> = fn(
+    lhs: UnsignedInterval<B>,
+    lhs_neg: bool,
+    rhs: UnsignedInterval<B>,
+    rhs_neg: bool,
+) -> UnsignedInterval<B>;
 
 fn handle_by_quadrants<B: BitvectorBound>(
     dividend: ThreeValuedBitvector<B>,
     divisor: ThreeValuedBitvector<B>,
-    is_division: bool,
+    quadrant_handler: QuadrantHandler<B>,
 ) -> ThreeValuedBitvector<B> {
     let bound = dividend.bound();
     assert_eq!(bound, divisor.bound());
@@ -132,41 +241,48 @@ fn handle_by_quadrants<B: BitvectorBound>(
         }
     };
 
-    let op: fn(UnsignedInterval<B>, UnsignedInterval<B>) -> UnsignedInterval<B> = if is_division {
+    /*let op: fn(UnsignedInterval<B>, UnsignedInterval<B>) -> UnsignedInterval<B> = if is_division {
         UnsignedInterval::udiv_wrapping_or_full
     } else {
         UnsignedInterval::urem_wrapping_or_full
-    };
+    };*/
 
     if let (Some(a), Some(b)) = (dividend_zpos_half.clone(), divisor_zpos_half.clone()) {
+        // (+) / (+)
+
+        combine_result(quadrant_handler(a, false, b, false));
         // perform unsigned operation normally
-        combine_result((op)(a, b))
+        //combine_result((op)(a, b))
     }
     if let (Some(a), Some(b)) = (dividend_neg_half.clone(), divisor_zpos_half) {
         // (-) / (+)
+        combine_result(quadrant_handler(a, true, b, false));
+
         // negate dividend, perform operation, then negate result
-        combine_result((op)(a.arith_neg(), b).arith_neg())
+        //combine_result((op)(a.arith_neg(), b).arith_neg())
     }
     if let (Some(a), Some(b)) = (dividend_zpos_half, divisor_neg_half.clone()) {
         // (+) / (-)
+        combine_result(quadrant_handler(a, false, b, true));
 
-        if is_division {
+        /*if is_division {
             // negate divisor, perform division, then negate result
             combine_result((op)(a, b.arith_neg()).arith_neg());
         } else {
             // negate divisor, perform remainder, but DO NOT negate the result
             combine_result((op)(a, b.arith_neg()));
-        }
+        }*/
     }
     if let (Some(a), Some(b)) = (dividend_neg_half, divisor_neg_half) {
         // (-) / (-)
-        if is_division {
+        combine_result(quadrant_handler(a, true, b, true));
+        /*(if is_division {
             // negate both, perform division
             combine_result((op)(a.arith_neg(), b.arith_neg()))
         } else {
             // negate both, perform division, negate the result
             combine_result((op)(a.arith_neg(), b.arith_neg()).arith_neg())
-        }
+        }*/
     }
 
     result.expect("Signed division/remainder must have at least one quadrant")

@@ -47,4 +47,11 @@ impl HwArith for SymbolicDomain {
         assert_eq!(bound, rhs.bound());
         Self::Top(bound)
     }
+
+    fn smod_wrapping_by_quadrants(self, rhs: Self) -> Self {
+        // TODO: division in symbolic domain
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+        Self::Top(bound)
+    }
 }

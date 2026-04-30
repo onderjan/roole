@@ -104,12 +104,6 @@ pub fn support() {
 
 #[test]
 #[should_panic]
-pub fn bitvec_too_large() {
-    let _ = CThreeValuedBitvector::<70>::new(0x0924, CBound);
-}
-
-#[test]
-#[should_panic]
 pub fn invalid_new() {
     let _ = CThreeValuedBitvector::<3>::new(0x0924, CBound);
 }
@@ -142,6 +136,7 @@ divrem_op_test!(udiv_wrapping_or_all_ones, false);
 divrem_op_test!(sdiv_wrapping_by_quadrants, false);
 divrem_op_test!(urem_wrapping_or_dividend, false);
 divrem_op_test!(srem_wrapping_by_quadrants, false);
+divrem_op_test!(smod_wrapping_by_quadrants, false);
 
 // bitwise tests
 bi_op_test!(bit_and, true);

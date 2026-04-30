@@ -83,6 +83,35 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
 
         result
     }
+
+    fn smod_wrapping_by_quadrants(self, rhs: Self) -> Self {
+        // implemented according to https://smt-lib.org/logics-all.shtml#QF_BV
+        let negative_lhs = self.is_sign_bit_set();
+        let negative_rhs = rhs.is_sign_bit_set();
+
+        let abs_lhs = if !negative_lhs {
+            self
+        } else {
+            self.arith_neg()
+        };
+
+        let abs_rhs = if !negative_rhs {
+            rhs.clone()
+        } else {
+            rhs.clone().arith_neg()
+        };
+
+        let u = abs_lhs.urem_wrapping_or_dividend(abs_rhs);
+        if u.is_zero() {
+            return u;
+        }
+        match (negative_lhs, negative_rhs) {
+            (false, false) => u,
+            (true, false) => u.arith_neg().add(rhs),
+            (false, true) => u.add(rhs),
+            (true, true) => u.arith_neg(),
+        }
+    }
 }
 
 fn udiv_wrapping_or_all_ones_u64(a: u64, b: u64) -> u64 {

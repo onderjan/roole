@@ -151,13 +151,13 @@ impl<B: BitvectorBound> Ord for UnsignedBitvector<B> {
 impl<B: BitvectorBound> Debug for UnsignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // defer to bitvector
-        Debug::fmt(&self, f)
+        Debug::fmt(&self.0, f)
     }
 }
 
 impl<B: BitvectorBound> Display for UnsignedBitvector<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         // defer to bitvector
-        Display::fmt(&self, f)
+        Display::fmt(&self.0, f)
     }
 }

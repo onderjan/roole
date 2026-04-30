@@ -107,7 +107,8 @@ where
     #[must_use]
     fn sdiv_wrapping_by_quadrants(self, rhs: Self) -> Self;
 
-    /// Wrapping signed remainder that uses unsigned remainder (wrapping or all-ones) in quadrants.
+    /// Wrapping signed remainder with sign following dividend
+    /// that uses unsigned remainder (wrapping or all-ones) in quadrants.
     ///
     /// The behaviour is as in SMT-LIB2 'bvsrem'.
     /// This is specified by performing unsigned remainder (wrapping or all-ones)
@@ -121,6 +122,14 @@ where
     /// Remainder by zero returns the dividend.
     #[must_use]
     fn srem_wrapping_by_quadrants(self, rhs: Self) -> Self;
+
+    /// Wrapping signed remainder with sign following divisor
+    /// that uses unsigned remainder (wrapping or all-ones) in quadrants.
+    ///
+    /// The behaviour is as in SMT-LIB2 'bvsmod'.
+    /// See the full definition at: https://smt-lib.org/logics-all.shtml#QF_BV
+    #[must_use]
+    fn smod_wrapping_by_quadrants(self, rhs: Self) -> Self;
 }
 
 pub trait HwShift {
