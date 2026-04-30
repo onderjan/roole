@@ -27,6 +27,9 @@ pub enum BiOperator {
     BitAnd,
     BitOr,
     BitXor,
+    BitNand,
+    BitNor,
+    BitXnor,
 
     Eq,
     Ne,
@@ -64,6 +67,9 @@ impl BiOp {
             BiOperator::BitAnd => left.bit_and(right),
             BiOperator::BitOr => left.bit_or(right),
             BiOperator::BitXor => left.bit_xor(right),
+            BiOperator::BitNand => left.bit_and(right).bit_not(),
+            BiOperator::BitNor => left.bit_or(right).bit_not(),
+            BiOperator::BitXnor => left.bit_xor(right).bit_not(),
 
             BiOperator::Eq => TypedEq::eq(left, right),
             BiOperator::Ne => TypedEq::ne(left, right),
