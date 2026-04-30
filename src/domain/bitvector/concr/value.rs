@@ -113,14 +113,44 @@ impl ConcreteValue {
         }
     }
 
-    pub fn bi_small(self, rhs: Self, fun: impl Fn(u64, u64) -> u64) -> Self {
+    pub fn udiv_wrapping_or_all_ones<B: BitvectorBound>(self, rhs: Self, bound: B) -> Self {
+        if rhs.is_zero() {
+            // divisor zero, return all ones
+            return Self::new_with_ones(bound);
+        }
+
+        // divisor non-zero
         match (self, rhs) {
             (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => {
-                ConcreteValue::Small(fun(lhs, rhs))
+                ConcreteValue::Small(lhs.wrapping_div(rhs))
             }
-            (ConcreteValue::Big(_), ConcreteValue::Big(_)) => {
-                // TODO: implement all operations for arbitrary sizes
-                panic!("Operation only supported for at most 64-bit bitvectors");
+            (ConcreteValue::Big(lhs), ConcreteValue::Big(rhs)) => {
+                // use the num-bigint BigUint
+                let lhs = to_biguint(&lhs);
+                let rhs = to_biguint(&rhs);
+                Self::from_big(lhs / rhs, bound)
+            }
+            _ => panic!("Values must have same storage"),
+        }
+    }
+
+    pub fn urem_wrapping_or_dividend<B: BitvectorBound>(self, rhs: Self, bound: B) -> Self {
+        if rhs.is_zero() {
+            // divisor zero, return dividend
+            return self;
+        }
+
+        // divisor non-zero
+
+        match (self, rhs) {
+            (ConcreteValue::Small(lhs), ConcreteValue::Small(rhs)) => {
+                ConcreteValue::Small(lhs.wrapping_rem(rhs))
+            }
+            (ConcreteValue::Big(lhs), ConcreteValue::Big(rhs)) => {
+                // use the num-bigint BigUint
+                let lhs = to_biguint(&lhs);
+                let rhs = to_biguint(&rhs);
+                Self::from_big(lhs % rhs, bound)
             }
             _ => panic!("Values must have same storage"),
         }
@@ -584,4 +614,9 @@ impl ConcreteValue {
             ConcreteValue::Big(_) => None,
         }
     }
+}
+
+fn to_biguint(val: &[u64]) -> BigUint {
+    let vec: Vec<u8> = val.iter().flat_map(|e| e.to_le_bytes()).collect();
+    BigUint::from_bytes_le(&vec)
 }

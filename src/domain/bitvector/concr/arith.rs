@@ -33,26 +33,12 @@ impl<B: BitvectorBound> HwArith for ConcreteBitvector<B> {
 
     fn udiv_wrapping_or_all_ones(self, rhs: Self) -> Self {
         assert_eq!(self.bound, rhs.bound);
-        let value = self.value.bi_small(rhs.value, |a, b| {
-            if b != 0 {
-                a.wrapping_div(b)
-            } else {
-                // return all ones
-                u64::MAX
-            }
-        });
+        let value = self.value.udiv_wrapping_or_all_ones(rhs.value, self.bound);
         Self::from_masked(value, self.bound)
     }
 
     fn urem_wrapping_or_dividend(self, rhs: Self) -> Self {
-        let value = self.value.bi_small(rhs.value, |a, b| {
-            if b != 0 {
-                a.wrapping_rem(b)
-            } else {
-                // return dividend
-                a
-            }
-        });
+        let value = self.value.urem_wrapping_or_dividend(rhs.value, self.bound);
         Self::from_masked(value, self.bound)
     }
 
