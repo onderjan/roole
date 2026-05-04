@@ -38,7 +38,7 @@ pub fn print_used() {
 
     if max_allocated < 1000 {
         // print bytes
-        println!("Maximal allocation sum: {} B", max_allocated);
+        eprintln!("Maximal allocation sum: {} B", max_allocated);
         return;
     }
 
