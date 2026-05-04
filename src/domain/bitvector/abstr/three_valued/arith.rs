@@ -129,71 +129,15 @@ impl<B: BitvectorBound> HwArith for ThreeValuedBitvector<B> {
     }
 
     fn smod_wrapping_by_quadrants(self, rhs: Self) -> Self {
-        todo!("Smod for three-valued bitvectors")
-        /*eprintln!("{:?} smod {:?}", self, rhs);
-        handle_by_quadrants(self, rhs, |a, a_is_neg, b, b_is_neg| {
-            /*eprintln!(
-                "Handling quadrant ({},{}): {:?} smod {:?}",
-                a_is_neg, b_is_neg, a, b
-            );*/
-            eprintln!(
-                "Handling quadrant ({},{}): {:?} smod {:?}",
-                a_is_neg, b_is_neg, a, b
-            );
+        let bound = self.bound();
+        assert_eq!(bound, rhs.bound());
+        // handle only if both values are concrete
+        // TODO: more precise handling
+        let (Some(lhs), Some(rhs)) = (self.concrete_value(), rhs.concrete_value()) else {
+            return Self::new_unknown(bound);
+        };
 
-            let abs_a = if a_is_neg { a.arith_neg() } else { a };
-            let abs_b = if b_is_neg {
-                b.clone().arith_neg()
-            } else {
-                b.clone()
-            };
-
-            eprintln!("Abs A: {:?}, abs B: {:?}", abs_a, abs_b);
-
-            let mut u = abs_a.urem_wrapping_or_full(abs_b.clone());
-
-            eprintln!("U: {:?}", u);
-
-            // if u only contains zero, just return it
-            if u.max().is_zero() {
-                return u;
-            }
-
-            let bound = u.bound();
-
-            // if u contains zero and others, remove the zero but remember it
-            let should_add_zero = if u.min().is_zero() {
-                u = UnsignedInterval::new(
-                    ConcreteBitvector::new_one(bound).into_unsigned(),
-                    u.max().clone(),
-                );
-                true
-            } else {
-                false
-            };
-
-            let result = match (a_is_neg, b_is_neg) {
-                (false, false) => u,
-                (true, false) => {
-                    eprintln!("U: {:?}, add: {:?}", u, b);
-                    let res = u.arith_neg().add(b);
-                    eprintln!("Res: {:?}", res);
-                    res
-                }
-                (false, true) => u.add(b),
-                (true, true) => u.arith_neg(),
-            };
-
-            eprintln!("Result: {:?}, should add zero: {}", result, should_add_zero);
-            if should_add_zero {
-                UnsignedInterval::new(
-                    ConcreteBitvector::new_zero(bound).into_unsigned(),
-                    result.max().clone(),
-                )
-            } else {
-                result
-            }
-        })*/
+        Self::from_concrete_value(lhs.smod_wrapping_by_quadrants(rhs))
     }
 }
 
