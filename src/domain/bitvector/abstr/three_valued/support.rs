@@ -206,6 +206,30 @@ impl<B: BitvectorBound> ThreeValuedBitvector<B> {
     pub fn signed_interval(&self) -> SignedInterval<B> {
         SignedInterval::new(self.smin(), self.smax())
     }
+
+    pub fn into_sign_halves(
+        self,
+    ) -> (
+        Option<ThreeValuedBitvector<B>>,
+        Option<ThreeValuedBitvector<B>>,
+    ) {
+        match (self.is_zeros_sign_bit_set(), self.is_ones_sign_bit_set()) {
+            (true, true) => {
+                let msb = self.bound().width() - 1;
+                let mut lower = self.clone();
+                lower.ones.set_bit(msb, false);
+                let mut upper = self;
+                upper.zeros.set_bit(msb, false);
+                (Some(lower), Some(upper))
+            }
+            (true, false) => (Some(self), None),
+            (false, true) => (None, Some(self)),
+            (false, false) => {
+                // can happen with zero bits
+                (None, None)
+            }
+        }
+    }
 }
 
 impl<B: BitvectorBound<SingleBit = B>> ThreeValuedBitvector<B> {
