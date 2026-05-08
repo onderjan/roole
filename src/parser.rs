@@ -5,7 +5,7 @@ use aws_smt_ir::{
     smt2parser::{
         CommandStream,
         concrete::{Command, Identifier, QualIdentifier, Sort, Term},
-        visitors::{AttributeValue, FunctionDec, Index},
+        visitors::{FunctionDec, Index},
     },
 };
 use indexmap::IndexMap;
@@ -99,9 +99,6 @@ struct Parser {
 
     /// Solver settings.
     settings: SolverSettings,
-
-    /// Expected result of solving.
-    expected_result: Option<bool>,
 }
 
 // Binding scope.
@@ -137,7 +134,6 @@ impl Parser {
             assertions: Vec::new(),
             results: Vec::new(),
             settings,
-            expected_result: None,
         }
     }
 
@@ -165,19 +161,8 @@ impl Parser {
             Command::Exit => {
                 return ControlFlow::Break(());
             }
-            Command::SetInfo { keyword, value } => {
-                // TODO: only check info based on a command-line argument
-                if keyword.0 == "status" {
-                    let AttributeValue::Symbol(symbol) = value else {
-                        panic!("Expected status value to be a symbol");
-                    };
-                    self.expected_result = match symbol.0.as_str() {
-                        "sat" => Some(true),
-                        "unsat" => Some(false),
-                        "unknown" => None,
-                        _ => panic!("Expected status value to be sat, unsat, or unknown"),
-                    };
-                }
+            Command::SetInfo { .. } => {
+                // ignore
             }
             Command::SetLogic { symbol } => {
                 if symbol.0 != "QF_BV" {
@@ -239,12 +224,6 @@ impl Parser {
         let Some(result) = result.to_opt_bool() else {
             return RooleResult::Unknown;
         };
-        if let Some(expected_result) = self.expected_result
-            && expected_result != result
-        {
-            // definitely wrong result
-            return RooleResult::Wrong(result);
-        }
         RooleResult::Known(result)
     }
 

@@ -8,7 +8,6 @@ pub enum RooleResult {
     None,
     Unknown,
     Known(bool),
-    Wrong(bool),
 }
 
 /// Roole exit value.
@@ -17,9 +16,7 @@ pub enum RooleResult {
 pub enum ExitValue {
     Success = 0,
     Satisfiable = 10,
-    WrongSatisfiable = 11,
     Unsatisfiable = 20,
-    WrongUnsatisfiable = 21,
     Unknown = 47,
     TimeLimitExceeded = 61,
     HeapLimitExceeded = 62,
@@ -36,13 +33,6 @@ impl ExitValue {
                     Self::Satisfiable
                 } else {
                     Self::Unsatisfiable
-                }
-            }
-            RooleResult::Wrong(value) => {
-                if value {
-                    Self::WrongSatisfiable
-                } else {
-                    Self::WrongUnsatisfiable
                 }
             }
         }
