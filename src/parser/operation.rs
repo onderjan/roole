@@ -345,6 +345,7 @@ impl super::Parser {
 
         // convert right rotation to left rotation
         let left_rotate_amount = if rotate_left { amount } else { width - amount };
+        let left_rotate_amount = left_rotate_amount.checked_rem(width).unwrap_or(0);
 
         Operation::RotateOp(RotateOp {
             inner,
@@ -354,7 +355,6 @@ impl super::Parser {
     }
 
     fn create_repeat_op(&self, indices: Vec<Index>, arguments: Vec<FormulaId>) -> Operation {
-        eprintln!("Repeat indices: {:?}, arguments: {:?}", indices, arguments);
         let Ok(inner) = arguments.into_iter().exactly_one() else {
             panic!("Repeat operation should have exactly one argument");
         };
@@ -368,13 +368,11 @@ impl super::Parser {
             panic!("Number of repeats is too big");
         };
 
-        let result = Operation::RepeatOp(RepeatOp {
+        Operation::RepeatOp(RepeatOp {
             inner,
             inner_width,
             times,
-        });
-        eprintln!("Repeat result: {:?}", result);
-        result
+        })
     }
 
     fn formula_result_width(&self, id: FormulaId) -> u32 {
