@@ -11,8 +11,8 @@ mod internal;
 
 #[derive(Debug)]
 pub struct SolverSettings {
-    /// Directory in which to place output artefacts.
-    pub output_dir: Option<PathBuf>,
+    /// Directory in which to place debugging artefacts.
+    pub debug_dir: Option<PathBuf>,
     /// File in which to write the proof.
     pub proof_output: Option<PathBuf>,
     /// Which solver mode to use.
@@ -24,7 +24,7 @@ pub fn solve(problem: &Problem, settings: &SolverSettings) -> ThreeValued {
         SolverMode::Internal => {
             let solver: InternalSolver<'_, RooleLearned> = InternalSolver::new(
                 problem,
-                settings.output_dir.as_ref(),
+                settings.debug_dir.as_ref(),
                 settings.proof_output.as_ref(),
             );
             solver.solve()

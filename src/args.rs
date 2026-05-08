@@ -5,23 +5,20 @@ use clap::{Parser, ValueEnum};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    /// Directory in which to place output artefacts.
+    /// Directory in which to place debug artefacts.
     #[arg(short, long)]
-    pub output_dir: Option<PathBuf>,
+    pub debug_dir: Option<PathBuf>,
 
+    /// Input SMT-LIB2 file.
     pub input_file: PathBuf,
 
+    /// Path to which the proof certificate will be written.
     #[arg(short = 'P', long)]
     pub proof_output: Option<PathBuf>,
 
+    /// Solver to use.
     #[arg(short, long, default_value_t = DEFAULT_SOLVER_MODE)]
     pub solver: SolverMode,
-
-    #[arg(short, long)]
-    pub preprocess: bool,
-
-    #[arg(short = 'H', long)]
-    pub hexadecimal: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]

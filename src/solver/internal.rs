@@ -24,14 +24,14 @@ pub struct InternalSolver<'a, L: Learned<RBitvector>> {
 
     stats: Stats,
 
-    output_dir: Option<&'a PathBuf>,
+    debug_dir: Option<&'a PathBuf>,
     proof_output: Option<&'a PathBuf>,
 }
 
 impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
     pub fn new(
         problem: &'a Problem,
-        output_dir: Option<&'a PathBuf>,
+        debug_dir: Option<&'a PathBuf>,
         proof_output: Option<&'a PathBuf>,
     ) -> Self {
         eprintln!("Solving SAT problem");
@@ -46,7 +46,7 @@ impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
             partition,
             learned,
             stats,
-            output_dir,
+            debug_dir,
             proof_output,
         }
     }
@@ -61,16 +61,16 @@ impl<'a, L: Learned<RBitvector>> InternalSolver<'a, L> {
 
         self.stats.finish();
 
-        if let Some(output_dir) = self.output_dir {
-            std::fs::create_dir_all(output_dir).expect("Output directory should be created");
+        if let Some(debug_dir) = self.debug_dir {
+            std::fs::create_dir_all(debug_dir).expect("Output directory should be created");
 
-            let learned_file = File::create(output_dir.join("learned.dot"))
+            let learned_file = File::create(debug_dir.join("learned.dot"))
                 .expect("Learned file should be created");
             self.learned
                 .write_dot(&mut BufWriter::new(learned_file))
                 .expect("Learned file should be written");
 
-            self.partition.write(&output_dir.join("partition.dot"));
+            self.partition.write(&debug_dir.join("partition.dot"));
         }
 
         let solution = if satisfiable {

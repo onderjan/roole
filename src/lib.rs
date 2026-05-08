@@ -25,7 +25,7 @@ pub fn exec(args: Args) -> RooleResult {
     // evaluate the file with the parser
     eprintln!("Evaluating file {:?}", args.input_file);
     let settings = SolverSettings {
-        output_dir: args.output_dir,
+        debug_dir: args.debug_dir,
         proof_output: args.proof_output,
         solver_mode: args.solver,
     };
