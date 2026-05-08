@@ -164,6 +164,43 @@ impl super::Parser {
             }
         }
 
+        // eq is chainable
+        if matches!(op, BiOperator::Eq) && arguments.len() > 2 {
+            // (f t_1 ... t_n) is syntactic sugar for (and (f t_1 t_2) (f t_2 t_3) ... (f t_n-1 t_n))
+            let mut iter = arguments.into_iter().peekable();
+            let mut ops = Vec::new();
+            while let Some(current) = iter.next() {
+                // combine with the next element; break if there is none
+                let Some(peeked) = iter.peek() else {
+                    break;
+                };
+                let bi_op = self.create_bi_op(op, vec![current, *peeked]);
+                let bi_op = self.add_operation(bi_op);
+                ops.push(bi_op);
+            }
+            return self.create_bi_op(BiOperator::BitAnd, ops);
+        }
+
+        // ne is pairwise
+        if matches!(op, BiOperator::Ne) && arguments.len() > 2 {
+            // (f t_1 ... t_n) is syntactic sugar for (and (f t_1 t_2) (f t_1 t_3) ... (f t_1 t_n) (f t_2 ... t_n))
+            // take the first operation and combine it with the others
+            let first = arguments.remove(0);
+
+            let mut ops = Vec::new();
+            for current in arguments.iter() {
+                let bi_op = self.create_bi_op(op, vec![first, *current]);
+                let bi_op = self.add_operation(bi_op);
+                ops.push(bi_op);
+            }
+            // add the operation with the arguments from second onwards
+            let last_op = self.create_bi_op(op, arguments);
+            let last_op = self.add_operation(last_op);
+            ops.push(last_op);
+
+            return self.create_bi_op(BiOperator::BitAnd, ops);
+        }
+
         let Some((left, right)) = arguments.into_iter().collect_tuple() else {
             panic!(
                 "Binary operation {:?} should have exactly two arguments",
