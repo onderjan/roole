@@ -23,6 +23,7 @@ pub enum BiOperator {
     Urem,
     Sdiv,
     Srem,
+    Smod,
 
     BitAnd,
     BitOr,
@@ -63,6 +64,7 @@ impl BiOp {
             BiOperator::Urem => left.urem_wrapping_or_dividend(right),
             BiOperator::Sdiv => left.sdiv_wrapping_by_quadrants(right),
             BiOperator::Srem => left.srem_wrapping_by_quadrants(right),
+            BiOperator::Smod => left.smod_wrapping_by_quadrants(right),
 
             BiOperator::BitAnd => left.bit_and(right),
             BiOperator::BitOr => left.bit_or(right),

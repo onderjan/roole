@@ -52,6 +52,7 @@ impl super::Parser {
                 "bvurem" => self.create_bi_op(BiOperator::Urem, arguments),
                 "bvsdiv" => self.create_bi_op(BiOperator::Sdiv, arguments),
                 "bvsrem" => self.create_bi_op(BiOperator::Srem, arguments),
+                "bvsmod" => self.create_bi_op(BiOperator::Smod, arguments),
 
                 "and" | "bvand" => self.create_bi_op(BiOperator::BitAnd, arguments),
                 "or" | "bvor" => self.create_bi_op(BiOperator::BitOr, arguments),
