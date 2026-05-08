@@ -46,7 +46,7 @@ fn process(args: ManyRooleArgs, stats: Arc<Stats>, summary: &mut Summary) {
     let roole_binary = args
         .roole_binary
         .clone()
-        .unwrap_or_else(|| build_roolean::build(args.solver));
+        .unwrap_or_else(build_roolean::build);
 
     let temp_dir = args.output_dir.join("temp");
     std::fs::create_dir_all(&temp_dir).expect("Temporary proof directory should be created");

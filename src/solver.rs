@@ -7,8 +7,6 @@ use crate::{
     solver::internal::{InternalSolver, roole::RooleLearned},
 };
 
-#[cfg(feature = "cadical")]
-mod cadical;
 mod internal;
 
 mod preprocess;
@@ -45,17 +43,6 @@ pub fn solve(problem: &Problem, settings: &SolverSettings) -> ThreeValued {
                 settings.proof_output.as_ref(),
             );
             solver.solve()
-        }
-        SolverMode::Cadical => {
-            #[cfg(feature = "cadical")]
-            {
-                cadical::CadicalSolver::new(problem, settings.output_dir.clone()).solve()
-            }
-
-            #[cfg(not(feature = "cadical"))]
-            {
-                panic!("CaDiCaL feature not enabled")
-            }
         }
         SolverMode::None => return problem.trivial_result(),
     };

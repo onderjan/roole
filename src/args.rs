@@ -28,8 +28,6 @@ pub struct Args {
 pub enum SolverMode {
     /// Use the internal solver
     Internal,
-    /// Use the CaDiCaL solver
-    Cadical,
     /// Do not use any solver
     None,
 }
@@ -43,7 +41,6 @@ impl Display for SolverMode {
             "{}",
             match self {
                 SolverMode::Internal => "internal",
-                SolverMode::Cadical => "cadical",
                 SolverMode::None => "none",
             }
         )

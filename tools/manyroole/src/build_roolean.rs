@@ -4,19 +4,14 @@ use std::{
 };
 
 use cargo_metadata::Message;
-use roole::args::SolverMode;
 
-pub fn build(solver: SolverMode) -> PathBuf {
+pub fn build() -> PathBuf {
     let mut command = Command::new("cargo");
     command.arg("build");
     command.arg("--message-format=json-render-diagnostics");
     command.arg("--release");
     command.arg("--bin");
     command.arg("roole");
-    if matches!(solver, SolverMode::Cadical) {
-        command.arg("--features");
-        command.arg("cadical");
-    }
     command.stdout(Stdio::piped());
     command.stderr(Stdio::piped());
 
