@@ -47,10 +47,6 @@ impl<'a, D: EvaluableDomain> Evaluator<'a, D> {
         self.evaluate_inner(assignment, false)
     }
 
-    pub(crate) fn evaluate_preprocess(&mut self, assignment: &Assignment<D>) -> D {
-        self.evaluate_inner(assignment, true)
-    }
-
     fn evaluate_inner(&mut self, assignment: &Assignment<D>, preprocess: bool) -> D {
         let Some(assertion_id) = self.problem.assertion.operation_id() else {
             // assertion is on an operation, no need to evaluate anything

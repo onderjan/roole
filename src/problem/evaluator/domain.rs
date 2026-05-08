@@ -8,7 +8,7 @@ use crate::{
         },
         traits::forward::{BExt, Bitwise, HwArith, HwShift, TypedCmp, TypedEq},
     },
-    problem::{formula::FormulaId, symbolic::SymbolicDomain},
+    problem::formula::FormulaId,
 };
 
 pub trait EvaluableDomain:
@@ -22,27 +22,12 @@ pub trait EvaluableDomain:
     + Debug
     + UpperHex
 {
-    fn formula(formula: FormulaId, bound: RBound) -> Self;
     fn used_ids(&self) -> Option<Vec<FormulaId>>;
 }
 
 impl EvaluableDomain for AbstractBitvector<RBound> {
-    fn formula(formula: FormulaId, bound: RBound) -> Self {
-        let _ = formula;
-        Self::top(bound)
-    }
     fn used_ids(&self) -> Option<Vec<FormulaId>> {
         // no used ids tracked
         None
-    }
-}
-
-impl EvaluableDomain for SymbolicDomain {
-    fn formula(formula_id: FormulaId, bound: RBound) -> Self {
-        SymbolicDomain::from_formula(formula_id, bound)
-    }
-
-    fn used_ids(&self) -> Option<Vec<FormulaId>> {
-        SymbolicDomain::used_ids(self)
     }
 }

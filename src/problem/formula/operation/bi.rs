@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fmt::Debug};
+use std::fmt::Debug;
 
 use crate::{
     domain::traits::forward::{TypedCmp, TypedEq},
@@ -105,22 +105,6 @@ impl BiOp {
             | BiOperator::Sgt
             | BiOperator::Sge => 1,
             _ => self.input_width,
-        }
-    }
-
-    pub(super) fn remapped(&self, old_to_new: &BTreeMap<FormulaId, FormulaId>) -> Self {
-        let remap = |formula_id| {
-            let Some(new_id) = old_to_new.get(&formula_id) else {
-                panic!("Used formula id {:?} should be remappable", formula_id);
-            };
-            *new_id
-        };
-
-        BiOp {
-            op: self.op,
-            input_width: self.input_width,
-            left: remap(self.left),
-            right: remap(self.right),
         }
     }
 }

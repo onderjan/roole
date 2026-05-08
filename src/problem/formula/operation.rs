@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     fmt::{Debug, UpperHex},
     num::NonZeroU32,
 };
@@ -7,7 +6,7 @@ use std::{
 use crate::{
     domain::bitvector::{BitvectorBound, RBound, concr::ConcreteBitvector},
     domain::traits::forward::BExt,
-    problem::{evaluator::EvaluableDomain, formula::FormulaId, symbolic::linear::LinearSystem},
+    problem::{evaluator::EvaluableDomain, formula::FormulaId},
 };
 
 mod bi;
@@ -30,7 +29,6 @@ pub enum Operation {
     ExtractOp(ExtractOp),
     RotateOp(RotateOp),
     RepeatOp(RepeatOp),
-    Linear(LinearSystem),
 }
 
 #[derive(Clone)]
@@ -219,7 +217,6 @@ impl Operation {
 
                 result
             }
-            Operation::Linear(linear) => linear.evaluate(fetch),
         }
     }
 
@@ -234,7 +231,6 @@ impl Operation {
             Operation::ExtractOp(extract_op) => extract_op.width.get(),
             Operation::RotateOp(rotate_op) => rotate_op.width,
             Operation::RepeatOp(repeat_op) => repeat_op.inner_width * repeat_op.times,
-            Operation::Linear(linear) => linear.bound().width(),
         }
     }
 
@@ -251,71 +247,10 @@ impl Operation {
             Operation::ExtractOp(extract_op) => vec![extract_op.inner],
             Operation::RotateOp(rotate_op) => vec![rotate_op.inner],
             Operation::RepeatOp(repeat_op) => vec![repeat_op.inner],
-            Operation::Linear(linear) => linear.used_ids(),
         }
     }
 
-    pub fn remapped(&self, old_to_new: &BTreeMap<FormulaId, FormulaId>) -> Self {
-        let remap = |formula_id| {
-            let Some(new_id) = old_to_new.get(&formula_id) else {
-                panic!("Used formula id {:?} should be remappable", formula_id);
-            };
-            *new_id
-        };
-
-        match self {
-            Operation::Constant(_) => self.clone(),
-            Operation::UniOp(uni_op) => Operation::UniOp(UniOp {
-                op: uni_op.op,
-                input_width: uni_op.input_width,
-                inner: remap(uni_op.inner),
-            }),
-            Operation::BiOp(bi_op) => Operation::BiOp(bi_op.remapped(old_to_new)),
-            Operation::ExtOp(ext_op) => Operation::ExtOp(ExtOp {
-                signed: ext_op.signed,
-                input_width: ext_op.input_width,
-                output_width: ext_op.output_width,
-                inner: remap(ext_op.inner),
-            }),
-            Operation::IteOp(ite_op) => Operation::IteOp(IteOp {
-                condition: remap(ite_op.condition),
-                width: ite_op.width,
-                formula_then: remap(ite_op.formula_then),
-                formula_else: remap(ite_op.formula_else),
-            }),
-            Operation::ConcatOp(concat_op) => Operation::ConcatOp(ConcatOp {
-                left_width: concat_op.left_width,
-                left: remap(concat_op.left),
-                right_width: concat_op.right_width,
-                right: remap(concat_op.right),
-            }),
-            Operation::ExtractOp(extract_op) => Operation::ExtractOp(ExtractOp {
-                inner: remap(extract_op.inner),
-                lsb: extract_op.lsb,
-                width: extract_op.width,
-            }),
-            Operation::RotateOp(rotate_op) => Operation::RotateOp(RotateOp {
-                inner: remap(rotate_op.inner),
-                width: rotate_op.width,
-                left_rotate_amount: rotate_op.left_rotate_amount,
-            }),
-
-            Operation::RepeatOp(repeat_op) => Operation::RepeatOp(RepeatOp {
-                inner: remap(repeat_op.inner),
-                inner_width: repeat_op.inner_width,
-                times: repeat_op.times,
-            }),
-
-            Operation::Linear(linear) => {
-                // TODO: rewrite remapped to use mutable reference
-                let mut linear = linear.clone();
-                linear.remap(old_to_new);
-                Operation::Linear(linear)
-            }
-        }
-    }
-
-    fn format(&self, f: &mut std::fmt::Formatter<'_>, hex: bool) -> std::fmt::Result {
+    fn format(&self, f: &mut std::fmt::Formatter<'_>, _hex: bool) -> std::fmt::Result {
         match self {
             Operation::Constant(bv) => {
                 write!(f, "{:?}", bv)
@@ -385,13 +320,6 @@ impl Operation {
                 times,
             }) => {
                 write!(f, "repeat_{}({:?},{})", inner_width, inner, times)
-            }
-            Operation::Linear(linear) => {
-                if hex {
-                    UpperHex::fmt(&linear, f)
-                } else {
-                    Debug::fmt(&linear, f)
-                }
             }
         }
     }

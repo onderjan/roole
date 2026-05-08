@@ -28,8 +28,6 @@ pub fn exec(args: Args) -> RooleResult {
         output_dir: args.output_dir,
         proof_output: args.proof_output,
         solver_mode: args.solver,
-        preprocess: args.preprocess,
-        hexadecimal: args.hexadecimal,
     };
 
     let roole_result = parser::parse(reader, args.input_file, settings);

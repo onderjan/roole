@@ -8,10 +8,7 @@ use crate::{
         },
         value::ThreeValued,
     },
-    problem::{
-        evaluator::EvaluableDomain,
-        formula::{FormulaId, OperationId, Variable, VariableId, operation::Operation},
-    },
+    problem::formula::{FormulaId, OperationId, Variable, VariableId, operation::Operation},
 };
 
 pub mod formula;
@@ -20,12 +17,10 @@ pub mod solution;
 mod assignment;
 mod decision;
 mod evaluator;
-mod symbolic;
 
 pub use assignment::Assignment;
 pub use decision::Decision;
 pub use evaluator::Evaluator;
-pub use symbolic::{LinearSystem, SymbolicDomain};
 
 /// A satisfiability problem.
 pub struct Problem {
@@ -55,16 +50,8 @@ impl Problem {
         &self.variables
     }
 
-    pub fn variable(&self, id: VariableId) -> &Variable {
-        &self.variables[id.0]
-    }
-
     pub fn operation(&self, id: OperationId) -> &Operation {
         &self.operations[id.0]
-    }
-
-    pub fn assertion(&self) -> FormulaId {
-        self.assertion
     }
 
     pub fn trivial_result(&self) -> ThreeValued {
@@ -75,14 +62,6 @@ impl Problem {
             Operation::Constant(bv) => {
                 assert_eq!(bv.bound().width(), 1);
                 ThreeValued::from_bool(bv.is_nonzero())
-            }
-            Operation::Linear(linear) => {
-                if let Some(value) = linear.constant_value() {
-                    assert_eq!(value.bound().width(), 1);
-                    ThreeValued::from_bool(value.is_nonzero())
-                } else {
-                    ThreeValued::Unknown
-                }
             }
             _ => ThreeValued::Unknown,
         }
@@ -95,20 +74,6 @@ impl Problem {
             assignment
                 .values
                 .push(RBitvector::top(RBound::new(variable.width)));
-        }
-
-        assignment
-    }
-
-    pub fn linear_assignment(&self) -> Assignment<SymbolicDomain> {
-        let mut assignment = Assignment { values: Vec::new() };
-        for (variable_id, variable) in self.variables.iter().enumerate() {
-            let bound = RBound::new(variable.width);
-
-            assignment.values.push(SymbolicDomain::formula(
-                FormulaId::Variable(VariableId(variable_id)),
-                bound,
-            ));
         }
 
         assignment
