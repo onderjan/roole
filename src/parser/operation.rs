@@ -12,8 +12,8 @@ use crate::{
     problem::formula::{
         FormulaId,
         operation::{
-            BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, IteOp, Operation, RotateOp, UniOp,
-            UniOperator,
+            BiOp, BiOperator, ConcatOp, ExtOp, ExtractOp, IteOp, Operation, RepeatOp, RotateOp,
+            UniOp, UniOperator,
         },
     },
 };
@@ -107,6 +107,7 @@ impl super::Parser {
                     match name {
                         "zero_extend" => self.create_ext_op(false, indices, arguments),
                         "sign_extend" => self.create_ext_op(true, indices, arguments),
+                        "repeat" => self.create_repeat_op(indices, arguments),
                         "extract" => self.create_extract_op(indices, arguments),
                         _ => {
                             panic!(
@@ -350,6 +351,30 @@ impl super::Parser {
             width,
             left_rotate_amount,
         })
+    }
+
+    fn create_repeat_op(&self, indices: Vec<Index>, arguments: Vec<FormulaId>) -> Operation {
+        eprintln!("Repeat indices: {:?}, arguments: {:?}", indices, arguments);
+        let Ok(inner) = arguments.into_iter().exactly_one() else {
+            panic!("Repeat operation should have exactly one argument");
+        };
+        let inner_width = self.formula_result_width(inner);
+
+        let Ok(Index::Numeral(times)) = indices.into_iter().exactly_one() else {
+            panic!("Repeat operation should have exactly one numeric index");
+        };
+
+        let Ok(times) = TryInto::<u32>::try_into(times) else {
+            panic!("Number of repeats is too big");
+        };
+
+        let result = Operation::RepeatOp(RepeatOp {
+            inner,
+            inner_width,
+            times,
+        });
+        eprintln!("Repeat result: {:?}", result);
+        result
     }
 
     fn formula_result_width(&self, id: FormulaId) -> u32 {

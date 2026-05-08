@@ -29,6 +29,7 @@ pub enum Operation {
     ConcatOp(ConcatOp),
     ExtractOp(ExtractOp),
     RotateOp(RotateOp),
+    RepeatOp(RepeatOp),
     Linear(LinearSystem),
 }
 
@@ -75,6 +76,13 @@ pub struct RotateOp {
     pub inner: FormulaId,
     pub width: u32,
     pub left_rotate_amount: u32,
+}
+
+#[derive(Clone)]
+pub struct RepeatOp {
+    pub inner: FormulaId,
+    pub inner_width: u32,
+    pub times: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -191,6 +199,26 @@ impl Operation {
                 // one or other may be better depending on the domain
                 left_shifted.bit_or(right_shifted)
             }
+            Operation::RepeatOp(repeat_op) => {
+                let inner = (fetch)(repeat_op.inner);
+                let inner_bound = inner.bound();
+                let inner_width = inner_bound.width();
+                assert_eq!(inner_width, repeat_op.inner_width);
+                let result_width = inner_width * repeat_op.times;
+                // zero-extend and copy upper
+                let extended_bound = RBound::new(result_width);
+                let extended = inner.uext(extended_bound);
+                let mut result = extended.clone();
+                for i in 1..repeat_op.times {
+                    let shift_amount = D::single_value(ConcreteBitvector::from_u32(
+                        inner_width * i,
+                        extended_bound,
+                    ));
+                    result = result.bit_or(extended.clone().logic_shl(shift_amount));
+                }
+
+                result
+            }
             Operation::Linear(linear) => linear.evaluate(fetch),
         }
     }
@@ -205,6 +233,7 @@ impl Operation {
             Operation::ConcatOp(concat_op) => concat_op.left_width + concat_op.right_width,
             Operation::ExtractOp(extract_op) => extract_op.width.get(),
             Operation::RotateOp(rotate_op) => rotate_op.width,
+            Operation::RepeatOp(repeat_op) => repeat_op.inner_width * repeat_op.times,
             Operation::Linear(linear) => linear.bound().width(),
         }
     }
@@ -221,6 +250,7 @@ impl Operation {
             Operation::ConcatOp(concat_op) => vec![concat_op.left, concat_op.right],
             Operation::ExtractOp(extract_op) => vec![extract_op.inner],
             Operation::RotateOp(rotate_op) => vec![rotate_op.inner],
+            Operation::RepeatOp(repeat_op) => vec![repeat_op.inner],
             Operation::Linear(linear) => linear.used_ids(),
         }
     }
@@ -269,6 +299,13 @@ impl Operation {
                 width: rotate_op.width,
                 left_rotate_amount: rotate_op.left_rotate_amount,
             }),
+
+            Operation::RepeatOp(repeat_op) => Operation::RepeatOp(RepeatOp {
+                inner: remap(repeat_op.inner),
+                inner_width: repeat_op.inner_width,
+                times: repeat_op.times,
+            }),
+
             Operation::Linear(linear) => {
                 // TODO: rewrite remapped to use mutable reference
                 let mut linear = linear.clone();
@@ -341,6 +378,13 @@ impl Operation {
                     "rotate_left_{}({:?},{})",
                     width, inner, left_rotate_amount
                 )
+            }
+            Operation::RepeatOp(RepeatOp {
+                inner,
+                inner_width,
+                times,
+            }) => {
+                write!(f, "repeat_{}({:?},{})", inner_width, inner, times)
             }
             Operation::Linear(linear) => {
                 if hex {
