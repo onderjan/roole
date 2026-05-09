@@ -1,9 +1,14 @@
 
 [package]
 name = "roole"
+
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/onderjan/roole"
+description = "Satisfiability Modulo Theories (SMT) solver for the theory of bitvectors"
+
 version = "0.1.0-alpha.1"
-edition = "2024"
 rust-version = "1.91"
+edition = "2024"
 
 [workspace]
 members = ["tools/manyroole"]
